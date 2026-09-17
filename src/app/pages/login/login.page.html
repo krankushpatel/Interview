@@ -1,0 +1,63 @@
+<ion-content class="ion-padding" scroll="false">
+  <div class="login-wrapper">
+    <div class="left-panel">
+      <div class="brand">
+        <!-- <div class="brand-icon">🎯</div> -->
+         <img class="brand-logo" src="assets/images/ekl-watermark.png" alt="Eklakhya" />
+        <span class="brand-name">Interview Platform</span>
+      </div>
+      <div class="hero">
+        <h1>Smarter interviews,<br><span>better decisions</span></h1>
+        <p>A structured interview environment with real-time proctoring, AI-powered evaluation, and instant results.</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item"><div class="feature-icon">🎥</div>Live video proctoring</div>
+        <div class="feature-item"><div class="feature-icon">🤖</div>answer evaluation</div>
+        <div class="feature-item"><div class="feature-icon">📊</div>Instant score reports</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="form-header">
+        <h2>Welcome back</h2>
+        <p>Sign in to access your interview dashboard.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" type="text" [(ngModel)]="username" placeholder="Enter your username" (keydown.enter)="attemptLogin()" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrapper">
+          <input 
+            class="form-input" 
+            [type]="showPassword ? 'text' : 'password'" 
+            [(ngModel)]="password" 
+            placeholder="••••••••" 
+            (keydown.enter)="attemptLogin()" 
+          />
+          <button class="toggle-password-btn" (click)="togglePassword()" type="button">
+            <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn-primary" (click)="attemptLogin()" [disabled]="isLoading">
+        {{ isLoading ? 'Signing in…' : 'Sign In →' }}
+      </button>
+
+      <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
+        <span style="font-size: 11px; color: #94a3b8;">Quick login:</span>
+        <button type="button" (click)="setRole('admin')" style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 11px;">Admin</button>
+        <button type="button" (click)="setRole('student')" style="background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 11px;">Student</button>
+      </div>
+
+      <div class="error-message" *ngIf="errorMessage">
+        <span>⚠</span> <span>{{ errorMessage }}</span>
+      </div>
+
+      </div>
+  </div>
+</ion-content>

@@ -1,0 +1,228 @@
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+/**
+ * Ionic Dark Mode
+ * -----------------------------------------------------
+ * For more info, please see:
+ * https://ionicframework.com/docs/theming/dark-mode
+ */
+
+/* @import "@ionic/angular/css/palettes/dark.always.css"; */
+/* @import "@ionic/angular/css/palettes/dark.class.css"; */
+@import '@ionic/angular/css/palettes/dark.system.css';
+
+
+/* ================================================================
+   PASTE THIS INTO YOUR GLOBAL styles.scss
+   (usually at: src/styles.scss or src/global.scss)
+
+   WHY: Angular's View Encapsulation means .student-card styles
+   defined in admin.page.scss don't pierce into ion-modal shadow DOM.
+   These global styles fix the group detail modal student cards.
+================================================================ */
+
+ion-modal {
+
+  /* ── Student cards grid ───────────────────────────────────── */
+  .students-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 1rem 0;
+  }
+
+  /* ── Individual student card ──────────────────────────────── */
+  .student-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 1rem;
+    border: 1.5px solid #e5e7eb;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.18s, box-shadow 0.18s;
+  }
+
+  .student-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1);
+  }
+
+  .student-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .student-card-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  }
+
+  .student-card-name {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .student-card-user {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    font-family: monospace;
+  }
+
+  .student-card-email {
+    font-size: 0.72rem;
+    color: #6b7280;
+    margin: 0.35rem 0 0.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .student-stats {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .s-stat {
+    flex: 1;
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 5px 4px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .s-stat-val {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .s-stat-label {
+    font-size: 0.58rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .student-card-actions {
+    width: 100%;
+  }
+
+  /* ── LIVE badge ───────────────────────────────────────────── */
+  .live-badge-small {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: #ecfdf5;
+    color: #059669;
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .live-dot-small {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: livePulse 1.4s infinite;
+  }
+
+  /* ── Terminated badge ─────────────────────────────────────── */
+  .termination-badge {
+    background: #fef2f2;
+    color: #ef4444;
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  /* ── Remove button on student card ───────────────────────── */
+  .gd-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #d1d5db;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 6px;
+    line-height: 1;
+    z-index: 2;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .gd-remove-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1);    }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* 🟢 FIX: Modal ko content ke hisaab se shrink karne ke liye */
+.auto-fit-modal {
+  --height: auto;
+}
+
+.auto-fit-modal::part(content) {
+  height: auto;
+  max-height: 90vh; /* Screen se bahar na jaye */
+  border-radius: 16px; /* Modals ke corners gol karne ke liye */
+  background: transparent;
+}

@@ -1,0 +1,48 @@
+# =============================================================================
+# AI Interview Platform - Clean, CPU-Optimized Requirements
+# =============================================================================
+# Fast & lightweight installation for CPU environments.
+# To install CPU-only PyTorch first (saves 2GB+ space, highly recommended on CPU):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+# Or simply run:
+#   pip install -r requirements.txt
+# =============================================================================
+
+# --- FastAPI Web Framework & Server ---
+fastapi>=0.110.0,<1.0.0
+uvicorn[standard]>=0.28.0,<1.0.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.9
+
+# --- Database & Data Handling ---
+pymongo>=4.6.0,<5.0.0
+pandas>=2.1.0,<3.0.0
+openpyxl>=3.1.0
+
+# --- Authentication & Cryptography ---
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0,<5.0.0
+
+# --- HTTP & Networking ---
+requests>=2.31.0
+httpx>=0.27.0
+aiohttp>=3.9.0
+
+# --- AI & LLM APIs ---
+google-genai>=0.1.0
+openai>=1.20.0
+
+# --- PyTorch & Numerical Computing (CPU Compatible) ---
+numpy>=1.24.0,<2.0.0
+torch>=2.1.0
+torchaudio>=2.1.0
+
+# --- Audio, VAD & Voice Verification ---
+soundfile>=0.12.1
+librosa>=0.10.1
+resemblyzer>=0.1.4
+
+# --- Timezone & System Utilities ---
+pytz>=2024.1
+pydantic>=2.5.0

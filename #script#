@@ -1,0 +1,2 @@
+cd /home/softwared/Desktop/Ankush/interview_app && ls -R backend/
+ pyenv shell 3.11.9

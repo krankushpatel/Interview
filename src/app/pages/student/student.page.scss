@@ -1,0 +1,1974 @@
+/* ================================================================
+   STUDENT PAGE — Windows 11 Glassmorphism Theme
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── CSS Variables ───────────────────────────────────────────── */
+:root {
+  --bg-base:        #0d1117;
+  --bg-grad1:       #0f1923;
+  --bg-grad2:       #111827;
+  --glass-bg:       rgba(255, 255, 255, 0.055);
+  --glass-border:   rgba(255, 255, 255, 0.35);
+  --glass-hover:    rgba(255, 255, 255, 0.085);
+  --glass-strong:   rgba(255, 255, 255, 0.09);
+  --blur:           saturate(180%) blur(20px);
+  --blur-sm:        saturate(160%) blur(12px);
+  --accent:         #3b82f6;
+  --accent2:        #6366f1;
+  --accent-glow:    rgba(59, 130, 246, 0.35);
+  --green:          #22c55e;
+  --red:            #ef4444;
+  --amber:          #f59e0b;
+  --text1:          rgba(255,255,255,0.92);
+  --text2:          rgba(255,255,255,0.55);
+  --text3:          rgba(255,255,255,0.3);
+  --radius:         14px;
+  --radius-sm:      8px;
+  --radius-lg:      20px;
+  --shadow:         0 8px 32px rgba(0,0,0,0.45);
+  --shadow-sm:      0 2px 12px rgba(0,0,0,0.3);
+  --font:           'Outfit', sans-serif;
+  --mono:           'JetBrains Mono', monospace;
+}
+
+/* ── Reset & Base ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+ion-content {
+  --background: var(--bg-base);
+  font-family: var(--font);
+  color: var(--text1);
+}
+
+/* ── Animated mesh background ────────────────────────────────── */
+ion-content::part(background) {
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(59,130,246,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(99,102,241,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(16,24,40,0.8) 0%, transparent 70%),
+    linear-gradient(135deg, #0d1117 0%, #0f1923 50%, #111827 100%);
+}
+
+/* ── START OVERLAY ───────────────────────────────────────────── */
+.start-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  background:
+    radial-gradient(ellipse 70% 60% at 30% 40%, rgba(59,130,246,0.15) 0%, transparent 60%),
+    rgba(10, 14, 22, 0.85);
+  backdrop-filter: blur(24px);
+  animation: fadeIn 0.5s ease;
+}
+
+.start-card {
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur);
+  border-radius: 24px;
+  padding: 3rem 3.5rem;
+  text-align: center;
+  max-width: 460px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset;
+  animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  h2 {
+    font-size: 2rem; font-weight: 700; letter-spacing: -0.02em;
+    margin: 1rem 0 0.5rem; color: var(--text1);
+  }
+  p {
+    color: var(--text2); font-size: 0.95rem; line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+
+  ion-button {
+    --background: linear-gradient(135deg, var(--accent), var(--accent2));
+    --border-radius: 12px;
+    --box-shadow: 0 4px 20px var(--accent-glow);
+    --color: white;
+    font-weight: 600; letter-spacing: 0.01em;
+    height: 52px;
+    transition: transform 0.2s, box-shadow 0.2s;
+
+    &:hover {
+      transform: translateY(-2px);
+      --box-shadow: 0 8px 30px var(--accent-glow);
+    }
+  }
+}
+
+/* ── MAIN DASHBOARD ──────────────────────────────────────────── */
+.dashboard {
+  min-height: 100vh;
+  padding: 0 0 2rem;
+  animation: fadeIn 0.4s ease;
+}
+
+/* ── TOPBAR ──────────────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9rem 1.6rem;
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.topbar-brand {
+  display: flex; align-items: center; gap: 0.7rem;
+  .icon { font-size: 1.5rem; filter: drop-shadow(0 0 8px rgba(59,130,246,0.5)); }
+  h2 {
+    font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em;
+    span { color: var(--accent); }
+  }
+}
+
+.topbar-right {
+  display: flex; align-items: center; gap: 1rem;
+}
+
+.topbar-timer {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.25);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.85rem; font-weight: 600; color: var(--green);
+  font-family: var(--mono);
+
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse-dot 1.5s ease infinite;
+  }
+}
+
+.topbar-user {
+  display: flex; align-items: center; gap: 0.5rem;
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem; color: white;
+    box-shadow: 0 0 12px rgba(59,130,246,0.4);
+  }
+  span { font-size: 0.9rem; font-weight: 500; color: var(--text2); }
+}
+
+/* ── PROGRESS STRIP ─────────────────────────────────────────── */
+.progress-strip {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  position: relative; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px var(--accent-glow);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 40px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6));
+    animation: shimmer-bar 1.5s ease infinite;
+  }
+}
+
+/* ── QUESTION COUNTER ROW ───────────────────────────────────── */
+.q-counter-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 1.6rem;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+
+  #q-counter-label {
+    font-size: 0.8rem; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+}
+
+.q-counter-dots {
+  display: flex; gap: 0.4rem; flex-wrap: wrap;
+}
+
+.q-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.15);
+  transition: all 0.3s ease;
+
+  &.done {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(34,197,94,0.5);
+  }
+  &.current {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+    transform: scale(1.2);
+    animation: pulse-dot 1.5s ease infinite;
+  }
+}
+
+/* ── MAIN CONTENT LAYOUT ────────────────────────────────────── */
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.2rem;
+  padding: 1.2rem 1.6rem;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    grid-template-columns: 1fr;
+    padding: 0.8rem;
+  }
+}
+
+/* ── LEFT PANEL ─────────────────────────────────────────────── */
+.left-panel {
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+.section-label {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text3);
+  margin-bottom: 0.5rem;
+}
+
+/* Question card */
+.question-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur-sm);
+  border-radius: var(--radius);
+  padding: 1.2rem 1.4rem;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.3s;
+
+  &:hover { border-color: rgba(59,130,246,0.3); }
+}
+
+.question-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: rgba(59,130,246,0.12);
+  border: 1px solid rgba(59,130,246,0.25);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem; font-weight: 600; color: var(--accent);
+  margin-bottom: 0.8rem;
+}
+
+.question-text {
+  font-size: 1.05rem; line-height: 1.65; font-weight: 500;
+  color: var(--text1);
+}
+
+/* Submitted banner */
+.submitted-banner {
+  display: none; align-items: center; gap: 0.5rem;
+  background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem; font-weight: 500; color: var(--green);
+  margin-top: 0.5rem;
+  animation: slideDown 0.3s ease;
+
+  &.visible { display: flex; }
+}
+
+/* Answer area */
+.answer-area {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+
+.textarea-wrapper {
+  position: relative;
+}
+
+.answer-textarea {
+  width: 100%; min-height: 180px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur-sm);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem 2.5rem;
+  color: var(--text1);
+  font-family: var(--font);
+  font-size: 0.95rem; line-height: 1.6;
+  resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  outline: none;
+  caret-color: var(--accent);
+
+  &::placeholder { color: var(--text3); }
+
+  &:focus {
+    border-color: rgba(59,130,246,0.5);
+    background: rgba(255,255,255,0.075);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12), var(--shadow-sm);
+  }
+
+  &:disabled {
+    opacity: 0.55; cursor: not-allowed;
+    background: rgba(255,255,255,0.03);
+  }
+}
+
+.char-count {
+  position: absolute; bottom: 0.6rem; right: 0.9rem;
+  font-size: 0.72rem; color: var(--text3); font-family: var(--mono);
+}
+
+/* Mic bar */
+.mic-bar {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(8px);
+}
+
+.mic-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 1.5px solid var(--glass-border);
+  font-size: 1.1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.4);
+    transform: scale(1.08);
+  }
+
+  &.listening {
+    background: rgba(239,68,68,0.15);
+    border-color: rgba(239,68,68,0.4);
+    animation: mic-pulse 1s ease infinite;
+  }
+}
+
+.mic-status {
+  font-size: 0.8rem; color: var(--text3);
+  &.listening { color: var(--red); }
+}
+
+.waveform {
+  display: flex; align-items: center; gap: 3px; margin-left: auto;
+  opacity: 0; transition: opacity 0.3s;
+  &.active { opacity: 1; }
+}
+
+.wave-bar {
+  width: 3px; border-radius: 2px;
+  background: var(--red);
+  animation: wave 0.8s ease infinite;
+
+  &:nth-child(1) { height: 8px; animation-delay: 0s; }
+  &:nth-child(2) { height: 14px; animation-delay: 0.1s; }
+  &:nth-child(3) { height: 20px; animation-delay: 0.2s; }
+  &:nth-child(4) { height: 14px; animation-delay: 0.3s; }
+  &:nth-child(5) { height: 8px; animation-delay: 0.4s; }
+}
+
+/* Action row */
+.action-row {
+  display: flex; gap: 0.6rem; flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.88rem; font-weight: 600;
+  cursor: pointer; border: none;
+  transition: all 0.2s ease;
+  text-decoration: none;
+
+  &:disabled {
+    opacity: 0.35; cursor: not-allowed;
+    transform: none !important;
+  }
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+  box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+
+  &:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(59,130,246,0.45);
+  }
+}
+
+.btn-next {
+  background: linear-gradient(135deg, var(--green), #16a34a);
+  color: white;
+  box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(34,197,94,0.45);
+  }
+}
+
+.btn-ghost {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text2);
+  backdrop-filter: blur(8px);
+
+  &:not(:disabled):hover {
+    background: var(--glass-hover);
+    border-color: rgba(255,255,255,0.2);
+    color: var(--text1);
+    transform: translateY(-1px);
+  }
+}
+
+/* ── RIGHT PANEL ─────────────────────────────────────────────── */
+.right-panel {
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+.panel-section {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur-sm);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.panel-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text2);
+  margin-bottom: 0.85rem;
+
+  .accent { color: var(--accent); }
+}
+
+/* ── CAMERA (FLOATING TOP-RIGHT CORNER) ──────────────────────── */
+.video-container {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16/9;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+
+  video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* Floating camera pip — top-right corner of entire page */
+#video-preview {
+  border-radius: var(--radius-sm);
+}
+
+.video-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.4rem;
+  background: rgba(0,0,0,0.7);
+  color: var(--text3);
+  font-size: 0.8rem;
+  transition: opacity 0.4s;
+  border-radius: var(--radius-sm);
+
+  .cam-icon { font-size: 2rem; opacity: 0.4; }
+
+  &.hidden { opacity: 0; pointer-events: none; }
+}
+
+.rec-indicator {
+  position: absolute; top: 0.5rem; left: 0.5rem;
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.65rem; font-weight: 700;
+  color: var(--red); letter-spacing: 0.08em;
+
+  .rec-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--red);
+    animation: pulse-dot 1s ease infinite;
+  }
+}
+
+/* Auto rec bar */
+.auto-rec-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding: 0.45rem 0.75rem;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.auto-rec-pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red);
+  animation: pulse-dot 1s ease infinite;
+  flex-shrink: 0;
+}
+
+.auto-rec-label { color: var(--text2); flex: 1; font-weight: 500; }
+.auto-rec-time { color: var(--red); font-family: var(--mono); font-weight: 600; font-size: 0.75rem; }
+.auto-rec-note { font-size: 0.72rem; color: var(--text3); margin-top: 0.4rem; line-height: 1.4; }
+
+/* ── STATUS LIST ─────────────────────────────────────────────── */
+.status-list {
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+
+.status-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+
+  &:last-child { border-bottom: none; }
+}
+
+.status-item-label {
+  font-size: 0.78rem; color: var(--text2); font-weight: 500;
+}
+
+.status-badge {
+  font-size: 0.68rem; font-weight: 700;
+  padding: 0.15rem 0.55rem; border-radius: 999px;
+  letter-spacing: 0.04em;
+
+  &.ok {
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: var(--green);
+  }
+  &.warn {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.3);
+    color: var(--amber);
+  }
+  &.off {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text3);
+  }
+}
+
+/* ── PROCTOR LOG ─────────────────────────────────────────────── */
+.proctor-log {
+  max-height: 140px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 0.3rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+}
+
+.no-events {
+  font-size: 0.78rem; color: var(--text3);
+  font-style: italic; text-align: center; padding: 0.5rem;
+}
+
+.proctor-chip {
+  font-size: 0.72rem;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.18);
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  color: var(--amber);
+  font-family: var(--mono);
+  animation: fadeIn 0.3s ease;
+}
+
+.proctor-footer {
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  font-size: 0.72rem; color: var(--text3);
+  margin-top: 0.5rem; padding-top: 0.5rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-family: var(--mono);
+
+  span span { color: var(--text2); font-weight: 600; }
+}
+
+/* ── TIMER DISPLAY ───────────────────────────────────────────── */
+.timer-display {
+  font-family: var(--mono); font-size: 1.1rem;
+  font-weight: 700; color: var(--text1);
+  transition: color 0.3s;
+}
+.timer-display.timer-warning { color: var(--amber); }
+.timer-display.timer-urgent  { color: var(--red); animation: flash 0.7s ease infinite; }
+
+/* ── EVALUATION SCREEN ───────────────────────────────────────── */
+.evaluation-screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.2rem;
+  background: rgba(10,14,22,0.92);
+  backdrop-filter: blur(24px);
+  z-index: 9999;
+  animation: fadeIn 0.4s ease;
+
+  h3 {
+    font-size: 1.4rem; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  p { color: var(--text2); font-size: 0.9rem; }
+
+  ion-spinner {
+    width: 52px; height: 52px;
+    --color: var(--accent);
+  }
+}
+
+/* ── ION MODALS ──────────────────────────────────────────────── */
+ion-modal {
+  --background: var(--glass-strong);
+  --backdrop-opacity: 0.65;
+
+  ion-toolbar {
+    --background: transparent;
+    --border-color: var(--glass-border);
+  }
+  ion-title { color: var(--text1); font-family: var(--font); font-weight: 700; }
+
+  ion-content {
+    --background: transparent;
+    text-align: center;
+    padding-top: 1rem !important;
+
+    h3 { font-size: 1.2rem; font-weight: 600; margin: 0.75rem 0 0.4rem; }
+    p  { color: var(--text2); font-size: 0.88rem; margin-bottom: 1.5rem; }
+
+    ion-button {
+      --background: linear-gradient(135deg, var(--accent), var(--accent2));
+      --border-radius: 10px;
+      margin: 0 1rem 1rem;
+    }
+  }
+}
+
+/* ── ION HEADER ──────────────────────────────────────────────── */
+ion-header {
+  ion-toolbar {
+    --background: var(--glass-bg);
+    --border-color: var(--glass-border);
+    backdrop-filter: var(--blur);
+
+    ion-title { color: var(--text1); font-family: var(--font); font-weight: 700; }
+    ion-button {
+      --color: var(--text2);
+      font-family: var(--font);
+      &:hover { --color: var(--text1); }
+    }
+  }
+}
+
+/* ── KEYFRAME ANIMATIONS ─────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1); }
+}
+
+@keyframes shimmer-bar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── SCROLLBAR GLOBAL ────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  &:hover { background: rgba(255,255,255,0.18); }
+}
+
+/* Force borders to be more visible */
+.question-card, .answer-area, .panel-section, .topbar, .video-container, .mic-bar, .auto-rec-bar, .start-card {
+  border-width: 2px !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Mobile Responsive (≤768px)
+   ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Topbar adjustments */
+  .topbar { padding: 0.6rem 1rem; }
+  .topbar-brand h2 { font-size: 0.9rem; }
+  .topbar-timer { font-size: 0.7rem; padding: 0.2rem 0.6rem; }
+  .topbar-user .avatar { width: 28px; height: 28px; font-size: 0.7rem; }
+  .topbar-user span { font-size: 0.8rem; }
+
+  /* Main grid becomes single column */
+  .main-content {
+    grid-template-columns: 1fr;
+    padding: 0.8rem;
+    gap: 1rem;
+  }
+
+  /* Left panel & answer area */
+  .left-panel { padding: 0; gap: 1rem; }
+  .question-card { padding: 1rem; }
+  .question-text { font-size: 0.95rem; }
+  .answer-textarea { min-height: 140px; font-size: 0.9rem; padding: 0.8rem 1rem 2rem; }
+  .char-count { bottom: 0.5rem; right: 0.7rem; }
+  .mic-bar { padding: 0.5rem 0.7rem; gap: 0.5rem; }
+  .mic-btn { width: 32px; height: 32px; font-size: 0.9rem; }
+  .action-row { flex-direction: column; gap: 0.5rem; }
+  .btn { width: 100%; justify-content: center; padding: 0.6rem; font-size: 0.85rem; }
+
+  /* Camera section – make its container zero-height but keep children visible */
+  .right-panel .panel-section:first-child {
+    position: relative;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  /* The video container becomes a fixed circle */
+  .right-panel .panel-section:first-child .video-container {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    width: 100px !important;
+    height: 100px !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    z-index: 1000 !important;
+    border: 2px solid var(--accent) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    background: #000 !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure video fills the circle */
+  .right-panel .panel-section:first-child .video-container video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    transform: scaleX(-1) !important;
+  }
+
+  /* Hide title, recording bar, and note inside the camera section */
+  .right-panel .panel-section:first-child .panel-title,
+  .right-panel .panel-section:first-child .auto-rec-bar,
+  .right-panel .panel-section:first-child .auto-rec-note {
+    display: none !important;
+  }
+
+  /* Adjust REC indicator inside the circle */
+  .rec-indicator {
+    top: 4px !important;
+    left: 4px !important;
+    font-size: 0.6rem !important;
+    padding: 0.15rem 0.4rem !important;
+  }
+
+  /* Other panel sections (status, timer, proctor log) stay in normal flow */
+  .right-panel .panel-section:not(:first-child) {
+    margin-top: 0;
+  }
+
+  /* Status list, timer, proctor log – keep your existing styles */
+  .status-list { gap: 0.3rem; }
+  .status-item { font-size: 0.7rem; padding: 0.3rem 0; }
+  .status-badge { font-size: 0.65rem; padding: 0.1rem 0.45rem; }
+  .timer-display { font-size: 1rem; }
+  .proctor-log { max-height: 100px; }
+  .proctor-chip { font-size: 0.65rem; padding: 0.2rem 0.45rem; }
+  .proctor-footer { font-size: 0.65rem; gap: 0.5rem; }
+
+  /* Start overlay and evaluation screen */
+  .start-card { padding: 1.5rem; width: 85%; }
+  .start-card h2 { font-size: 1.5rem; }
+  .start-card p { font-size: 0.85rem; }
+  .start-card ion-button { height: 44px; font-size: 0.9rem; }
+  .evaluation-screen { padding: 1rem; }
+  .evaluation-screen h3 { font-size: 1.2rem; }
+  ion-modal { --width: 90%; --height: auto; }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    padding: 0.5rem 0.8rem;
+  }
+  .topbar-brand h2 {
+    font-size: 0.8rem;
+  }
+  .topbar-timer {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+  }
+  .topbar-user span {
+    display: none; /* hide name, keep avatar only */
+  }
+  .topbar-user .avatar {
+    margin-right: 0;
+  }
+  .question-text {
+    font-size: 0.85rem;
+  }
+  .answer-textarea {
+    font-size: 0.85rem;
+  }
+  .btn {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
+  .timer-display {
+    font-size: 0.9rem;
+  }
+}
+
+.screen-rec-indicator {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--red);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 69, 96, 0.3);
+  
+  .rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: pulse 1s infinite;
+  }
+}
+
+/* ==================== MULTI-STEP STYLES ==================== */
+.step-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 1rem;
+  
+  ion-card {
+    max-width: 500px;
+    width: 100%;
+    background: var(--glass-bg);
+    backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-border);
+    
+    ul {
+      margin: 1rem 0;
+      padding-left: 1.5rem;
+      li {
+        margin: 0.5rem 0;
+        color: var(--text2);
+      }
+    }
+  }
+}
+
+/* Mic Test Styles */
+.mic-test-container {
+  text-align: center;
+  margin: 1rem 0;
+  
+  p {
+    margin: 1rem 0;
+    color: var(--text2);
+  }
+}
+
+.mic-level-bar {
+  height: 8px;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 1rem 0;
+  
+  .mic-level-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--green), var(--accent));
+    transition: width 0.1s ease;
+    border-radius: 4px;
+  }
+}
+
+.mic-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.success-message {
+  color: var(--green);
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+/* Camera Test Styles */
+.camera-test-container {
+  position: relative;
+  margin: 1rem 0;
+  
+  .test-video {
+    width: 100%;
+    border-radius: var(--radius);
+    background: #000;
+    transform: scaleX(-1);
+  }
+  
+  .face-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(0,0,0,0.7);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    color: var(--red);
+    
+    &.ok {
+      color: var(--green);
+    }
+  }
+}
+
+/* Screen Recording Indicator */
+.screen-rec-indicator {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--red);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 69, 96, 0.3);
+  
+  .rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: pulse 1s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.verification-status {
+  padding: 0.5rem;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  text-align: center;
+  font-weight: 500;
+  
+  &.pending {
+    background: rgba(0, 212, 255, 0.15);
+    color: var(--accent);
+    animation: pulse 1s infinite;
+  }
+  
+  &.passed {
+    background: rgba(0, 229, 160, 0.15);
+    color: var(--green);
+  }
+  
+  &.failed {
+    background: rgba(255, 69, 96, 0.15);
+    color: var(--red);
+  }
+}
+
+.transcript-display {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--surface2);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--text2);
+  text-align: center;
+}
+
+.expected-sentence {
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+/* Block Screen Styles */
+.block-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 2rem;
+  text-align: center;
+  background: var(--bg);
+  
+  .block-icon {
+    font-size: 5rem;
+    margin-bottom: 1rem;
+  }
+  
+  h2 {
+    color: var(--red);
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: var(--text2);
+    margin-bottom: 1.5rem;
+    max-width: 300px;
+  }
+  
+  .block-details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    max-width: 280px;
+    
+    .block-stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .stat-label {
+        color: var(--text3);
+        font-size: 0.85rem;
+      }
+      
+      .stat-value {
+        color: var(--accent);
+        font-weight: bold;
+        
+        &.terminated {
+          color: var(--red);
+        }
+      }
+    }
+  }
+  
+  .contact-note {
+    font-size: 0.75rem;
+    color: var(--text3);
+    margin-top: 1rem;
+  }
+  
+  ion-button {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+}
+
+.timetable-info {
+  margin: 1rem 0;
+  width: 100%;
+  max-width: 320px;
+}
+
+.timetable-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  
+  .timetable-title {
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  
+  .schedule-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 0.75rem;
+    
+    &:last-child {
+      border-bottom: none;
+    }
+    
+    .row-label {
+      color: var(--text-dim);
+    }
+    
+    .row-value {
+      color: var(--text);
+      font-weight: 500;
+      
+      &.highlight {
+        color: var(--yellow);
+      }
+    }
+  }
+}
+
+.block-message {
+  white-space: pre-wrap;
+  text-align: center;
+  max-width: 320px;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   STUDENTS TOOLBAR
+============================================ */
+.students-toolbar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  
+  .search-input {
+    flex: 1;
+    min-width: 250px;
+  }
+}
+
+/* Student Checkbox */
+.student-checkbox {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  
+  --checkbox-background-checked: var(--accent);
+  --border-color-checked: var(--accent);
+}
+
+.student-card {
+  position: relative;
+  padding-top: 1rem;
+}
+
+/* ============================================
+   BULK EMAIL ACTION BAR
+============================================ */
+.bulk-action-bar {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideUp 0.3s ease-out;
+  
+  .bab-left {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    
+    .bab-count {
+      background: var(--accent);
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+  }
+  
+  .bab-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .bab-select {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: white;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    cursor: pointer;
+  }
+  
+  .bab-subject {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    min-width: 200px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  
+  .bab-btn {
+    background: var(--accent-grad);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.5rem;
+    border-radius: 30px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    
+    &:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 15px rgba(219, 39, 119, 0.3);
+    }
+  }
+  
+  .bab-btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 0.6rem 1.5rem;
+    border-radius: 30px;
+    font-weight: 600;
+    cursor: pointer;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+  }
+}
+
+/* Bulk Email Modal */
+.bulk-email-form {
+  .email-info {
+    background: rgba(219, 39, 119, 0.1);
+    padding: 0.75rem;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  
+  .email-preview {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    
+    .preview-title {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      color: var(--text2);
+    }
+    
+    .preview-message {
+      white-space: pre-wrap;
+      margin-top: 0.5rem;
+      color: var(--text2);
+      max-height: 150px;
+      overflow-y: auto;
+    }
+  }
+  
+  .bulk-email-actions {
+    margin-top: 1.5rem;
+  }
+}
+
+@keyframes slideUp {
+  from { bottom: -5rem; opacity: 0; }
+  to { bottom: 2rem; opacity: 1; }
+}
+
+/*
+ * STUDENT PAGE — SCSS ADDITIONS
+ * Add these styles to your existing student.page.scss
+ * They cover the new UI elements from the bug fixes.
+ */
+
+/* ─── S5: Permission notice on instructions screen ─── */
+.permission-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.25);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 12px 0 16px;
+
+  .perm-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .perm-text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--ion-text-color, #111);
+  }
+}
+
+/* ─── S2/S7/S8: Mic check step improvements ─── */
+.mic-instruction {
+  margin: 12px 0 6px;
+  font-size: 0.95rem;
+  color: var(--ion-text-color);
+}
+
+.expected-sentence {
+  background: var(--ion-color-light, #f4f4f4);
+  border-left: 4px solid var(--ion-color-primary);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-style: italic;
+  margin: 0 0 14px;
+  line-height: 1.6;
+
+  strong {
+    color: var(--ion-color-primary);
+    font-style: normal;
+  }
+}
+
+.mic-tips {
+  background: rgba(var(--ion-color-warning-rgb), 0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  color: var(--ion-text-color);
+
+  p {
+    margin: 0 0 6px;
+    font-weight: 600;
+  }
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    li { margin-bottom: 3px; }
+  }
+}
+
+.verification-status {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin: 10px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+
+  &.pending {
+    background: rgba(var(--ion-color-primary-rgb), 0.1);
+    color: var(--ion-color-primary);
+    animation: pulse-pending 1.5s infinite;
+  }
+  &.passed {
+    background: rgba(var(--ion-color-success-rgb), 0.12);
+    color: var(--ion-color-success);
+    font-weight: 700;
+  }
+  &.failed {
+    background: rgba(var(--ion-color-danger-rgb), 0.1);
+    color: var(--ion-color-danger);
+
+    small {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.78rem;
+      opacity: 0.85;
+    }
+  }
+}
+
+@keyframes pulse-pending {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.mic-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+/* ─── S3: Camera check improvements ─── */
+.camera-tips {
+  text-align: center;
+  margin-top: 8px;
+  color: var(--ion-color-medium);
+  font-size: 0.82rem;
+}
+
+.face-indicator {
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+  font-weight: 600;
+  background: rgba(var(--ion-color-danger-rgb), 0.1);
+  color: var(--ion-color-danger);
+  font-size: 0.95rem;
+  transition: background 0.3s, color 0.3s;
+
+  &.ok {
+    background: rgba(var(--ion-color-success-rgb), 0.12);
+    color: var(--ion-color-success);
+  }
+}
+
+/* ─── S10: Mic button with visible label and tooltip ─── */
+.mic-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(var(--ion-color-medium-rgb), 0.06);
+  border-radius: 10px;
+  margin-top: 8px;
+  border: 1px solid rgba(var(--ion-color-medium-rgb), 0.15);
+}
+
+/* S10: Wrapper keeps button + label stacked */
+.mic-btn-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+
+  /* S10: Visible "Voice Input" label below mic button */
+  .mic-btn-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--ion-color-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+}
+
+.mic-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--ion-color-primary);
+  background: white;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+
+  /* S10: Tooltip via CSS (visible on hover on desktop) */
+  &::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.82);
+    color: white;
+    font-size: 0.72rem;
+    padding: 5px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    max-width: 220px;
+    white-space: normal;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 100;
+  }
+  &:hover::after {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: rgba(var(--ion-color-primary-rgb), 0.08);
+    transform: scale(1.05);
+  }
+
+  &.listening {
+    background: var(--ion-color-danger);
+    border-color: var(--ion-color-danger);
+    animation: mic-pulse 1.2s infinite;
+    box-shadow: 0 0 0 0 rgba(var(--ion-color-danger-rgb), 0.4);
+
+    &::before {
+      content: '🔴';
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      font-size: 0.55rem;
+    }
+  }
+}
+
+@keyframes mic-pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(var(--ion-color-danger-rgb), 0.4); }
+  70%  { box-shadow: 0 0 0 10px rgba(var(--ion-color-danger-rgb), 0); }
+  100% { box-shadow: 0 0 0 0   rgba(var(--ion-color-danger-rgb), 0); }
+}
+
+/* S10: Status area next to mic button */
+.mic-status-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mic-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ion-color-medium);
+  transition: color 0.2s;
+
+  &.listening {
+    color: var(--ion-color-danger);
+    font-weight: 700;
+  }
+}
+
+/* S10: Small helper text explaining voice input */
+.mic-helper {
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+  opacity: 0.75;
+}
+
+/* Waveform animation stays same */
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.3s;
+
+  &.active {
+    opacity: 1;
+  }
+
+  .wave-bar {
+    width: 3px;
+    height: 12px;
+    background: var(--ion-color-danger);
+    border-radius: 2px;
+    animation: wave 0.8s ease-in-out infinite alternate;
+
+    &:nth-child(1) { animation-delay: 0.0s; height: 8px; }
+    &:nth-child(2) { animation-delay: 0.1s; height: 16px; }
+    &:nth-child(3) { animation-delay: 0.2s; height: 12px; }
+    &:nth-child(4) { animation-delay: 0.3s; height: 18px; }
+    &:nth-child(5) { animation-delay: 0.4s; height: 10px; }
+  }
+}
+
+@keyframes wave {
+  from { transform: scaleY(0.5); }
+  to   { transform: scaleY(1.5); }
+}
+
+/* ─── Mobile responsive tweaks ─── */
+@media (max-width: 480px) {
+  .mic-bar {
+    flex-wrap: wrap;
+  }
+  .mic-btn-wrapper {
+    /* On very small screens, keep label visible */
+    .mic-btn-label { font-size: 0.6rem; }
+  }
+  .mic-status { font-size: 0.78rem; }
+  .mic-helper { display: none; } /* Hide helper on very small screens to save space */
+}
+
+/* ============================================================
+   ISSUE 1 FIX — Permanent mic status box beside mic icon
+   The old .mic-status-area only rendered text while listening
+   (*ngIf), and on narrow screens the flex layout squeezed it
+   so the text wrapped vertically (one word per line). This
+   replaces it with a permanent, properly-sized box that always
+   shows the status text on a single line beside the mic icon.
+   ============================================================ */
+
+/* Keep the mic bar on a single row so the status box stays
+   beside the mic icon instead of wrapping underneath it. */
+.mic-bar {
+  flex-wrap: nowrap;
+}
+
+.mic-status-box {
+  flex: 1 1 auto;
+  min-width: 180px;
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: background 0.25s ease, border-color 0.25s ease;
+  overflow: hidden;
+
+  .mic-status-text {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    width: 100%;
+  }
+
+  /* Listening state — red accent to match the existing waveform */
+  &.listening {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.45);
+
+    .mic-status-text {
+      color: #ef4444;
+      font-weight: 700;
+    }
+  }
+}
+
+/* Mobile — keep the box beside the icon, just shrink it */
+@media (max-width: 480px) {
+  .mic-bar {
+    flex-wrap: nowrap;
+  }
+  .mic-status-box {
+    min-width: 120px;
+    max-width: none;
+    padding: 6px 10px;
+    .mic-status-text { font-size: 0.72rem; }
+  }
+}
+
+/* ─── EXACT UX FIXES: INSTRUCTIONS SCREEN ─── */
+
+/* 1. Perfect centering for the instruction container */
+.instruction-step-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 100vh;
+  width: 100%;
+  padding: 2rem 1rem;
+}
+
+.instruction-panel {
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--blur);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 3rem;
+  max-width: 680px;
+  width: 100%;
+  box-shadow: var(--shadow);
+  margin: auto;
+  animation: slideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  .panel-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    h2 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text1);
+      margin-bottom: 0.5rem;
+    }
+    p {
+      color: var(--text2);
+      font-size: 0.95rem;
+    }
+  }
+}
+
+/* 2. Numbered list format (replacing dots) */
+.instruction-numbered-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 1.5rem;
+
+  .instruction-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.85rem 1.2rem;
+    border-radius: var(--radius-sm);
+    text-align: left; /* Keep rule text left-aligned for clarity */
+    transition: background 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .inst-num {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.15);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    p {
+      margin: 0;
+      color: var(--text1);
+      font-size: 0.9rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+  }
+}
+
+/* 3. Left-aligned permission box */
+.left-aligned-perm {
+  display: flex !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 1.5rem;
+
+  .perm-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+  }
+  
+  .perm-text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text1);
+    
+    strong {
+      color: var(--accent);
+    }
+    
+    em {
+      color: var(--text1);
+      font-weight: 600;
+    }
+  }
+}
+
+/* Acceptance box layout */
+.acceptance-box {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.2rem 1.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  transition: border-color 0.3s ease, background 0.3s ease;
+
+  &:hover {
+    border-color: var(--accent);
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  ion-checkbox {
+    --size: 24px;
+    --checkbox-background-checked: var(--accent);
+    --border-color-checked: var(--accent);
+    --checkmark-color: #ffffff !important; /* Forces the tick mark to be bright white */
+    flex-shrink: 0;
+  }
+
+  .acceptance-text {
+    display: flex;
+    flex-direction: column;
+    strong {
+      color: var(--text1);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    span {
+      color: var(--text3);
+      font-size: 0.82rem;
+      margin-top: 0.3rem;
+    }
+  }
+}
+
+.proceed-btn {
+  width: 100%;
+  height: 52px;
+  justify-content: center;
+  font-size: 1.05rem;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 768px) {
+  .instruction-panel {
+    padding: 1.5rem;
+  }
+}
+
+/* ─── SINGLE UNIFIED INSTRUCTIONS CONTAINER ─── */
+/* ─── COMPACT UNIFIED INSTRUCTIONS CONTAINER (No extra space/lines) ─── */
+.unified-instructions-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem; // Kam spacing ke liye
+
+  .instruction-row-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.35rem 0.2rem; // Padding ko reduce kiya taaki space tight rahe
+    border-bottom: none; // Beech ki saari lines hata di gayi hain
+
+    .inst-num {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.15);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    p {
+      margin: 0;
+      color: var(--text1);
+      font-size: 0.88rem;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+  }
+}

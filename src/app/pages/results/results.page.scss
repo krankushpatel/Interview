@@ -1,0 +1,967 @@
+:host {
+  display: block;
+  height: 100%;
+  --bg: #080b10;
+  --bg2: #0d1117;
+  --bg3: #111820;
+  --surface: #151d28;
+  --surface2: #1c2738;
+  --border: #1e2d40;
+  --border2: #253548;
+  --accent: #00d4ff;
+  --accent2: #0098b8;
+  --accent-glow: rgba(0,212,255,.18);
+  --red: #ff4560;
+  --green: #00e5a0;
+  --yellow: #ffc846;
+  --text: #e2eaf4;
+  --text2: #8fa5bc;
+  --text3: #4d6278;
+  --radius: 10px;
+  --radius-lg: 18px;
+  --shadow: 0 8px 40px rgba(0,0,0,.55);
+  --transition: .22s cubic-bezier(.4,0,.2,1);
+}
+
+ion-content {
+  --background: var(--bg);
+}
+
+.center-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  gap: 1rem;
+  text-align: center;
+  color: var(--text2);
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* AI Badge */
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: var(--accent-glow);
+  border: 1px solid rgba(0,212,255,.2);
+  color: var(--accent);
+  border-radius: 20px;
+  font-size: .68rem;
+  padding: .2rem .65rem;
+  margin-bottom: 1.5rem;
+  letter-spacing: .04em;
+}
+.ai-badge.rule-based {
+  background: rgba(255,200,70,.12);
+  color: var(--yellow);
+  border-color: rgba(255,200,70,.25);
+}
+
+/* Hero Card */
+.hero-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.hero-left .label {
+  font-size: .7rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: .4rem;
+}
+.hero-left h1 {
+  font-size: 1.7rem;
+  color: var(--text);
+  margin-bottom: .3rem;
+}
+.hero-left .sub {
+  font-size: .82rem;
+  color: var(--text2);
+}
+.summary-short {
+  font-size: .82rem;
+  color: var(--text2);
+  margin-top: .75rem;
+  max-width: 420px;
+  line-height: 1.6;
+}
+.hero-score {
+  text-align: center;
+}
+.score-ring {
+  width: 110px;
+  height: 110px;
+  position: relative;
+}
+.score-ring svg {
+  transform: rotate(-90deg);
+}
+.score-ring .track {
+  fill: none;
+  stroke: var(--surface2);
+  stroke-width: 8;
+}
+.score-ring .fill {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
+}
+.score-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.score-num span:first-child {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.score-num span:last-child {
+  font-size: .65rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.decision-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .55rem 1.2rem;
+  border-radius: 30px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-top: .75rem;
+}
+.badge-selected {
+  background: rgba(0,229,160,.15);
+  color: var(--green);
+  border: 1px solid rgba(0,229,160,.35);
+}
+.badge-borderline {
+  background: rgba(255,200,70,.15);
+  color: var(--yellow);
+  border: 1px solid rgba(255,200,70,.35);
+}
+.badge-rejected {
+  background: rgba(255,69,96,.15);
+  color: var(--red);
+  border: 1px solid rgba(255,69,96,.35);
+}
+
+/* Stats Row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.stat-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem;
+  text-align: center;
+}
+.stat-box .val {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.stat-box .lbl {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text3);
+}
+
+/* Section Headers */
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: 1.2rem;
+}
+.sec-head h2 {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.sec-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Behavior Card */
+.behavior-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.beh-label {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text3);
+  margin-bottom: .35rem;
+}
+.beh-class {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .35rem .9rem;
+  border-radius: 20px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: .9rem;
+}
+.class-fair {
+  background: rgba(0,229,160,.12);
+  color: var(--green);
+  border: 1px solid rgba(0,229,160,.3);
+}
+.class-suspicious {
+  background: rgba(255,200,70,.12);
+  color: var(--yellow);
+  border: 1px solid rgba(255,200,70,.3);
+}
+.class-cheating {
+  background: rgba(255,69,96,.12);
+  color: var(--red);
+  border: 1px solid rgba(255,69,96,.3);
+}
+.penalty-info {
+  font-size: .82rem;
+  color: var(--text2);
+  margin-top: .6rem;
+  line-height: 1.5;
+}
+.reasoning {
+  font-size: .82rem;
+  color: var(--text2);
+  line-height: 1.6;
+  background: var(--bg3);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+  border: 1px solid var(--border);
+}
+/* ═══════════════════════════════════════════════════════════════
+   GROUPED EVENTS — Clean Count Display (FIX)
+   Pehle har event alag chip tha, ab same type ke events count ho ke
+   ek row me dikh rahe hain.
+   ═══════════════════════════════════════════════════════════════ */
+.events-section {
+  grid-column: 1 / -1;
+}
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  max-height: none;
+  overflow-y: visible;
+}
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .55rem .85rem;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--accent);
+  transition: all var(--transition);
+}
+.event-row:hover {
+  border-color: var(--accent);
+  background: var(--surface2);
+  transform: translateX(4px);
+}
+.event-num {
+  font-family: 'Syne', sans-serif;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--text3);
+  min-width: 1.5rem;
+  flex-shrink: 0;
+}
+.event-chip.grouped {
+  flex: 1;
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-word;
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+.event-count {
+  font-family: 'Syne', sans-serif;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: .2rem .55rem;
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text2);
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid var(--border2);
+}
+/* High frequency events (≥10) — red glow */
+.event-count.high {
+  background: rgba(255,69,96,.15);
+  color: var(--red);
+  border-color: rgba(255,69,96,.35);
+}
+/* Medium frequency events (5-9) — yellow glow */
+.event-count.medium {
+  background: rgba(255,200,70,.15);
+  color: var(--yellow);
+  border-color: rgba(255,200,70,.35);
+}
+.no-events {
+  font-size: .85rem;
+  color: var(--green);
+  text-align: center;
+  padding: 1rem;
+  background: rgba(0,229,160,.08);
+  border-radius: var(--radius);
+  border: 1px solid rgba(0,229,160,.2);
+}
+
+/* Question Cards */
+.q-grid {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.q-res-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem;
+  transition: border-color var(--transition);
+}
+.q-res-card:hover {
+  border-color: var(--accent);
+}
+.q-res-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.q-res-num {
+  font-family: 'Syne', sans-serif;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--text3);
+}
+.q-avg {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.q-res-question {
+  font-size: .85rem;
+  color: var(--accent);
+  line-height: 1.5;
+  margin-bottom: .85rem;
+  padding: .65rem;
+  background: rgba(0,212,255,.06);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent);
+}
+.q-res-answer {
+  font-size: .82rem;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 100px;
+  overflow: hidden;
+  position: relative;
+}
+.q-res-answer.expanded {
+  max-height: none;
+}
+.q-res-answer.expanded::after {
+  display: none;
+}
+.expand-btn {
+  font-size: .72rem;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: .85rem;
+  font-family: monospace;
+}
+/* ═══════════════════════════════════════════════════════════════
+   ✅ METRIC HEXAGON STYLES — hexagons with C1/C2/C3 + score inside
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Flex row: answer on left, hexagons on right */
+.answer-hex-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: .5rem;
+}
+
+.answer-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Right-side hexagon area: 2+1 honeycomb layout */
+.metric-hex-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0; // No gap — hexagons nestle together
+  padding-top: .2rem;
+}
+
+/* Top row: 2 hexagons nearly touching */
+.hex-row-2 {
+  display: flex;
+  gap: 0; // No gap — tight honeycomb
+}
+
+/* Bottom row: 1 hexagon centered */
+.hex-row-1 {
+  display: flex;
+  justify-content: center;
+  margin-top: -12px;
+}
+
+.metric-hex-item {
+  flex: 0 0 auto;
+}
+
+.metric-hex-svg {
+  width: 52px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+}
+
+.metric-hex-path {
+  stroke: rgba(255,255,255,.85);
+  stroke-width: 1.5;
+}
+
+/* C1/C2/C3 label inside hexagon (top area) */
+.metric-hex-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* Score number inside hexagon (center area) */
+.metric-hex-score {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* ✅ Legend row: C1=Correctness | C2=Completeness | C3=Clarity */
+.metric-legend-row {
+  font-size: .65rem;
+  color: var(--text3);
+  margin-top: .4rem;
+  padding: .35rem .6rem;
+  background: var(--bg3);
+  border-radius: 6px;
+  display: flex;
+  justify-content: center;
+  letter-spacing: .02em;
+}
+
+/* ✅ Mobile fallback */
+@media (max-width: 768px) {
+  .answer-hex-row {
+    flex-direction: column;
+  }
+  .metric-hex-side {
+    flex-direction: row;
+    gap: .6rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--border);
+    margin-top: .5rem;
+  }
+  .hex-row-2,
+  .hex-row-1 {
+    display: contents;
+  }
+  .metric-hex-svg {
+    width: 46px;
+  }
+  .metric-hex-label { font-size: 8px; }
+  .metric-hex-score { font-size: 9px; }
+}
+.q-feedback {
+  font-size: .78rem;
+  color: var(--text2);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .7rem .9rem;
+  line-height: 1.55;
+  margin-top: .5rem;
+}
+.q-feedback::before {
+  content: '💡 ';
+  opacity: .6;
+}
+
+/* Summary Card */
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+.summary-text {
+  font-size: .88rem;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+/* Actions */
+.actions-row {
+  display: flex;
+  gap: .75rem;
+  justify-content: center;
+  padding: 2rem 0;
+}
+.actions-row ion-button {
+  --border-radius: var(--radius);
+  --padding-start: 1.2rem;
+  --padding-end: 1.2rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero-card {
+    flex-direction: column;
+  }
+  .stats-row {
+    grid-template-columns: repeat(2,1fr);
+  }
+  .behavior-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ... (Keep all your existing CSS variables, hero, stats, behavior styles exactly as they are) ... */
+
+/* ═══════════════════════════════════════════════════════════════
+   HEXAGONAL HEATMAP STYLES
+   ═══════════════════════════════════════════════════════════════ */
+.hex-heatmap-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hex-header {
+  margin-bottom: 1rem;
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    color: var(--text);
+    margin: 0 0 .3rem 0;
+  }
+  p {
+    font-size: .78rem;
+    color: var(--text3);
+    margin: 0;
+  }
+}
+
+.hex-svg-container {
+  width: 100%;
+  max-width: 300px; // ✅ Reduced — hexagons are smaller now
+  margin: 0 auto;
+  // SVG will scale automatically due to viewBox
+  
+  svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+.hex-path {
+  stroke: #ffffff;
+  stroke-width: 1.5; // ✅ Thinner stroke for smaller hexagons
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    filter: brightness(1.2);
+    stroke: var(--accent);
+    stroke-width: 2.5;
+  }
+}
+
+.hex-active .hex-path {
+  stroke: var(--accent);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.hex-text-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 8px; // ✅ Small text to fit inside smaller hexagons
+  font-weight: 800;
+  fill: #ffffff;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.hex-text-score {
+  font-family: 'Syne', sans-serif;
+  font-size: 7px; // ✅ Small score text to fit inside smaller hexagons
+  font-weight: 600;
+  fill: rgba(255, 255, 255, 0.9);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* ✅ Student & Evaluated Row - Same Line Layout */
+.student-eval-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.5rem;
+  margin-bottom: .3rem;
+
+  h1 {
+    font-size: 1.7rem;
+    color: var(--text);
+    margin: 0;
+    white-space: nowrap; /* Prevents name from wrapping to next line */
+  }
+
+  .sub {
+    font-size: .82rem;
+    color: var(--text2);
+    white-space: nowrap; /* Keeps date on one line */
+  }
+}
+
+/* Mobile fallback: stack them vertically if screen is too small */
+@media (max-width: 768px) {
+  .student-eval-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .2rem;
+
+    h1, .sub {
+      white-space: normal;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ V4: Flex container — hexagon grid LEFT, aggregate cluster MIDDLE, legend RIGHT
+   Hexagon SVG itself is UNCHANGED — only its wrapper changes.
+   Gap reduced from 200px to 60px to accommodate the new middle column.
+   ═══════════════════════════════════════════════════════════════ */
+.hex-legend-flex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+}
+
+/* Override hex-svg-container's default 'margin: 0 auto' so it behaves as a flex item */
+.hex-legend-flex .hex-svg-container {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* Mobile fallback: stack hex grid and legend vertically */
+@media (max-width: 768px) {
+  .hex-legend-flex {
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+/* Highlighting the corresponding rectangular card when hex is clicked */
+.q-card-highlight {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 15px var(--accent-glow);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .hex-text-label { font-size: 4.5px; }
+  .hex-text-score { font-size: 4px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ Legend image card — wraps the legend.png on the results page
+   White card makes the white-background PNG look intentional on dark theme
+   ═══════════════════════════════════════════════════════════════ */
+.legend-image-card {
+  flex: 0 0 auto;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend-image {
+  display: block;
+  width: 150px;              /* ← change this to resize the image */
+  height: auto;             /* auto preserves aspect ratio */
+  border-radius: 4px;
+}
+
+/* Mobile fallback — center the image below the hexagon */
+@media (max-width: 768px) {
+  .legend-image-card {
+    margin-top: 12px;
+  }
+  .legend-image {
+    width: 80px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ UPDATED HERO CARD LAYOUT & AI SUMMARY STYLES
+   ══════════════════════════════════════════════════════════════ */
+
+/* Update hero-card to stack the top row and summary vertically */
+.hero-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+  
+  /* NEW: Flex column to stack top row and summary */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; 
+}
+
+/* NEW: Flex container for the top row (Info + Score) */
+.hero-top-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  width: 100%;
+}
+
+/* Remove old summary-short styles if they exist, or override them */
+.summary-short { display: none; }
+
+/* ✅ NEW: AI Overall Summary Row Styles */
+.ai-summary-row {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  width: 100%;
+
+  .ai-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+
+    .ai-icon {
+      font-size: 1.2rem;
+    }
+
+    .ai-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+  }
+
+  .ai-summary-text {
+    font-size: 0.92rem;
+    color: var(--text2);
+    line-height: 1.7;
+    margin: 0;
+    background: var(--bg3);
+    padding: 1rem 1.2rem;
+    border-radius: 10px;
+    border-left: 3px solid var(--accent);
+    
+    /* Crucial: Respects the 5-line breaks generated by the AI */
+    white-space: pre-line; 
+    
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+}
+
+/* Mobile adjustment for the new layout */
+@media (max-width: 768px) {
+  .hero-top-flex {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .hero-score {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 1rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ OVERALL SUMMARY CARD STYLES
+   ═══════════════════════════════════════════════════════════════ */
+.ai-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--accent);
+  box-shadow: var(--shadow);
+
+  .ai-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+
+    .ai-icon { 
+      font-size: 1.4rem; 
+    }
+    
+    .ai-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  .ai-summary-text {
+    font-size: 0.92rem;
+    color: var(--text2);
+    line-height: 1.8;
+    margin: 0;
+    background: var(--bg3);
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    /* Crucial: AI ki 5 lines ko properly break karke dikhayega */
+    white-space: pre-line; 
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ AGGREGATE METRICS CLUSTER — outer wrapper only.
+   The hexagons themselves reuse the SAME .metric-hex-side /
+   .hex-row-2 / .hex-row-1 / .metric-hex-item / .metric-hex-svg /
+   .metric-hex-path / .metric-hex-label / .metric-hex-score /
+   .metric-legend-row classes as the per-question metric hexagons —
+   so they look 100% identical in structure & style. This block
+   only styles the outer card + subtitle that wraps them.
+   ═══════════════════════════════════════════════════════════════ */
+.aggregate-metrics-container {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .4rem;
+  padding: .65rem .9rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Subtitle row beneath the honeycomb + legend row */
+.agg-subtitle {
+  font-size: .62rem;
+  color: var(--text3);
+  text-align: center;
+  letter-spacing: .02em;
+  padding-top: .3rem;
+  border-top: 1px solid var(--border);
+  width: 100%;
+  line-height: 1.4;
+}
+
+/* ✅ Mobile fallback — outer container only.
+   The .metric-hex-side mobile rule (already defined above) handles
+   the hexagon layout switch from 2+1 honeycomb to a horizontal row
+   on small screens — same behavior as per-question metrics. */
+@media (max-width: 768px) {
+  .aggregate-metrics-container {
+    width: 100%;
+    padding: .55rem .7rem;
+  }
+  .agg-subtitle { font-size: .55rem; }
+}

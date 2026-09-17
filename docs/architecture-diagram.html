@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interview Platform — Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --text: #1F2937;
+    --text-sub: #64748B;
+    --text-muted: #94A3B8;
+    --bg: #F8FAFC;
+    --surface: #FFFFFF;
+    --border: #E2E8F0;
+    --accent: #3AAFA9;
+    --accent-dark: #2A8A85;
+    --connector: #94A3B8;
+
+    --client-bg: #ECFEFF;       --client-border: #06B6D4;
+    --comm-bg: #F1F5F9;         --comm-border: #64748B;
+    --app-bg: #F0FDFA;          --app-border: #3AAFA9;
+    --data-bg: #FEFCE8;         --data-border: #CA8A04;
+    --ext-bg: #FFF1F2;          --ext-border: #E11D48;
+
+    --pipe-bg: #F5F3FF;         --pipe-border: #8B5CF6;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { width: 1680px; margin: 0 auto; padding: 44px 48px 52px; }
+
+  .doc-header { text-align: center; margin-bottom: 36px; }
+  .doc-title { font-size: 28px; font-weight: 800; letter-spacing: -0.3px; }
+  .doc-subtitle { font-size: 15px; color: var(--text-sub); margin-top: 6px; }
+  .doc-meta { font-size: 12px; color: var(--text-muted); margin-top: 10px; letter-spacing: 0.3px; }
+
+  .layer {
+    position: relative;
+    border-radius: 16px;
+    padding: 22px 22px 26px;
+    margin-bottom: 26px;
+    border: 1.5px solid;
+  }
+  .layer-tag {
+    position: absolute;
+    top: -12px; left: 24px;
+    background: var(--surface);
+    padding: 2px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    border: 1.5px solid;
+  }
+  .layer-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .layer-sub { font-size: 12.5px; color: var(--text-sub); margin-bottom: 18px; }
+
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .card .ct { font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+  .card .cd { font-size: 11.5px; color: var(--text-sub); line-height: 1.5; }
+  .card .tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px;
+    background: #F1F5F9; color: #475569; font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .layer.client { background: var(--client-bg); border-color: var(--client-border); }
+  .layer.client .layer-tag { border-color: var(--client-border); color: var(--client-border); }
+  .client-grid { display: grid; grid-template-columns: 1.1fr 1.4fr 1fr; gap: 14px; }
+  .page-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 9px 11px; margin-bottom: 8px;
+  }
+  .page-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--client-border); flex-shrink: 0; }
+  .page-pill .pn { font-size: 13px; font-weight: 700; }
+  .page-pill .pd { font-size: 11px; color: var(--text-sub); margin-left: 2px; }
+
+  .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .svc {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 8px 10px;
+  }
+  .svc .sn { font-size: 12px; font-weight: 700; color: var(--accent-dark); }
+  .svc .sd { font-size: 10.5px; color: var(--text-sub); margin-top: 2px; line-height: 1.4; }
+
+  .browser-api .ct { color: var(--client-border); }
+  .api-list { font-size: 11.5px; color: var(--text-sub); line-height: 1.7; }
+  .api-list b { color: var(--text); font-weight: 600; }
+
+  .layer.comm { background: var(--comm-bg); border-color: var(--comm-border); padding: 18px 22px 22px; }
+  .layer.comm .layer-tag { border-color: var(--comm-border); color: var(--comm-border); }
+  .comm-flow { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: center; }
+  .comm-arrow {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    color: var(--comm-border);
+  }
+  .comm-arrow .ar { font-size: 26px; line-height: 1; font-weight: 300; }
+  .comm-arrow .al { font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; }
+  .comm-block { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px; }
+  .comm-block .cb-t { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .ep { font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; font-size: 11px; color: #334155; line-height: 1.7; }
+  .ep .m { display: inline-block; min-width: 38px; font-weight: 700; color: var(--accent-dark); }
+  .ep .w { color: var(--ext-border); font-weight: 700; }
+
+  .layer.app { background: var(--app-bg); border-color: var(--app-border); }
+  .layer.app .layer-tag { border-color: var(--app-border); color: var(--app-border); }
+  .app-port {
+    position: absolute; top: -12px; right: 24px;
+    background: var(--surface); padding: 2px 14px;
+    border-radius: 20px; font-size: 11px; font-weight: 700;
+    border: 1.5px solid var(--app-border); color: var(--app-border);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .module-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .mod {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 9px; padding: 10px 12px;
+  }
+  .mod .mn { font-size: 12.5px; font-weight: 700; color: var(--accent-dark); }
+  .mod .md { font-size: 10.5px; color: var(--text-sub); margin-top: 3px; line-height: 1.45; }
+
+  .pipeline {
+    background: var(--pipe-bg);
+    border: 1.5px solid var(--pipe-border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-top: 4px;
+  }
+  .pipeline-head {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  .pipeline-title { font-size: 14px; font-weight: 800; color: #6D28D9; }
+  .pipeline-badge {
+    font-size: 10.5px; font-weight: 700; color: #6D28D9;
+    background: #FFFFFF; border: 1px solid var(--pipe-border);
+    padding: 2px 10px; border-radius: 10px;
+  }
+  .pipeline-flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+  .pstep {
+    flex: 1 1 0; min-width: 120px;
+    background: var(--surface); border: 1.5px solid var(--pipe-border);
+    border-radius: 8px; padding: 8px 10px; margin: 0 4px;
+    text-align: center;
+  }
+  .pstep:first-child { margin-left: 0; }
+  .pstep:last-child { margin-right: 0; }
+  .pstep .pn { font-size: 11.5px; font-weight: 700; color: #6D28D9; }
+  .pstep .pd { font-size: 10px; color: var(--text-sub); margin-top: 2px; line-height: 1.35; }
+  .parrow {
+    display: flex; align-items: center; color: var(--pipe-border);
+    font-size: 18px; font-weight: 300; padding: 0 2px;
+  }
+
+  .layer.data { background: var(--data-bg); border-color: var(--data-border); }
+  .layer.data .layer-tag { border-color: var(--data-border); color: var(--data-border); }
+  .data-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  .layer.ext { background: var(--ext-bg); border-color: var(--ext-border); }
+  .layer.ext .layer-tag { border-color: var(--ext-border); color: var(--ext-border); }
+  .ext-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .ext-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 9px; padding: 10px 12px;
+  }
+  .ext-card .et { font-size: 12px; font-weight: 700; color: var(--ext-border); margin-bottom: 6px; }
+  .ext-card .ei { font-size: 10.5px; color: var(--text-sub); line-height: 1.5; }
+  .ext-card .ei b { color: var(--text); font-weight: 600; }
+
+  .legend {
+    display: flex; gap: 22px; justify-content: center; flex-wrap: wrap;
+    margin-top: 8px; padding: 14px 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .leg { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; }
+  .leg-dot { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; }
+
+  .auth-note {
+    margin-top: 14px;
+    background: #FEF2F2; border: 1px dashed #FCA5A5;
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 11.5px; color: #991B1B; line-height: 1.5;
+  }
+  .auth-note b { font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="root">
+
+  <div class="doc-header">
+    <div class="doc-title">AI-Powered Interview &amp; Exam Proctoring Platform — System Architecture</div>
+    <div class="doc-subtitle">Angular 20 / Ionic 8 frontend &nbsp;·&nbsp; Python FastAPI backend (v5.0) &nbsp;·&nbsp; Multi-LLM evaluation &amp; real-time proctoring</div>
+    <div class="doc-meta">EXTRACTED FROM: interview_platform.zip &nbsp;|&nbsp; 4 PAGES · 7 COMPONENTS · 10 SERVICES · 13 ROUTERS · ~75 HTTP + 6 WEBSOCKET ENDPOINTS</div>
+  </div>
+
+  <!-- ════════════ LAYER 1: CLIENT ════════════ -->
+  <div class="layer client">
+    <div class="layer-tag">Layer 1</div>
+    <div class="layer-title">Client — Browser / Mobile WebView</div>
+    <div class="layer-sub">Angular 20 standalone components on Ionic 8. Lazy-loaded routes, no route guards (pages self-check sessionStorage role).</div>
+
+    <div class="client-grid">
+      <div>
+        <div class="card" style="margin-bottom: 0;">
+          <div class="ct" style="color: var(--client-border);">Pages (4 routes)</div>
+          <div class="cd">Lazy-loaded via <code>loadComponent</code></div>
+        </div>
+        <div style="margin-top: 10px;">
+          <div class="page-pill"><div class="dot"></div><div><span class="pn">/login</span><span class="pd"> — split-screen auth → role redirect</span></div></div>
+          <div class="page-pill"><div class="dot"></div><div><span class="pn">/student</span><span class="pd"> — 4-step exam wizard (~2000 LOC)</span></div></div>
+          <div class="page-pill"><div class="dot"></div><div><span class="pn">/admin</span><span class="pd"> — dashboard, 10 views (~1830 LOC)</span></div></div>
+          <div class="page-pill"><div class="dot"></div><div><span class="pn">/results</span><span class="pd"> — score ring + hexagon heatmap + PDF</span></div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom: 10px;">
+          <div class="ct" style="color: var(--client-border);">Services (10)</div>
+          <div class="cd">HTTP + WebSocket clients to FastAPI :7000</div>
+        </div>
+        <div class="svc-grid">
+          <div class="svc"><div class="sn">auth</div><div class="sd">login, session/JWT storage</div></div>
+          <div class="svc"><div class="sn">admin</div><div class="sd">~50 admin endpoints</div></div>
+          <div class="svc"><div class="sn">question</div><div class="sd">load, submit, evaluate</div></div>
+          <div class="svc"><div class="sn">recording</div><div class="sd">MediaRecorder + upload</div></div>
+          <div class="svc"><div class="sn">speech</div><div class="sd">webkitSpeechRecognition</div></div>
+          <div class="svc"><div class="sn">proctoring</div><div class="sd">662 LOC — event blockers + face</div></div>
+          <div class="svc"><div class="sn">diarization</div><div class="sd">16kHz PCM → /ws/diarize</div></div>
+          <div class="svc"><div class="sn">progressive-eval</div><div class="sd">per-question AI cache</div></div>
+          <div class="svc"><div class="sn">hexagon-layout</div><div class="sd">heatmap math (390 LOC)</div></div>
+          <div class="svc"><div class="sn">score-legend</div><div class="sd">5-tier trapezoid + PDF</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card browser-api" style="margin-bottom: 0;">
+          <div class="ct">Browser APIs</div>
+          <div class="api-list">
+            <b>face-api.js</b> — TinyFaceDetector + FaceLandmark68 + FaceRecognition (enroll + verify every 8s)<br>
+            <b>MediaRecorder</b> — camera + screen capture (vp9/vp8/webm)<br>
+            <b>getDisplayMedia / getUserMedia</b> — screen + camera + mic streams<br>
+            <b>Web Speech API</b> — en-IN recognition, auto-restart<br>
+            <b>WebSocket</b> — 6 live channels (diarize, stream×2, view×2, deepgram)<br>
+            <b>Fullscreen API</b> — enforced during exam<br>
+            <b>jsPDF</b> — multi-page A4 report generation
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ LAYER 2: COMMUNICATION ════════════ -->
+  <div class="layer comm">
+    <div class="layer-tag">Layer 2</div>
+    <div class="layer-title">Communication — HTTP &amp; WebSocket</div>
+
+    <div class="comm-flow">
+      <div class="comm-block">
+        <div class="cb-t" style="color: var(--comm-border);">REST / HTTP (JSON · FormData · File)</div>
+        <div class="ep">
+          <span class="m">POST</span> /auth/login<br>
+          <span class="m">GET</span> /questions/all, /categories<br>
+          <span class="m">POST</span> /submissions/submit<br>
+          <span class="m">POST</span> /evaluation/evaluate, /evaluate-single<br>
+          <span class="m">GET</span> /evaluation/status/{user}<br>
+          <span class="m">POST</span> /proctoring/store-proctoring<br>
+          <span class="m">POST</span> /recording/submit/{exam,screen}-recording<br>
+          <span class="m">GET</span> /results/{user}, /student/exam-schedule<br>
+          <span class="m">POST</span> /speaker/enroll, /speaker/verify<br>
+          <span class="m">*</span> /admin/* (50+ endpoints, JWT-protected)<br>
+          <span class="m">*</span> /exam-setting, /admin/batches, /admin/timetable
+        </div>
+      </div>
+
+      <div class="comm-arrow">
+        <div class="ar">⇅</div>
+        <div class="al">REST</div>
+        <div class="ar" style="margin-top: 14px;">⇄</div>
+        <div class="al">WS</div>
+      </div>
+
+      <div class="comm-block">
+        <div class="cb-t" style="color: var(--ext-border);">WebSocket (6 channels)</div>
+        <div class="ep">
+          <span class="w">WS</span> /ws/diarize &nbsp;<span style="color:var(--text-muted)">— student→server PCM, multi-speaker</span><br>
+          <span class="w">WS</span> /ws/stream-screen/{user} &nbsp;<span style="color:var(--text-muted)">— student screen frames</span><br>
+          <span class="w">WS</span> /ws/stream-camera/{user} &nbsp;<span style="color:var(--text-muted)">— student camera frames</span><br>
+          <span class="w">WS</span> /ws/view-screen/{user} &nbsp;<span style="color:var(--text-muted)">— admin live view</span><br>
+          <span class="w">WS</span> /ws/view-camera/{user} &nbsp;<span style="color:var(--text-muted)">— admin live view</span><br>
+          <span class="w">WS</span> /ws/deepgram &nbsp;<span style="color:var(--text-muted)">— Deepgram nova-3 proxy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-note">
+      <b>⚠ Auth asymmetry:</b> Only <code>/admin/*</code> &amp; <code>/admin/batches/*</code> are JWT-protected (<code>Depends(get_current_admin)</code>, HS256, 24h, bcrypt). All other routes are unauthenticated — students send <code>username</code> as a Form field.
+    </div>
+  </div>
+
+  <!-- ════════════ LAYER 3: APPLICATION (FastAPI) ════════════ -->
+  <div class="layer app">
+    <div class="layer-tag">Layer 3</div>
+    <div class="app-port">uvicorn · :7000</div>
+    <div class="layer-title">Application — FastAPI v5.0 (13 routers)</div>
+    <div class="layer-sub">Startup: initialize_data() → preload Silero VAD → auto-sync Dipstick questions. CORS open to *. Static mounts /uploads, /static.</div>
+
+    <div class="module-grid">
+      <div class="mod"><div class="mn">auth</div><div class="md">login, JWT issue/verify (HS256 24h), bcrypt, get_current_admin</div></div>
+      <div class="mod"><div class="mn">student</div><div class="md">eligibility gate, start/end exam, activity log</div></div>
+      <div class="mod"><div class="mn">admin</div><div class="md">CRUD + live monitoring + bulk Excel import</div></div>
+      <div class="mod"><div class="mn">questions</div><div class="md">bank CRUD (synced from Dipstick)</div></div>
+      <div class="mod"><div class="mn">submissions</div><div class="md">per-answer tracking (FormData)</div></div>
+      <div class="mod"><div class="mn">results</div><div class="md">compose final result + behavior</div></div>
+      <div class="mod"><div class="mn">proctoring</div><div class="md">event log + behavior classifier (5+/3+ critical)</div></div>
+      <div class="mod"><div class="mn">recording</div><div class="md">video uploads + 4 WS handlers</div></div>
+      <div class="mod"><div class="mn">audio</div><div class="md">Silero VAD + Deepgram + Resemblyzer</div></div>
+      <div class="mod"><div class="mn">timetable</div><div class="md">per-student + bulk scheduling</div></div>
+      <div class="mod"><div class="mn">categories</div><div class="md">question category CRUD</div></div>
+      <div class="mod"><div class="mn">batches</div><div class="md">student groups (JWT-protected)</div></div>
+      <div class="mod"><div class="mn">settings_route</div><div class="md">exam timer, thresholds, reset</div></div>
+      <div class="mod" style="background:#F8FAFC; border-style:dashed;"><div class="mn" style="color:var(--text-sub);">core / services</div><div class="cd">data_manager (JSON), helpers, email, dipstick_sync, bulk_import, live_tracking</div></div>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipeline-head">
+        <div class="pipeline-title">⚡ AI Evaluation Pipeline — evidence-first hybrid architecture</div>
+        <div class="pipeline-badge">8 sub-modules · 4-LLM fallback chain</div>
+      </div>
+      <div class="pipeline-flow">
+        <div class="pstep"><div class="pn">question_classifier</div><div class="pd">routes by type: fact/gk/apt/num/theory/behavioral/coding</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep"><div class="pn">reference_answer_service</div><div class="pd">fetch ref; AI generates if missing</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep"><div class="pn">ai_evaluation</div><div class="pd">LLM extracts Evidence: Groq→Claude→OpenRouter→Gemini→rules</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep"><div class="pn">gibberish_detector</div><div class="pd">flag nonsense answers</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep"><div class="pn">semantic_matcher</div><div class="pd">sentence-transformers correctness adj.</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep"><div class="pn">clarity_engine</div><div class="pd">deterministic clarity 0–10</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep"><div class="pn">scoring_engine</div><div class="pd">compute C1/C2/C3 by question type</div></div>
+        <div class="parrow">→</div>
+        <div class="pstep" style="background:#F0FDF4; border-color:#10B981;"><div class="pn" style="color:#047857;">final_result</div><div class="pd">raw − behavior penalty → decision/grade</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ LAYER 4: DATA ════════════ -->
+  <div class="layer data">
+    <div class="layer-tag">Layer 4</div>
+    <div class="layer-title">Data Store — JSON files (no external DB)</div>
+    <div class="layer-sub">In-memory <code>_data_store</code> dict in <code>core/data_manager.py</code> + file sync (<code>os.fsync</code>). <code>backend/database.py</code> is an unused asyncpg scaffold.</div>
+
+    <div class="data-grid">
+      <div class="card">
+        <div class="ct" style="color: var(--data-border);">JSON "Database"</div>
+        <div class="cd"><code>data/</code> directory:</div>
+        <div class="tags">
+          <span class="tag">users.json</span>
+          <span class="tag">questions.json (empty — Dipstick source)</span>
+          <span class="tag">submissions.json</span>
+          <span class="tag">results_store.json</span>
+          <span class="tag">exam_recordings.json</span>
+          <span class="tag">session_proctoring.json</span>
+          <span class="tag">timetables.json</span>
+          <span class="tag">categories.json</span>
+          <span class="tag">batches.json</span>
+          <span class="tag">exam_settings.json</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct" style="color: var(--data-border);">File Uploads</div>
+        <div class="cd"><code>uploads/</code> served at <code>/uploads</code>:</div>
+        <div class="tags">
+          <span class="tag">exam_recordings/ (exam_{user}.webm)</span>
+          <span class="tag">screen_recordings/ (screen_{user}.webm)</span>
+        </div>
+        <div class="cd" style="margin-top: 8px;">Static mount <code>/static</code> → face-api.js model weights (TinyFaceDetector, FaceLandmark68, FaceRecognition)</div>
+      </div>
+      <div class="card">
+        <div class="ct" style="color: var(--data-border);">In-Memory State (lost on restart)</div>
+        <div class="cd">Python dicts held in process memory:</div>
+        <div class="tags">
+          <span class="tag">active_exams</span>
+          <span class="tag">bulk_import_jobs</span>
+          <span class="tag">enrolled_speakers</span>
+          <span class="tag">live WS connections</span>
+        </div>
+        <div class="cd" style="margin-top: 8px; color: #991B1B;">⚠ No persistence — all active session state is volatile</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ LAYER 5: EXTERNAL SERVICES ════════════ -->
+  <div class="layer ext">
+    <div class="layer-tag">Layer 5</div>
+    <div class="layer-title">External Services — AI / Audio / Integrations</div>
+
+    <div class="ext-grid">
+      <div class="ext-card">
+        <div class="et">LLM Evaluation</div>
+        <div class="ei">
+          <b>Groq</b> — primary evidence extraction<br>
+          <b>Anthropic Claude</b> (haiku) — fallback 1<br>
+          <b>OpenRouter</b> (gemini-2.0-flash) — fallback 2<br>
+          <b>Google Gemini SDK</b> (2.5/2.0-flash) — fallback 3<br>
+          <b>Rules-based</b> — final fallback
+        </div>
+      </div>
+      <div class="ext-card">
+        <div class="et">Speech / Audio</div>
+        <div class="ei">
+          <b>OpenAI Whisper</b> — STT (optional)<br>
+          <b>Deepgram nova-3</b> — real-time transcription + diarization<br>
+          <b>Silero VAD</b> — voice activity (torch.hub)<br>
+          <b>Resemblyzer</b> — speaker embedding verify<br>
+          <b>webrtcvad</b> — lightweight VAD
+        </div>
+      </div>
+      <div class="ext-card">
+        <div class="et">NLP / Math</div>
+        <div class="ei">
+          <b>sentence-transformers</b> — semantic similarity for correctness<br>
+          <b>NumPy</b> — audio frame math<br>
+          <b>librosa / soundfile</b> — audio analysis / I/O<br>
+          <b>noisereduce</b> — defined (unused module)
+        </div>
+      </div>
+      <div class="ext-card">
+        <div class="et">Question Bank</div>
+        <div class="ei">
+          <b>Dipstick API</b> — auto-synced on startup via JWT (hardcoded)<br>
+          Falls back to local <code>questions.json</code> if unreachable (currently empty → 503)
+        </div>
+      </div>
+      <div class="ext-card">
+        <div class="et">Data / Email</div>
+        <div class="ei">
+          <b>pandas + openpyxl</b> — Excel bulk import/export + template generation<br>
+          <b>SMTP (stdlib)</b> — bulk email: custom / credentials / exam_reminder<br>
+          <b>pytz</b> — exam schedule timezones
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="border-color:#06B6D4; background:#ECFEFF;"></div>Client (Angular/Ionic)</div>
+    <div class="leg"><div class="leg-dot" style="border-color:#64748B; background:#F1F5F9;"></div>Communication (HTTP/WS)</div>
+    <div class="leg"><div class="leg-dot" style="border-color:#3AAFA9; background:#F0FDFA;"></div>Application (FastAPI)</div>
+    <div class="leg"><div class="leg-dot" style="border-color:#8B5CF6; background:#F5F3FF;"></div>AI Evaluation Pipeline</div>
+    <div class="leg"><div class="leg-dot" style="border-color:#CA8A04; background:#FEFCE8;"></div>Data (JSON files)</div>
+    <div class="leg"><div class="leg-dot" style="border-color:#E11D48; background:#FFF1F2;"></div>External Services</div>
+  </div>
+
+</div>
+</body>
+</html>

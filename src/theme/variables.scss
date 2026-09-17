@@ -1,0 +1,69 @@
+// For information on how to create your own theme, please refer to:
+// https://ionicframework.com/docs/theming/
+/* =========================
+   DIPSTICK MASTER THEME
+========================= */
+
+/* ---------- LIGHT THEME ---------- */
+:root {
+  /* BACKGROUNDS */
+  --dip-bg-primary: #ccd7df;
+  --dip-bg-secondary: #F3F4F6;
+  --dip-bg-tertiary: #E5E7EB;
+
+  /* Text */
+  --dip-text-primary: #111827;
+  --dip-text-secondary: #374151;
+  --dip-text-placeholder: #9ca3af;
+  --dip-text-inverse: #ffffff;
+
+  /* Cards / Inputs */
+  --dip-surface: #ffffff;
+  --dip-border: #bbc4d3;
+
+  /* Brand gradient (Green/Teal Theme) */
+  --dip-brand-1: #147A83;
+  --dip-brand-2: #147A83;
+  --dip-brand-3: #147A83;
+
+  /* Semantic Colors (Status Badges) */
+  --dip-success: #10b981;
+  --dip-danger: #ef4444;
+  --dip-warning: #f59e0b;
+  --dip-info: #3b82f6;
+
+  /* Focus / Glow */
+  --dip-focus: rgba(245, 158, 11, 0.25);
+  --dip-brand-glow: rgba(255, 107, 53, 0.05);
+
+  /* Ionic override */
+  --ion-background-color: transparent;
+  --ion-text-color: var(--dip-text-primary);
+}
+
+/* ---------- DARK THEME ---------- */
+body.dark {
+  /* BACKGROUNDS */
+  --dip-bg-primary: #111827;
+  --dip-bg-secondary: #1F2937;
+  --dip-bg-tertiary: #000000;
+
+  /* Text */
+  --dip-text-primary: #ffffff;
+  --dip-text-secondary: #d1d5db;
+  --dip-text-placeholder: #9aa3b2;
+  --dip-text-inverse: #000000;
+
+  /* Cards / Inputs */
+  --dip-surface: #1F2937;
+  --dip-border: #4B5563;
+
+  /* Adjust Semantics */
+  --dip-success: #34d399;
+  --dip-danger: #f87171;
+  --dip-warning: #fbbf24;
+  --dip-info: #60a5fa;
+
+  --dip-focus: rgba(251, 146, 40, 0.35);
+  --dip-brand-glow: rgba(255, 107, 53, 0.15);
+}

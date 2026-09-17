@@ -1,0 +1,538 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Interview Platform</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="logout()">Logout</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content (click)="preventLinkClick($event)" (auxclick)="preventLinkClick($event)">
+
+  <!-- ══════════════════════════════════════════
+       BLOCK SCREEN — Not eligible
+  ══════════════════════════════════════════ -->
+  <div class="block-screen" *ngIf="!isLoading && !isEligible">
+    <div class="block-icon">🚫</div>
+    <h2>Access Denied</h2>
+    <p class="block-message">{{ blockReason }}</p>
+
+    <div class="timetable-info" *ngIf="examSchedule && examSchedule.schedule">
+      <div class="timetable-card">
+        <div class="timetable-title">📅 Your Exam Schedule</div>
+        <div class="schedule-row">
+          <span class="row-label">📌 Start:</span>
+          <span class="row-value">{{ formatScheduleDateTime(examSchedule.start_time) }}</span>
+        </div>
+        <div class="schedule-row">
+          <span class="row-label">⏰ End:</span>
+          <span class="row-value">{{ formatScheduleDateTime(examSchedule.end_time) }}</span>
+        </div>
+        <div class="schedule-row" *ngIf="examSchedule.time_remaining">
+          <span class="row-label">⏳ Time until start:</span>
+          <span class="row-value highlight">{{ examSchedule.time_remaining }}</span>
+        </div>
+        <div class="schedule-row">
+          <span class="row-label">📚 Topics:</span>
+          <span class="row-value">{{ examSchedule.schedule.topics?.join(', ') || 'Not specified' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <ion-button expand="block" color="danger" (click)="logout()">← Back to Login</ion-button>
+    <p class="contact-note">Please contact your teacher for assistance.</p>
+  </div>
+
+  <!-- Normal Content -->
+  <div *ngIf="isLoading || isEligible">
+
+  <!-- ══════════════════════════════════════════
+      STEP 1: INSTRUCTIONS (SINGLE UNIFIED BOX)
+  ══════════════════════════════════════════ -->
+  <div class="step-container instruction-step-center" *ngIf="step === 'instructions'">
+    <div class="glass-panel instruction-panel">
+      <div class="panel-header">
+        <h2>📋 Exam Instructions</h2>
+        <p>Please review the rules carefully before starting your session.</p>
+      </div>
+
+      <!-- Single unified card containing all numbered instructions -->
+      <div class="unified-instructions-box">
+        <div class="instruction-row-item">
+          <span class="inst-num">1</span>
+          <p>Ensure you are in a quiet, well-lit room</p>
+        </div>
+        <div class="instruction-row-item">
+          <span class="inst-num">2</span>
+          <p>Do not switch tabs or windows during the exam</p>
+        </div>
+        <div class="instruction-row-item">
+          <span class="inst-num">3</span>
+          <p>Your screen will be recorded throughout the exam</p>
+        </div>
+        <div class="instruction-row-item">
+          <span class="inst-num">4</span>
+          <p>Your camera will remain on for proctoring</p>
+        </div>
+        <div class="instruction-row-item">
+          <span class="inst-num">5</span>
+          <p>Do not use any external devices or applications</p>
+        </div>
+        <div class="instruction-row-item">
+          <span class="inst-num">6</span>
+          <p>Violations will be logged and may result in termination</p>
+        </div>
+      </div>
+
+      <!-- Permission notice left-aligned -->
+      <div class="permission-notice left-aligned-perm">
+        <div class="perm-icon">🎤📷</div>
+        <div class="perm-text">
+          <strong>Camera &amp; Microphone Required</strong><br>
+          Your browser will ask for camera and microphone access. Please click <em>Allow</em> when prompted.
+        </div>
+      </div>
+
+      <!-- Custom interactive acceptance box -->
+      <div class="acceptance-box" (click)="instructionsAccepted = !instructionsAccepted">
+        <ion-checkbox [(ngModel)]="instructionsAccepted" (click)="$event.stopPropagation()"></ion-checkbox>
+        <div class="acceptance-text">
+          <strong>I have read and understood the instructions</strong>
+          <span>I agree to follow all exam rules and permit recording.</span>
+        </div>
+      </div>
+
+      <!-- Styled Proceed Button -->
+      <button class="btn btn-success proceed-btn" (click)="nextStep()" [disabled]="!instructionsAccepted">
+        <span>Proceed to Mic Check</span> <span>→</span>
+      </button>
+    </div>
+  </div>
+
+    <!-- ══════════════════════════════════════════
+         STEP 2: MIC CHECK  (FIX S1 S2 S7 S8)
+    ══════════════════════════════════════════ -->
+    <div class="step-container" *ngIf="step === 'mic-check'">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>🎤 Microphone Check</ion-card-title>
+          <!-- FIX S8: Show retry count so student knows they can try again -->
+          <ion-card-subtitle *ngIf="micTestRetryCount > 0">
+            Attempt {{ micTestRetryCount + 1 }} of {{ MAX_MIC_RETRIES + 1 }}
+          </ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+
+          <!-- Mic level bar -->
+          <div class="mic-test-container">
+            <div class="mic-level-bar">
+              <div class="mic-level-fill" [style.width.%]="micLevel"></div>
+            </div>
+
+            <!-- FIX S7: Clearer instructions, sentence shown prominently -->
+            <p class="mic-instruction">Please say this sentence <strong>clearly</strong>:</p>
+            <div class="expected-sentence">
+              "My name is <strong>{{ userName }}</strong> and I am ready for the test"
+            </div>
+
+            <!-- FIX S7: Tips to improve recognition -->
+            <div class="mic-tips" *ngIf="micTestVerificationStatus === 'idle' || micTestVerificationStatus === 'failed'">
+              <p>💡 Tips for better recognition:</p>
+              <ul>
+                <li>Speak at a normal pace — not too fast</li>
+                <li>Say your name clearly: <em>{{ userName }}</em></li>
+                <li>Make sure no background noise is present</li>
+              </ul>
+            </div>
+
+            <!-- Status messages -->
+            <div *ngIf="micTestVerificationStatus === 'pending' && micTestRunning"
+                 class="verification-status pending">
+              🎙️ Listening… Please speak the sentence now
+            </div>
+
+            <div *ngIf="micTestVerificationStatus === 'passed'"
+                 class="verification-status passed">
+              ✅ Microphone check passed!
+            </div>
+
+            <div *ngIf="micTestVerificationStatus === 'failed'"
+                 class="verification-status failed">
+              ❌ What we heard: "<em>{{ micTestTranscript || 'nothing' }}</em>"
+              <br>
+              <small>Please try again — speak slowly and clearly</small>
+            </div>
+
+            <!-- Buttons row -->
+            <div class="mic-buttons">
+              <!-- Start button — only when idle -->
+              <ion-button
+                *ngIf="micTestVerificationStatus === 'idle'"
+                (click)="startMicCheck()"
+                [disabled]="micTestRunning">
+                🎙️ Start Recording
+              </ion-button>
+
+              <!-- Stop button — while running -->
+              <ion-button
+                color="medium"
+                *ngIf="micTestRunning"
+                (click)="stopMicCheck()">
+                ⏹ Stop
+              </ion-button>
+
+              <!-- FIX S8: Retry button shown after failure -->
+              <ion-button
+                color="warning"
+                *ngIf="micTestVerificationStatus === 'failed' && !micTestRunning"
+                (click)="retryMicCheck()">
+                🔄 Try Again
+              </ion-button>
+
+              <!-- FIX S8: Start again button when idle after a stop -->
+              <ion-button
+                *ngIf="micTestVerificationStatus === 'idle' && micTestRetryCount > 0"
+                (click)="startMicCheck()">
+                🎙️ Start Recording
+              </ion-button>
+            </div>
+          </div>
+
+          <!-- Proceed button -->
+          <ion-button
+            expand="block"
+            (click)="nextStep()"
+            [disabled]="!micTestPassed"
+            [color]="micTestPassed ? 'success' : 'medium'">
+            {{ micTestPassed ? '✅ Proceed to Camera Check →' : 'Complete mic check to proceed' }}
+          </ion-button>
+
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STEP 3: CAMERA CHECK  (FIX S3)
+    ══════════════════════════════════════════ -->
+    <div class="step-container" *ngIf="step === 'camera-check'">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>📷 Camera Check</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="camera-test-container">
+            <!-- FIX S3: No fixed delay message; show live status -->
+            <video #testVideo autoplay muted playsinline class="test-video"></video>
+            <div class="face-indicator" [class.ok]="faceDetected">
+              {{ faceDetected ? '✅ Face Detected — you can proceed!' : '🔍 Looking for your face…' }}
+            </div>
+            <div class="camera-tips" *ngIf="!faceDetected">
+              <small>💡 Ensure good lighting on your face and look directly at the camera.</small>
+            </div>
+          </div>
+
+          <ion-button
+            expand="block"
+            (click)="nextStep()"
+            [disabled]="!faceDetected"
+            [color]="faceDetected ? 'success' : 'medium'">
+            {{ faceDetected ? 'Start Exam →' : 'Waiting for face detection…' }}
+          </ion-button>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         STEP 4: EXAM DASHBOARD
+    ══════════════════════════════════════════ -->
+    <div class="dashboard" *ngIf="step === 'exam' && !showEvaluation">
+
+      <!-- Topbar -->
+      <div class="topbar">
+        <div class="topbar-brand">
+          <div class="icon">🎯</div>
+          <h2>Interview<span> Platform</span></h2>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-timer">
+            <div class="dot"></div>
+            <span id="session-timer">00:00</span>
+          </div>
+          <div class="topbar-user">
+            <div class="avatar" id="user-avatar">{{ userAvatar }}</div>
+            <span id="user-name">{{ userName }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen Recording Indicator -->
+      <div class="screen-rec-indicator">
+        <div class="rec-dot"></div> SCREEN RECORDING ACTIVE 🔴
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-strip">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+
+      <!-- Question counter -->
+      <div class="q-counter-row">
+        <span id="q-counter-label">Loading questions…</span>
+        <div class="q-counter-dots" id="q-dots">
+          <div
+            *ngFor="let q of questions; let i = index"
+            class="q-dot"
+            [ngClass]="{'done': i < currentIndex, 'current': i === currentIndex}"
+            [id]="'qdot-'+i">
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-column layout -->
+      <div class="main-content">
+
+        <!-- ─── LEFT PANEL ──────────────────────────── -->
+        <div class="left-panel">
+
+          <!-- Question card -->
+          <div>
+            <div class="section-label">Interview Question</div>
+            <div class="question-card">
+              <div class="question-badge" id="question-badge">💡 Loading…</div>
+              <div class="question-text" id="question-text">{{ currentQuestion.text || 'Loading...' }}</div>
+            </div>
+            <div class="submitted-banner" id="submitted-banner">
+              ✅ Answer submitted — click Next Question to continue
+            </div>
+          </div>
+
+          <!-- Answer textarea -->
+          <div class="answer-area">
+            <div class="section-label">Your Answer</div>
+            <div class="textarea-wrapper">
+              <textarea
+                class="answer-textarea"
+                id="answer-text"
+                [(ngModel)]="answerText"
+                (input)="onAnswerInput()"
+                [placeholder]="allowTyping ? 'Type your answer here, or click the 🎤 mic button below to speak…' : 'Typing is disabled. Tap the 🎤 mic button below to speak your answer.'"
+                maxlength="1000"
+                [disabled]="!allowTyping"
+                [class.disabled-style]="!allowTyping">
+              </textarea>
+              <span class="char-count">
+                <span id="char-count">{{ charCount }}</span>/5000
+              </span>
+            </div>
+
+            <!-- ─── Mic bar ─────────────────────────────────────────────────────── -->
+            <div class="mic-bar">
+            
+              <!-- Mic button + "Voice Input" label stacked below it -->
+              <div class="mic-btn-wrapper">
+                <button
+                  class="mic-btn"
+                  [class.listening]="isSpeechListening"
+                  (click)="toggleMic()"
+                  aria-label="Toggle voice to text">
+                  🎤
+                </button>
+                <span class="mic-btn-label">Voice Input</span>
+              </div>
+            
+              <!-- Status area: only shows text while actively listening -->
+              <div class="mic-status-box" [class.listening]="isSpeechListening">
+                <span class="mic-status-text">
+                  {{ isSpeechListening ? '🔴 Listening… speak your answer now' : 'Tap the mic to start voice input' }}
+                </span>
+              </div>
+
+            
+              <!-- Animated waveform (visible only while listening) -->
+              <div class="waveform" [class.active]="isSpeechListening">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+              </div>
+            
+            </div>
+            <!-- ─── end mic bar ──────────────────────────────────────────────────── -->
+          </div>
+
+          <!-- Action buttons -->
+          <div class="action-row">
+            <button
+              class="btn btn-success"
+              id="submit-btn"
+              (click)="submitAnswer()"
+              [disabled]="submitted || !answerText">
+              <span>Submit Answer</span> <span>→</span>
+            </button>
+            <button
+              class="btn btn-next"
+              id="next-btn"
+              style="display:none"
+              [disabled]="isFinishingExam"
+              (click)="nextQuestion()">
+              <span>Next Question</span> <span>→</span>
+            </button>
+            <button
+              class="btn btn-ghost"
+              id="skip-btn"
+              (click)="skipQuestion()"
+              [disabled]="submitted || isFinishingExam">⏩ Skip
+            </button>
+            <button
+              class="btn btn-ghost"
+              id="clear-btn"
+              (click)="clearAnswer()"
+              [disabled]="submitted">🗑 Clear
+            </button>
+          </div>
+
+        </div><!-- /left-panel -->
+
+        <!-- ─── RIGHT PANEL ─────────────────────────── -->
+        <div class="right-panel">
+
+          <!-- Camera section -->
+          <div class="panel-section">
+            <div class="panel-title">
+              📹 <span>Live <span class="accent">Camera</span></span>
+            </div>
+
+            <div class="video-container">
+              <video #videoPreview id="video-preview" autoplay muted playsinline></video>
+              <div class="video-overlay" id="video-overlay">
+                <span class="cam-icon">📷</span>
+                <span>Camera initialising…</span>
+              </div>
+              <div class="rec-indicator" id="rec-indicator">
+                <div class="rec-dot"></div> REC
+              </div>
+            </div>
+
+            <div class="auto-rec-bar">
+              <div class="auto-rec-pulse"></div>
+              <span class="auto-rec-label">Recording in progress</span>
+              <span class="auto-rec-time" id="rec-duration">
+                {{ Math.floor(examDuration / 60) | number:'2.0-0' }}:{{ (examDuration % 60) | number:'2.0-0' }}
+              </span>
+            </div>
+            <div class="auto-rec-note">
+              🔒 Recording runs for your entire exam and uploads automatically when you finish.
+            </div>
+          </div>
+
+          <!-- Session status -->
+          <div class="panel-section">
+            <div class="panel-title">📊 <span>Session <span class="accent">Status</span></span></div>
+            <div class="status-list">
+              <div class="status-item">
+                <span class="status-item-label">Camera</span>
+                <span class="status-badge off" id="status-camera">Pending</span>
+              </div>
+              <div class="status-item">
+                <span class="status-item-label">Microphone</span>
+                <span class="status-badge off" id="status-mic">Ready</span>
+              </div>
+              <div class="status-item">
+                <span class="status-item-label">Speech API</span>
+                <span class="status-badge off" id="status-speech">Checking…</span>
+              </div>
+              <div class="status-item">
+                <span class="status-item-label">Exam Rec</span>
+                <span class="status-badge off" id="status-rec">Starting…</span>
+              </div>
+              <div class="status-item">
+                <span class="status-item-label">Answer</span>
+                <span class="status-badge off" id="status-answer">Empty</span>
+              </div>
+              <div class="status-item">
+                <span class="status-item-label">Proctoring</span>
+                <span class="status-badge off" id="status-proctor">Inactive</span>
+              </div>
+            </div>
+
+            <!-- Timer -->
+            <div class="panel-title" style="margin-top:1rem;">
+              ⏱ <span>Question <span class="accent">Timer</span></span>
+            </div>
+            <div class="timer-display" id="timer-display">
+              <span id="timer-value">03:00</span>
+            </div>
+
+            <!-- Proctor log -->
+            <div class="panel-title" style="margin-top:1rem;">🚨 <span>Proctor Log</span></div>
+            <div id="proctor-log" class="proctor-log">
+              <div class="no-events" *ngIf="proctorLogs.length === 0">No events yet</div>
+              <div class="proctor-chip" *ngFor="let log of proctorLogs">{{ log }}</div>
+            </div>
+            <div class="proctor-footer">
+              <span>Events: <span id="proctor-count">{{ proctorLogs.length }}</span></span>
+              <span>Faces: <span id="face-count">{{ faceCount }}</span></span>
+            </div>
+          </div>
+
+        </div><!-- /right-panel -->
+      </div><!-- /main-content -->
+    </div><!-- /dashboard -->
+
+    <!-- ══════════════════════════════════════════
+         EVALUATION SCREEN
+    ══════════════════════════════════════════ -->
+    <div class="evaluation-screen" *ngIf="showEvaluation">
+      <ion-spinner name="crescent"></ion-spinner>
+      <h3>Evaluating your answers…</h3>
+      <p>AI is analysing your responses. Please wait.</p>
+    </div>
+
+  </div><!-- /Normal Content -->
+
+  <!-- ══════════════════════════════════════════
+       WARNING MODAL
+  ══════════════════════════════════════════ -->
+  <ion-modal [isOpen]="showWarningModal">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>⚠ Violation Detected</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <div style="font-size:2.5rem; margin-top:0.5rem;">⚠️</div>
+        <h3>{{ warningMessage }}</h3>
+        <p>Warning {{ warningCount }} of {{ maxProctorWarnings }}</p>
+        <p style="color: var(--ion-color-danger); font-size: 0.85rem;">
+          {{ maxProctorWarnings - warningCount }} violation(s) remaining before termination.
+        </p>
+        <ion-button expand="block" (click)="showWarningModal = false">I Understand</ion-button>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- ══════════════════════════════════════════
+       TERMINATION MODAL
+  ══════════════════════════════════════════ -->
+  <ion-modal [isOpen]="showTerminationModal">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Exam Flagged</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <div style="font-size:3rem; margin-top:0.5rem;">🚫</div>
+        <h3>Exam Flagged</h3>
+        <p>{{ terminationReason }}</p>
+        <p style="color: var(--ion-color-medium); font-size: 0.8rem;">
+          You will be redirected to login in a few seconds…
+        </p>
+        <ion-button expand="block" color="danger" (click)="logout()">Exit Exam</ion-button>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+</ion-content>
