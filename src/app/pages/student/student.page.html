@@ -316,12 +316,11 @@
                 [(ngModel)]="answerText"
                 (input)="onAnswerInput()"
                 [placeholder]="allowTyping ? 'Type your answer here, or click the 🎤 mic button below to speak…' : 'Typing is disabled. Tap the 🎤 mic button below to speak your answer.'"
-                maxlength="1000"
                 [disabled]="!allowTyping"
                 [class.disabled-style]="!allowTyping">
               </textarea>
-              <span class="char-count">
-                <span id="char-count">{{ charCount }}</span>/5000
+              <span class="char-count" [class.limit-reached]="wordCount >= MAX_WORDS">
+                <span id="word-count">{{ wordCount }}</span>/{{ MAX_WORDS }} words
               </span>
             </div>
 
@@ -367,14 +366,14 @@
               class="btn btn-success"
               id="submit-btn"
               (click)="submitAnswer()"
-              [disabled]="submitted || !answerText">
+              [disabled]="submitted || !answerText || isSubmittingAnswer || isTransitioningQuestion || isFinishingExam">
               <span>Submit Answer</span> <span>→</span>
             </button>
             <button
               class="btn btn-next"
               id="next-btn"
               style="display:none"
-              [disabled]="isFinishingExam"
+              [disabled]="isFinishingExam || isTransitioningQuestion"
               (click)="nextQuestion()">
               <span>Next Question</span> <span>→</span>
             </button>
@@ -382,13 +381,13 @@
               class="btn btn-ghost"
               id="skip-btn"
               (click)="skipQuestion()"
-              [disabled]="submitted || isFinishingExam">⏩ Skip
+              [disabled]="submitted || isFinishingExam || isTransitioningQuestion || isSubmittingAnswer">⏩ Skip
             </button>
             <button
               class="btn btn-ghost"
               id="clear-btn"
               (click)="clearAnswer()"
-              [disabled]="submitted">🗑 Clear
+              [disabled]="submitted || isFinishingExam || isTransitioningQuestion || isSubmittingAnswer">🗑 Clear
             </button>
           </div>
 

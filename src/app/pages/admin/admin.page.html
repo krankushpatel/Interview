@@ -760,7 +760,7 @@
         <!-- ── Settings ── -->
         <div class="view" [class.active]="activeView === 'settings'">
           <div class="page-header">
-            <div><h1 class="page-title">Settings</h1><p class="page-subtitle">Configure exam timer, violations and scoring</p></div>
+            <div><h1 class="page-title">Settings</h1><p class="page-subtitle">Configure exam timer, input methods, and student defaults</p></div>
           </div>
 
           <div *ngIf="settingsLoading" class="settings-loading">
@@ -808,95 +808,6 @@
                     <span style="font-size: 0.8rem; opacity: 0.8;">If disabled, students can only answer using the Voice (Mic) feature. Textbox will be read-only.</span>
                   </span>
                 </label>
-              </div>
-            </div>
-
-            <!-- Proctoring -->
-            <div class="settings-card">
-              <div class="settings-card-header">
-                <div class="settings-card-icon settings-icon-danger">🛡</div>
-                <div>
-                  <div class="settings-card-title">Proctoring & Violations</div>
-                  <div class="settings-card-sub">Control when students are flagged or terminated</div>
-                </div>
-              </div>
-              <div class="settings-fields-grid">
-                <div class="settings-field">
-                  <label class="field-label">Max Violations Before Termination <span class="settings-badge badge-red">Critical</span></label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.max_violations" min="1" max="20" />
-                    <span class="settings-hint">Student auto-terminated after this many violations</span>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <label class="field-label">Suspicious Threshold <span class="settings-badge badge-amber">Warning</span></label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.suspicious_violation_threshold" min="1" max="20" />
-                    <span class="settings-hint">Violations to classify as "Suspicious"</span>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <label class="field-label">Cheating Threshold <span class="settings-badge badge-red">Cheating</span></label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.cheating_violation_threshold" min="1" max="20" />
-                    <span class="settings-hint">Violations to classify as "Cheating"</span>
-                  </div>
-                </div>
-              </div>
-              <div class="violation-flow">
-                <div class="vf-step vf-fair">✅ Fair<br><span>0–{{ examSettings.suspicious_violation_threshold - 1 }} violations</span></div>
-                <div class="vf-arrow">→</div>
-                <div class="vf-step vf-suspicious">⚠ Suspicious<br><span>{{ examSettings.suspicious_violation_threshold }}–{{ examSettings.cheating_violation_threshold - 1 }}</span></div>
-                <div class="vf-arrow">→</div>
-                <div class="vf-step vf-cheating">🚨 Cheating<br><span>{{ examSettings.cheating_violation_threshold }}+</span></div>
-                <div class="vf-arrow">→</div>
-                <div class="vf-step vf-terminated">🚫 Terminated<br><span>{{ examSettings.max_violations }}+</span></div>
-              </div>
-            </div>
-
-            <!-- Scoring -->
-            <div class="settings-card">
-              <div class="settings-card-header">
-                <div class="settings-card-icon settings-icon-emerald">📊</div>
-                <div>
-                  <div class="settings-card-title">Scoring & Grades</div>
-                  <div class="settings-card-sub">Score thresholds and penalty percentages</div>
-                </div>
-              </div>
-              <div class="settings-fields-grid">
-                <div class="settings-field">
-                  <label class="field-label">Pass Score Threshold (%)</label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.pass_score_threshold" min="1" max="100" />
-                    <span class="settings-hint">Minimum score to pass</span>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <label class="field-label">Excellent Score Threshold (%)</label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.excellent_score_threshold" min="1" max="100" />
-                    <span class="settings-hint">Score for "Excellent" grade</span>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <label class="field-label">Suspicious Penalty (%) <span class="settings-badge badge-amber">-{{ examSettings.penalty_suspicious }}%</span></label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.penalty_suspicious" min="0" max="100" />
-                    <span class="settings-hint">Score deduction for suspicious classification</span>
-                  </div>
-                </div>
-                <div class="settings-field">
-                  <label class="field-label">Cheating Penalty (%) <span class="settings-badge badge-red">-{{ examSettings.penalty_cheating }}%</span></label>
-                  <div class="settings-input-with-hint">
-                    <input type="number" class="field-input" [(ngModel)]="examSettings.penalty_cheating" min="0" max="100" />
-                    <span class="settings-hint">Score deduction for cheating classification</span>
-                  </div>
-                </div>
-              </div>
-              <div class="score-preview">
-                <div class="sp-item sp-fail"><div class="sp-range">0 – {{ examSettings.pass_score_threshold - 1 }}</div><div class="sp-grade">❌ Failed</div></div>
-                <div class="sp-item sp-pass"><div class="sp-range">{{ examSettings.pass_score_threshold }} – {{ examSettings.excellent_score_threshold - 1 }}</div><div class="sp-grade">✅ Pass</div></div>
-                <div class="sp-item sp-excellent"><div class="sp-range">{{ examSettings.excellent_score_threshold }} – 100</div><div class="sp-grade">🌟 Excellent</div></div>
               </div>
             </div>
 

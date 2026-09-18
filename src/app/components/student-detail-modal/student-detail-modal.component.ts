@@ -479,9 +479,20 @@ export class StudentDetailModalComponent implements OnInit {
       return;
     }
 
+    // Ensure questions are unique before generating hexagons and PDF
+    const rawQList: any[] = attempt.result.questions || [];
+    const seenQ = new Set<string>();
+    const dedupedQuestions = rawQList.filter((q: any, idx: number) => {
+      const key = q?.id != null ? `id_${q.id}` : (q?.question ? `text_${String(q.question).trim().toLowerCase()}` : `idx_${idx}`);
+      if (seenQ.has(key)) return false;
+      seenQ.add(key);
+      return true;
+    });
+    attempt.result.questions = dedupedQuestions;
+
     // Hexagon UI banayen, kyuki admin side pe frontend UI auto-generate nahi hota
-    const { rawHexagons, hexBounds } = this.generateHexGridForPdf(attempt.result.questions || []);
-    const aggMetrics = this.getAggregateMetricsForPdf(attempt.result.questions || []);
+    const { rawHexagons, hexBounds } = this.generateHexGridForPdf(dedupedQuestions);
+    const aggMetrics = this.getAggregateMetricsForPdf(dedupedQuestions);
 
     // File ka suffix set karein: (e.g. "_Attempt1_xyz123")
     const sidShort = attempt.session_id ? attempt.session_id.substring(0, 8) : 'unknown'; 

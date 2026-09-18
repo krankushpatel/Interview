@@ -328,6 +328,12 @@ ion-content::part(background) {
 .char-count {
   position: absolute; bottom: 0.6rem; right: 0.9rem;
   font-size: 0.72rem; color: var(--text3); font-family: var(--mono);
+  transition: color 0.2s ease, font-weight 0.2s ease;
+
+  &.limit-reached {
+    color: #ef4444;
+    font-weight: 700;
+  }
 }
 
 /* Mic bar */

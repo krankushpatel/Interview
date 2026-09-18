@@ -33,7 +33,10 @@ from code.evaluation.ai_evaluation import (
     _generate_ai_summary,
     _is_intro_question,
 )
-from code.evaluation.scoring_engine import SCORING_ENGINE_VERSION
+from code.evaluation.scoring_engine import (
+    SCORING_ENGINE_VERSION,
+    clamp_answer_words,
+)
 
 logger = logging.getLogger("evaluation.routes")
 
@@ -145,6 +148,18 @@ async def evaluate_all(
     if not isinstance(events, list):
         events = []
 
+    # Immediately deduplicate incoming answers by question_id before processing
+    seen_qids = set()
+    deduped_answers = []
+    for i, ans in enumerate(answers):
+        if not isinstance(ans, dict):
+            continue
+        qid = str(ans.get("question_id", i + 1))
+        if qid not in seen_qids:
+            seen_qids.add(qid)
+            deduped_answers.append(ans)
+    answers = deduped_answers
+
     db = _get_db()
     existing = await _db(db.evaluations.find_one, {"username": username, "session_id": session_id})
 
@@ -234,7 +249,8 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
         ans = ans if isinstance(ans, dict) else {}
         qid = _coerce_qid(ans.get("question_id", i + 1), i + 1)
         q_text = str(ans.get("question_text") or "")
-        answer = str(ans.get("answer") or "")
+        raw_answer = str(ans.get("answer") or "")
+        answer = clamp_answer_words(raw_answer)
         category = str(ans.get("category") or "General")
 
         if is_empty_answer(answer) or is_skipped_answer(answer):
@@ -415,12 +431,13 @@ async def evaluate_single(
         except json.JSONDecodeError:
             pass
 
-    item = {"id": question_id, "question_text": question_text, "answer": answer, "category": category}
+    safe_answer = clamp_answer_words(answer)
+    item = {"id": question_id, "question_text": question_text, "answer": safe_answer, "category": category}
 
-    if is_empty_answer(answer) or is_skipped_answer(answer):
-        entry = _skipped_result(question_id, question_text, answer, category)
+    if is_empty_answer(safe_answer) or is_skipped_answer(safe_answer):
+        entry = _skipped_result(question_id, question_text, safe_answer, category)
     else:
-        res = await _call_single_ai(question_text, answer, category,
+        res = await _call_single_ai(question_text, safe_answer, category,
                                     reference_answer=reference_answer,
                                     question_data=question_data)
         entry = _to_report_entry(item, res)
@@ -447,7 +464,7 @@ async def evaluate_chunk(
 
     items = [{"id": _coerce_qid(it.get("question_id", i + 1), i + 1),
               "question_text": str(it.get("question_text") or ""),
-              "answer": str(it.get("answer") or ""),
+              "answer": clamp_answer_words(str(it.get("answer") or "")),
               "category": str(it.get("category") or "General"),
               "reference_answer": it.get("reference_answer"),
               "question_data": it.get("question_data")}

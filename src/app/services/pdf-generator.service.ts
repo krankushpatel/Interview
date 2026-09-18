@@ -83,7 +83,14 @@ export class PdfGeneratorService {
 
     const fr = result?.final_result || {};
     const ba = result?.behavior_analysis || {};
-    const questions: any[] = result?.questions || [];
+    const rawQuestions: any[] = result?.questions || [];
+    const seenQ = new Set<string>();
+    const questions: any[] = rawQuestions.filter((q: any, idx: number) => {
+      const key = q?.id != null ? `id_${q.id}` : (q?.question ? `text_${String(q.question).trim().toLowerCase()}` : `idx_${idx}`);
+      if (seenQ.has(key)) return false;
+      seenQ.add(key);
+      return true;
+    });
     const decision = fr.decision ?? 'N/A';
 
     // ── Helpers ────────────────────────────────────────────────────────

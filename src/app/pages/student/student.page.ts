@@ -38,6 +38,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   submitted = false;
   isSubmittingAnswer = false;
   isFinishingExam = false;
+  isTransitioningQuestion = false;
   answeredBuffer: AnswerRecord[] = [];
   timerSeconds = 300;
   questionTimerSeconds = 300;
@@ -162,6 +163,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   private eyeTrackingSub!: Subscription;
   private eyeWarningSub!: Subscription;
   charCount = 0;
+  wordCount = 0;
+  readonly MAX_WORDS = 1000;
   preferredCategories: string[] = [];
   private permissionsGranted = false;
   Math = Math;
@@ -220,7 +223,12 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       if (!transcript) return;
       const prefix = this.textBeforeSpeech || '';
       const separator = (prefix && transcript && !prefix.endsWith(' ') && !prefix.endsWith('\n')) ? ' ' : '';
-      this.answerText = prefix + separator + transcript;
+      const combined = prefix + separator + transcript;
+      const clamped = this.clampToMaxWords(combined);
+      if (clamped.exceeded && this.wordCount < this.MAX_WORDS) {
+        this.showToast(`Maximum word limit (${this.MAX_WORDS} words) reached.`, 'warning');
+      }
+      this.answerText = clamped.text;
       this.updateCharCount();
     });
 
@@ -228,7 +236,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       if (!final) return;
       const prefix = this.textBeforeSpeech || '';
       const separator = (prefix && final && !prefix.endsWith(' ') && !prefix.endsWith('\n')) ? ' ' : '';
-      this.answerText = prefix + separator + final;
+      const combined = prefix + separator + final;
+      const clamped = this.clampToMaxWords(combined);
+      this.answerText = clamped.text;
       this.textBeforeSpeech = this.answerText;
       this.updateCharCount();
     });
@@ -1483,7 +1493,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
   async submitAnswer() {
     if (!this.answerText.trim()) { this.showToast('Empty answer', 'danger'); return; }
-    if (this.submitted || this.isSubmittingAnswer || this.isFinishingExam) return;
+    if (this.submitted || this.isSubmittingAnswer || this.isFinishingExam || this.isTransitioningQuestion) return;
     this.isSubmittingAnswer = true;
     this.submitted = true;
     this.stopSpeechRecognition();
@@ -1535,7 +1545,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       if (submitBtnEl) submitBtnEl.style.display = 'none';
       if (nextBtnEl) nextBtnEl.style.display = 'inline-flex';
       
-      const isLast = this.currentIndex === this.questions.length - 1;
+      const isLast = this.currentIndex >= this.questions.length - 1;
       if (nextBtnEl) {
         nextBtnEl.innerHTML = isLast
           ? '<span>Finish & Get Results 🎉</span>'
@@ -1554,7 +1564,26 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   nextQuestion() {
-    if (this.isFinishingExam) return;
+    if (this.isFinishingExam || this.isTransitioningQuestion) return;
+    this.isTransitioningQuestion = true;
+
+    // Immediately disable next and submit buttons in UI to prevent rapid spam clicks
+    const nextBtnEl = document.getElementById('next-btn') as HTMLButtonElement;
+    if (nextBtnEl) {
+      nextBtnEl.disabled = true;
+      nextBtnEl.style.pointerEvents = 'none';
+    }
+    const submitBtnEl = document.getElementById('submit-btn') as HTMLButtonElement;
+    if (submitBtnEl) {
+      submitBtnEl.disabled = true;
+      submitBtnEl.style.pointerEvents = 'none';
+    }
+    const skipBtnEl = document.getElementById('skip-btn') as HTMLButtonElement;
+    if (skipBtnEl) {
+      skipBtnEl.disabled = true;
+      skipBtnEl.style.pointerEvents = 'none';
+    }
+
     if (this.currentIndex + 1 >= this.questions.length) {
       this.finishExam();
     } else {
@@ -1571,17 +1600,48 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       if (textarea) textarea.removeAttribute('disabled');
       const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
       const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
-      if (submitBtn) { submitBtn.style.display = 'inline-flex'; submitBtn.innerHTML = '<span>Submit Answer</span> <span>→</span>'; submitBtn.disabled = false; }
-      if (nextBtn) nextBtn.style.display = 'none';
+      const skipBtn = document.getElementById('skip-btn') as HTMLButtonElement;
+      if (submitBtn) {
+        submitBtn.style.display = 'inline-flex';
+        submitBtn.innerHTML = '<span>Submit Answer</span> <span>→</span>';
+        submitBtn.disabled = false;
+        submitBtn.style.pointerEvents = 'auto';
+      }
+      if (nextBtn) {
+        nextBtn.style.display = 'none';
+        nextBtn.disabled = false;
+        nextBtn.style.pointerEvents = 'auto';
+      }
+      if (skipBtn) {
+        skipBtn.disabled = false;
+        skipBtn.style.pointerEvents = 'auto';
+      }
       this.updateStatus('status-answer', 'off', 'Empty');
       this.updateCharCount();
       this.speech.clearTranscript();
       if (this.isSpeechListening) this.textBeforeSpeech = '';
+      this.isTransitioningQuestion = false;
     }
   }
 
   skipQuestion() {
-    if (this.submitted || this.isFinishingExam) { this.showToast('Already submitted, cannot skip', 'warning'); return; }
+    if (this.submitted || this.isFinishingExam || this.isTransitioningQuestion || this.isSubmittingAnswer) {
+      return;
+    }
+    this.isTransitioningQuestion = true;
+
+    // Immediately disable action buttons
+    const skipBtnEl = document.getElementById('skip-btn') as HTMLButtonElement;
+    if (skipBtnEl) {
+      skipBtnEl.disabled = true;
+      skipBtnEl.style.pointerEvents = 'none';
+    }
+    const submitBtnEl = document.getElementById('submit-btn') as HTMLButtonElement;
+    if (submitBtnEl) {
+      submitBtnEl.disabled = true;
+      submitBtnEl.style.pointerEvents = 'none';
+    }
+
     this.stopSpeechRecognition();
     clearInterval(this.timerInterval);
     const skipRecord: AnswerRecord = {
@@ -1597,7 +1657,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     } else {
       this.answeredBuffer.push(skipRecord);
     }
-    this.nextQuestion();
+    
+    // If skipping the last question, finish the exam directly
+    if (this.currentIndex + 1 >= this.questions.length) {
+      this.finishExam();
+    } else {
+      this.nextQuestion();
+    }
   }
 
   clearAnswer() {
@@ -1790,7 +1856,37 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  clampToMaxWords(text: string): { text: string; count: number; exceeded: boolean } {
+    if (!text) return { text: '', count: 0, exceeded: false };
+    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+    if (words.length <= this.MAX_WORDS) {
+      return { text, count: words.length, exceeded: false };
+    }
+    // Trim text to exactly MAX_WORDS
+    let count = 0;
+    let cutoff = text.length;
+    const regex = /\S+/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      count++;
+      if (count === this.MAX_WORDS) {
+        cutoff = regex.lastIndex;
+        break;
+      }
+    }
+    return {
+      text: text.substring(0, cutoff),
+      count: this.MAX_WORDS,
+      exceeded: true
+    };
+  }
+
   onAnswerInput(): void {
+    const clamped = this.clampToMaxWords(this.answerText);
+    if (clamped.exceeded) {
+      this.answerText = clamped.text;
+      this.showToast(`Maximum word limit (${this.MAX_WORDS} words) reached.`, 'warning');
+    }
     this.updateCharCount();
     // If student manually edits the answer textarea while mic is listening:
     if (this.isSpeechListening) {
@@ -1804,9 +1900,15 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
   updateCharCount() {
     this.charCount = this.answerText.length;
-    const charSpan = document.getElementById('char-count');
-    if (charSpan) charSpan.textContent = String(this.charCount);
-    this.updateStatus('status-answer', this.charCount > 0 ? 'ok' : 'off', this.charCount > 0 ? `${this.charCount} chars` : 'Empty');
+    const trimmed = this.answerText.trim();
+    this.wordCount = trimmed ? trimmed.split(/\s+/).filter(w => w.length > 0).length : 0;
+    const wordSpan = document.getElementById('word-count');
+    if (wordSpan) wordSpan.textContent = String(this.wordCount);
+    this.updateStatus(
+      'status-answer',
+      this.wordCount > 0 ? 'ok' : 'off',
+      this.wordCount > 0 ? `${this.wordCount}/${this.MAX_WORDS} words` : 'Empty'
+    );
   }
 
   updateStatus(id: string, type: string, label: string) {

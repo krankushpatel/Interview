@@ -104,6 +104,21 @@ def format_grade_bands_for_prompt() -> str:
 # Aggregation + defensive clamping (unchanged from V2/V3)
 # ---------------------------------------------------------------------------
 
+MAX_ANSWER_WORDS = 1000
+
+
+def clamp_answer_words(answer: str, max_words: int = MAX_ANSWER_WORDS) -> str:
+    """Hard-cap student answer to max_words to strictly prevent token explosion.
+    Preserves answer integrity while protecting LLM token limits and evaluation cost.
+    """
+    if not answer or not isinstance(answer, str):
+        return ""
+    words = answer.split()
+    if len(words) <= max_words:
+        return answer
+    return " ".join(words[:max_words])
+
+
 def compute_average_score(correctness: float, completeness: float, clarity: float) -> float:
     """Unweighted average of the three sub-scores, rounded to 1 decimal."""
     return round((correctness + completeness + clarity) / 3, 1)

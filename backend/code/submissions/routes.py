@@ -9,6 +9,7 @@ from code.config.settings import UPLOADS_DIR, WHISPER_AVAILABLE, _WHISPER_MODEL
 from code.core.helpers import ts
 from code.legacy.external_services import update_exam_progress
 from code.core.data_manager import get_db, db
+from code.evaluation.scoring_engine import clamp_answer_words
 
 router = APIRouter()
 
@@ -34,6 +35,7 @@ async def submit_answer(
         (UPLOADS_DIR / video_filename).write_bytes(await video.read())
 
     db = get_db()
+    safe_answer = clamp_answer_words(answer)
     
     record = {
         "id": timestamp,
@@ -42,7 +44,7 @@ async def submit_answer(
         "question_id": question_id,
         "question_text": question_text,
         "category": question_category,
-        "answer": answer,
+        "answer": safe_answer,
         "video_file": video_filename,
         "has_video": video_filename is not None,
         "submitted_at": datetime.now().isoformat(),
