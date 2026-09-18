@@ -289,9 +289,7 @@
               <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input class="search-input" type="text" placeholder="Search by name, username, email..." [(ngModel)]="studentSearch" (input)="filterStudents()" />
             </div>
-            <!-- <button class="btn btn-outline btn-sm" (click)="selectAllForEmail()">
-              {{ selectedStudentsForEmail.length === filteredStudents.length && filteredStudents.length > 0 ? 'Deselect All' : 'Select All' }}
-            </button> -->
+            
             <button class="btn btn-outline btn-sm" (click)="openCreateGroupModal()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
               Create Group
@@ -387,9 +385,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
-                <!-- <div class="group-topics" *ngIf="group.topics?.length > 0">
-                  <span class="topic-chip" *ngFor="let t of group.topics">{{ t }}</span>
-                </div> -->
+                
                 <div class="group-students-row">
                   <div class="group-avatars">
                     <div class="group-av" *ngFor="let u of (group.students || []).slice(0, 5)" [title]="getStudentName(u)">{{ u[0].toUpperCase() }}</div>
@@ -850,21 +846,7 @@
   ═══════════════════════════════════════════════ -->
 
   <!-- Edit Question Modal -->
-  <!-- <ion-modal [isOpen]="showEditModal" (ionModalDidDismiss)="closeEditModal()">
-    <ng-template>
-      <ion-header><ion-toolbar class="modal-toolbar"><ion-title>Edit Question</ion-title><ion-buttons slot="end"><ion-button (click)="closeEditModal()">Cancel</ion-button></ion-buttons></ion-toolbar></ion-header>
-      <ion-content class="modal-content">
-        <div class="modal-body">
-          <div class="modal-field"><label class="field-label">Question Text *</label><ion-textarea [(ngModel)]="editQuestionText" rows="4" class="modal-textarea" placeholder="Enter question text..."></ion-textarea></div>
-          <div class="modal-field"><label class="field-label">Difficulty</label><ion-select [(ngModel)]="editQuestionDifficulty" class="modal-select" interface="popover"><ion-select-option value="Easy">🟢 Easy</ion-select-option><ion-select-option value="Medium">🟡 Medium</ion-select-option><ion-select-option value="Hard">🔴 Hard</ion-select-option></ion-select></div>
-          <div class="modal-actions">
-            <button class="btn btn-ghost" (click)="closeEditModal()">Cancel</button>
-            <button class="btn btn-primary" (click)="saveEditQuestion()" [disabled]="!editQuestionText">Save Changes</button>
-          </div>
-        </div>
-      </ion-content>
-    </ng-template>
-  </ion-modal> -->
+  
 
   <!-- Edit Question Modal -->
   <ion-modal class="auto-fit-modal" [isOpen]="showEditModal" (ionModalDidDismiss)="closeEditModal()">
@@ -927,29 +909,7 @@
   </ion-modal>
 
   <!-- Import Result Modal -->
-  <!-- <ion-modal [isOpen]="showImportResult" (ionModalDidDismiss)="closeImportResult()">
-    <ng-template>
-      <ion-header><ion-toolbar class="modal-toolbar"><ion-title>Import Result</ion-title><ion-buttons slot="end"><ion-button (click)="closeImportResult()">Close</ion-button></ion-buttons></ion-toolbar></ion-header>
-      <ion-content class="modal-content">
-        <div class="modal-body" *ngIf="importResult">
-          <div class="import-result-icon" [class.result-success]="importResult.created > 0" [class.result-fail]="importResult.created === 0">
-            <span *ngIf="importResult.created > 0">✓</span><span *ngIf="importResult.created === 0">✗</span>
-          </div>
-          <div class="import-result-title">{{ importResult.created > 0 ? 'Import Successful' : 'Import Failed' }}</div>
-          <div class="import-result-stats">
-            <div class="result-stat"><span class="result-stat-val">{{ importResult.total }}</span><span class="result-stat-label">Total</span></div>
-            <div class="result-stat result-stat-green"><span class="result-stat-val">{{ importResult.created }}</span><span class="result-stat-label">Created</span></div>
-            <div class="result-stat result-stat-red"><span class="result-stat-val">{{ importResult.failed }}</span><span class="result-stat-label">Failed</span></div>
-          </div>
-          <div class="import-result-email" *ngIf="importResult.emails_sent !== undefined">
-            <span>📧 Emails sent: {{ importResult.emails_sent }}</span>
-            <span *ngIf="importResult.emails_failed > 0" style="color:var(--c-danger)">· {{ importResult.emails_failed }} failed</span>
-          </div>
-          <button class="btn btn-primary" style="width:100%;margin-top:1.5rem" (click)="closeImportResult()">Done</button>
-        </div>
-      </ion-content>
-    </ng-template>
-  </ion-modal> -->
+  
 
   <!-- Import Result Modal (FIXED VISIBILITY) -->
   <ion-modal class="auto-fit-modal" [isOpen]="showImportResult" (ionModalDidDismiss)="closeImportResult()">
@@ -1038,34 +998,7 @@
   </div>
 
   <!-- Timetable Modal -->
-  <!-- <ion-modal [isOpen]="showTimetableModal" (ionModalDidDismiss)="showTimetableModal = false">
-    <ng-template>
-      <ion-header><ion-toolbar class="modal-toolbar"><ion-title>📅 Schedule: {{ selectedStudentForTimetable }}</ion-title><ion-buttons slot="end"><ion-button (click)="showTimetableModal = false">Close</ion-button></ion-buttons></ion-toolbar></ion-header>
-      <ion-content class="modal-content">
-        <div class="modal-body">
-          <div class="modal-field">
-            <label class="field-label">Start Date & Time</label>
-            <div class="datetime-trigger-row">
-              <ion-datetime-button datetime="start-date"></ion-datetime-button>
-              <ion-popover [keepContentsMounted]="true" triggerAction="click"><ng-template><ion-datetime id="start-date" presentation="date-time" hour-cycle="h12" [(ngModel)]="timetableStart" [showDefaultButtons]="true" doneText="Set Start" cancelText="Cancel"></ion-datetime></ng-template></ion-popover>
-            </div>
-          </div>
-          <div class="modal-field">
-            <label class="field-label">End Date & Time</label>
-            <div class="datetime-trigger-row">
-              <ion-datetime-button datetime="end-date"></ion-datetime-button>
-              <ion-popover [keepContentsMounted]="true" triggerAction="click"><ng-template><ion-datetime id="end-date" presentation="date-time" hour-cycle="h12" [(ngModel)]="timetableEnd" [showDefaultButtons]="true" doneText="Set End" cancelText="Cancel"></ion-datetime></ng-template></ion-popover>
-            </div>
-          </div>
-          <div class="modal-field"><label class="field-label">Topics (comma separated)</label><ion-input [(ngModel)]="timetableTopics" class="modal-input" placeholder="e.g. Python, SQL"></ion-input></div>
-          <div class="modal-actions">
-            <button class="btn btn-danger-outline" *ngIf="currentTimetable" (click)="deleteTimetable()">Delete</button>
-            <button class="btn btn-primary" (click)="setTimetable()">💾 Save Schedule</button>
-          </div>
-        </div>
-      </ion-content>
-    </ng-template>
-  </ion-modal> -->
+  
 
 
 
@@ -1107,16 +1040,7 @@
             <input type="text" [(ngModel)]="groupName" placeholder="e.g. Python Batch Jan 2026" autofocus style="width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; font-size: 14px; outline: none; box-sizing: border-box;" />
           </div>
 
-          <!-- NAYA: Target Class Dropdown -->
-          <!-- <div style="margin-top: 2px;">
-            <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px; letter-spacing: 0.5px;">TARGET CLASS (OPTIONAL)</label>
-            <select [(ngModel)]="selectedGroupClass" style="width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; font-size: 14px; outline: none; box-sizing: border-box; cursor: pointer; appearance: auto;">
-              <option value="All">All Classes (Common)</option>
-              <ng-container *ngFor="let cls of allClasses">
-                <option *ngIf="cls !== 'All'" [value]="cls">{{ cls }}</option>
-              </ng-container>
-            </select>
-          </div> -->
+          
 
           <div style="font-size: 13px; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; line-height: 1.4;">
             An empty group will be created. You can add students from the group detail view.
@@ -1154,16 +1078,7 @@
             <input type="text" [(ngModel)]="groupName" class="field-input" placeholder="e.g. Python Batch Jan 2026" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc;" />
           </div>
 
-          <!-- NAYA: Target Class Dropdown (For Selection Modal) -->
-          <!-- <div class="modal-field">
-            <label class="field-label" style="color: var(--text-main, #333); font-weight: 600;">Target Class (Optional)</label>
-            <select [(ngModel)]="selectedGroupClass" class="field-input" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer;">
-              <option value="All">All Classes (Common)</option>
-              <ng-container *ngFor="let cls of allClasses">
-                <option *ngIf="cls !== 'All'" [value]="cls">{{ cls }}</option>
-              </ng-container>
-            </select>
-          </div> -->
+          
 
           <div class="group-selection-preview" style="background: #f9f9f9; padding: 12px; border-radius: 8px;">
             <div class="gsp-label" style="font-weight: 500; margin-bottom: 6px;">{{ selectedStudentsForEmail.length }} students selected:</div>
@@ -1207,15 +1122,7 @@
         <div style="flex: 1; padding: 24px; overflow-y: auto;">
           <div *ngIf="selectedGroup">
             
-            <!-- 🟢 NAYE TABS (Modal ke andar) -->
-            <!-- <div class="segment-tabs" style="margin-bottom: 24px;">
-              <button class="seg-tab" [class.active]="activeGroupTab === 'students'" (click)="activeGroupTab = 'students'">
-                👥 Enrolled Students
-              </button>
-              <button class="seg-tab" [class.active]="activeGroupTab === 'settings'" (click)="activeGroupTab = 'settings'">
-                ⚙️ Settings & Schedule
-              </button>
-            </div> -->
+            
 
             <!-- ============================================== -->
             <!-- TAB 1: SETTINGS TAB (Unified Control Panel)    -->
@@ -1516,7 +1423,7 @@
           <!-- Custom Message / Instructions -->
           <div class="modal-field">
             <label class="field-label">Message / Instructions (Optional)</label>
-            <!-- <textarea class="field-textarea" [(ngModel)]="groupScheduleTopics" rows="3" placeholder="e.g. Prepare for Python & Data Structures interview..."></textarea> -->
+            
              <textarea class="field-textarea" [(ngModel)]="groupScheduleMessage" rows="3" placeholder="e.g. Prepare for Python & Data Structures interview..."></textarea>
           </div>
 

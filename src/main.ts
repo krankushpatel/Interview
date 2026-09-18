@@ -18,7 +18,6 @@ import {
 import { routes } from './app/app.routes';
 import { AppComponent } from './app/app.component';
 import { authInterceptor } from './app/interceptors/auth.interceptor';
-import { mockApiInterceptor } from './app/interceptors/mock-api.interceptor';
 
 // Register all Ionicons used in the app
 addIcons({
@@ -39,7 +38,7 @@ bootstrapApplication(AppComponent, {
     provideIonicAngular(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(
-      withInterceptors([authInterceptor, mockApiInterceptor])
+      withInterceptors([authInterceptor])
     ),
   ],
 });

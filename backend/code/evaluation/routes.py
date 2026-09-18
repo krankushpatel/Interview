@@ -76,6 +76,22 @@ def _coerce_qid(value, fallback: int) -> int:
         return fallback
 
 
+def _deduplicate_answers(answers: list) -> list:
+    """Deduplicate incoming answers by question_id preserving first occurrence."""
+    if not isinstance(answers, list):
+        return []
+    seen_qids = set()
+    deduped = []
+    for i, ans in enumerate(answers):
+        if not isinstance(ans, dict):
+            continue
+        qid = str(_coerce_qid(ans.get("question_id", i + 1), i + 1))
+        if qid not in seen_qids:
+            seen_qids.add(qid)
+            deduped.append(ans)
+    return deduped
+
+
 def _age_seconds(iso_ts) -> float:
     try:
         dt = datetime.fromisoformat(str(iso_ts))
@@ -149,16 +165,7 @@ async def evaluate_all(
         events = []
 
     # Immediately deduplicate incoming answers by question_id before processing
-    seen_qids = set()
-    deduped_answers = []
-    for i, ans in enumerate(answers):
-        if not isinstance(ans, dict):
-            continue
-        qid = str(ans.get("question_id", i + 1))
-        if qid not in seen_qids:
-            seen_qids.add(qid)
-            deduped_answers.append(ans)
-    answers = deduped_answers
+    answers = _deduplicate_answers(answers)
 
     db = _get_db()
     existing = await _db(db.evaluations.find_one, {"username": username, "session_id": session_id})
@@ -229,19 +236,7 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
                     {"username": username, "session_id": session_id}) or {}
     stored: dict = doc.get("question_results") or {}
 
-    # Deduplicate incoming answers by question_id so duplicate clicks never duplicate questions
-    seen_qids = set()
-    deduped_answers = []
-    for i, ans in enumerate(answers):
-        if not isinstance(ans, dict):
-            continue
-        qid = _coerce_qid(ans.get("question_id", i + 1), i + 1)
-        qid_key = str(qid)
-        if qid_key not in seen_qids:
-            seen_qids.add(qid_key)
-            deduped_answers.append(ans)
-    answers = deduped_answers
-
+    # Answers are already deduplicated by evaluate_all entrypoint before background dispatch
     results_map: dict = {}
     intro_items, technical_batch, intro_ids = [], [], set()
 
