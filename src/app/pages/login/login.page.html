@@ -48,12 +48,6 @@
         {{ isLoading ? 'Signing in…' : 'Sign In →' }}
       </button>
 
-      <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
-        <span style="font-size: 11px; color: #94a3b8;">Quick login:</span>
-        <button type="button" (click)="setRole('admin')" style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 11px;">Admin</button>
-        <button type="button" (click)="setRole('student')" style="background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 11px;">Student</button>
-      </div>
-
       <div class="error-message" *ngIf="errorMessage">
         <span>⚠</span> <span>{{ errorMessage }}</span>
       </div>

@@ -28,17 +28,6 @@ export class LoginPage {
     this.showPassword = !this.showPassword;
   }
 
-  setRole(role: 'admin' | 'student') {
-    if (role === 'admin') {
-      this.username = 'admin';
-      this.password = 'admin123';
-    } else {
-      this.username = 'student1';
-      this.password = 'student123';
-    }
-    this.errorMessage = '';
-  }
-
   async attemptLogin() {
     if (!this.username.trim() || !this.password.trim()) {
       this.errorMessage = 'Please enter both username and password.';
@@ -50,14 +39,14 @@ export class LoginPage {
 
     try {
       const user = await this.authService.login(this.username, this.password);
-      // Docketrun system role-based navigation
+      // Role-based navigation
       const target = user.role === 'admin' ? '/admin' : '/student';
       this.navCtrl.navigateRoot(target);
     } catch (err: any) {
       if (err.status === 401) {
         this.errorMessage = err.error?.detail || 'Invalid credentials. Try again.';
       } else {
-        this.errorMessage = 'Cannot reach the server. Is the backend running on port 7000?';
+        this.errorMessage = 'Unable to connect to the server. Please try again later.';
       }
     } finally {
       this.isLoading = false;
