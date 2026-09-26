@@ -81,7 +81,7 @@ def initialize_data():
                             c = q.copy()
                             q_text = c.get("question") or c.get("text", "")
                             c["question"] = q_text
-                            c["text"] = q_text
+                            c.pop("text", None)
                             prepared_seed.append(c)
                         db.questions.insert_many(prepared_seed)
                         print(f"[SEED] Initialized {len(prepared_seed)} questions directly in MongoDB")
@@ -284,7 +284,7 @@ def load_questions() -> list:
     for q in questions:
         q_text = q.get("question") or q.get("text", "")
         q["question"] = q_text
-        q["text"] = q_text
+        q.pop("text", None)
     _data_store["questions"] = questions
     return questions
 
@@ -297,11 +297,11 @@ def save_questions(questions: list):
         q_copy = q.copy()
         q_text = q_copy.get("question") or q_copy.get("text", "")
         q_copy["question"] = q_text
-        q_copy["text"] = q_text
+        q_copy.pop("text", None)
         if "id" in q_copy:
-            requests.append(UpdateOne({"id": q_copy["id"]}, {"$set": q_copy}, upsert=True))
+            requests.append(UpdateOne({"id": q_copy["id"]}, {"$set": q_copy, "$unset": {"text": ""}}, upsert=True))
         else:
-            requests.append(UpdateOne({"question": q_text}, {"$set": q_copy}, upsert=True))
+            requests.append(UpdateOne({"question": q_text}, {"$set": q_copy, "$unset": {"text": ""}}, upsert=True))
     if requests:
         try:
             db.questions.bulk_write(requests, ordered=False)

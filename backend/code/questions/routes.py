@@ -20,7 +20,6 @@ async def get_question(id: Optional[int] = None):
     return {
         "id": q["id"],
         "question": q_text,
-        "text": q_text,
         "category": q.get("category", "General"),
         "difficulty": q.get("difficulty", "Medium"),
         "keywords": q.get("keywords", [])
@@ -34,7 +33,7 @@ async def get_all_questions(categories: Optional[str] = None):
     for q in questions:
         q_text = q.get("question") or q.get("text", "")
         q["question"] = q_text
-        q["text"] = q_text
+        q.pop("text", None)
         if "keywords" not in q or not q["keywords"]:
             q["keywords"] = q.get("keywords", [])
     if categories:
@@ -129,7 +128,6 @@ async def admin_add_question(
         "category": category.strip(),
         "difficulty": difficulty.strip(),
         "question": q_text,
-        "text": q_text,
         "keywords": kws
     }
     questions.append(new_q)
@@ -166,7 +164,7 @@ async def admin_update_question(
     for q in questions:
         if q["id"] == id:
             q["question"] = q_text
-            q["text"] = q_text
+            q.pop("text", None)
             q["category"] = category.strip()
             q["difficulty"] = difficulty.strip()
             

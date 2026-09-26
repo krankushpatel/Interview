@@ -210,7 +210,6 @@ def parse_questions_excel(content: bytes, questions: list, categories: list, cla
             new_q = {
                 "id": next_id,
                 "question": q_text,
-                "text": q_text,
                 "category": cat,
                 "difficulty": diff,
                 "class_name": cls if cls and cls.lower() != 'nan' else "All"

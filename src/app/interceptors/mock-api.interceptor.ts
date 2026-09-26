@@ -4,61 +4,61 @@ import { of, delay } from 'rxjs';
 const MOCK_QUESTIONS = [
   {
     id: 1,
-    text: "Please introduce yourself, describing your background, key technical strengths, and recent software projects.",
+    question: "Please introduce yourself, describing your background, key technical strengths, and recent software projects.",
     category: "General",
     difficulty: "Easy"
   },
   {
     id: 2,
-    text: "Explain the differences between let, const, and var in JavaScript, and what hoisting means.",
+    question: "Explain the differences between let, const, and var in JavaScript, and what hoisting means.",
     category: "Frontend",
     difficulty: "Easy"
   },
   {
     id: 3,
-    text: "What is the difference between synchronous and asynchronous execution in Node.js? How does the event loop function?",
+    question: "What is the difference between synchronous and asynchronous execution in Node.js? How does the event loop function?",
     category: "Backend",
     difficulty: "Easy"
   },
   {
     id: 4,
-    text: "What are primary keys, foreign keys, and unique constraints in relational databases?",
+    question: "What are primary keys, foreign keys, and unique constraints in relational databases?",
     category: "Database",
     difficulty: "Easy"
   },
   {
     id: 5,
-    text: "How do virtual DOM and change detection work in modern frontend frameworks like React and Angular?",
+    question: "How do virtual DOM and change detection work in modern frontend frameworks like React and Angular?",
     category: "Frontend",
     difficulty: "Medium"
   },
   {
     id: 6,
-    text: "Describe the architecture and security best practices when implementing JSON Web Token (JWT) authentication.",
+    question: "Describe the architecture and security best practices when implementing JSON Web Token (JWT) authentication.",
     category: "Backend",
     difficulty: "Medium"
   },
   {
     id: 7,
-    text: "How do B-tree indexes speed up SQL queries, and what are the trade-offs on write operations?",
+    question: "How do B-tree indexes speed up SQL queries, and what are the trade-offs on write operations?",
     category: "Database",
     difficulty: "Medium"
   },
   {
     id: 8,
-    text: "How would you design a scalable rate-limiting system for a high-traffic public API gateway?",
+    question: "How would you design a scalable rate-limiting system for a high-traffic public API gateway?",
     category: "System Design",
     difficulty: "Hard"
   },
   {
     id: 9,
-    text: "Explain the CAP theorem and discuss trade-offs between consistency and availability in distributed storage.",
+    question: "Explain the CAP theorem and discuss trade-offs between consistency and availability in distributed storage.",
     category: "System Design",
     difficulty: "Hard"
   },
   {
     id: 10,
-    text: "How do you detect and mitigate memory leaks and long task blocking on the browser main thread?",
+    question: "How do you detect and mitigate memory leaks and long task blocking on the browser main thread?",
     category: "Frontend",
     difficulty: "Hard"
   }

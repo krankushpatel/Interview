@@ -6,11 +6,11 @@ import { ProgressiveScore } from './progressive-evaluation.service';
 
 export interface Question {
   id: number;
-  question?: string;
-  text?: string;
+  question: string;
   category: string;
   difficulty: string;
   keywords?: string[];
+  class_name?: string;
 }
 
 export interface AnswerRecord {
@@ -58,8 +58,8 @@ export class QuestionService {
     ]);
 
     const allQ = (questionsRes.questions || []).map(q => {
-      const qText = q.question || q.text || '';
-      return { ...q, question: qText, text: qText };
+      const qText = q.question || (q as any).text || '';
+      return { ...q, question: qText };
     });
     const topicCounts = statusRes?.settings?.topicCounts;
 
@@ -106,7 +106,7 @@ export class QuestionService {
 
   async submitAnswer(answer: string, question: Question, answeredCount: number = 0, currentIndex: number = 0, sessionId: string): Promise<any> {
     const fd = new FormData();
-    const qText = question.question || question.text || '';
+    const qText = question.question || (question as any).text || '';
     fd.append('answer', answer);
     fd.append('username', sessionStorage.getItem('username') || 'anonymous');
     fd.append('question_id', String(question.id));

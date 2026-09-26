@@ -2060,8 +2060,8 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
-  async onAddQuestionFromComponent(data: { question?: string; text: string; category: string; difficulty: string; keywords?: string }) {
-    this.newQuestionText = data.question || data.text;
+  async onAddQuestionFromComponent(data: { question: string; category: string; difficulty: string; keywords?: string }) {
+    this.newQuestionText = data.question;
     this.newQuestionCategory = data.category;
     this.newQuestionDifficulty = data.difficulty;
     this.newQuestionKeywords = data.keywords || '';
@@ -2074,8 +2074,8 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyQuestionsFilters();
   }
 
-  async onSaveEditQuestionFromModal(payload: { question?: string; text: string; category: string; difficulty: string; keywords?: string }) {
-    this.editQuestionText = payload.question || payload.text;
+  async onSaveEditQuestionFromModal(payload: { question: string; category: string; difficulty: string; keywords?: string }) {
+    this.editQuestionText = payload.question;
     this.editQuestionCategory = payload.category;
     this.editQuestionDifficulty = payload.difficulty;
     this.editQuestionKeywords = payload.keywords || '';

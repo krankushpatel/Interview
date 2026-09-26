@@ -1,11 +1,10 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 
 export interface EditQuestionPayload {
-  question?: string;
-  text: string;
+  question: string;
   category: string;
   difficulty: string;
   keywords?: string;
@@ -89,6 +88,16 @@ export interface EditQuestionPayload {
   `
 })
 export class EditQuestionModalComponent implements OnInit, OnChanges {
+  constructor(private elementRef: ElementRef) {}
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (!this.showCategoryDropdown) return;
+    const clickedInside = this.elementRef.nativeElement.querySelector('.custom-dropdown')?.contains(event.target as Node);
+    if (!clickedInside) {
+      this.showCategoryDropdown = false;
+    }
+  }
   @Input() isOpen: boolean = false;
   @Input() text: string = '';
   @Input() category: string = '';
@@ -151,7 +160,6 @@ export class EditQuestionModalComponent implements OnInit, OnChanges {
   onSave() {
     this.save.emit({
       question: this.text,
-      text: this.text,
       category: this.category,
       difficulty: this.difficulty,
       keywords: this.keywords

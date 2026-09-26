@@ -1,11 +1,10 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Question } from '../../../services/admin.service';
 
 export interface AddQuestionData {
-  question?: string;
-  text: string;
+  question: string;
   category: string;
   difficulty: string;
   keywords?: string;
@@ -187,7 +186,7 @@ export interface AddQuestionData {
               </button>
             </div>
           </div>
-          <div class="q-text">{{ q.question || q.text }}</div>
+          <div class="q-text">{{ q.question }}</div>
           <div *ngIf="q.keywords && q.keywords.length > 0" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;">
             <span *ngFor="let kw of q.keywords" style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(20, 122, 131, 0.1); color: var(--dip-brand-1, #147A83); border: 1px solid rgba(20, 122, 131, 0.25); font-weight: 500;">
               {{ kw }}
@@ -233,6 +232,16 @@ export interface AddQuestionData {
   `
 })
 export class AdminQuestionsComponent implements OnInit, OnChanges {
+  constructor(private elementRef: ElementRef) {}
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (!this.showCategoryDropdown) return;
+    const clickedInside = this.elementRef.nativeElement.querySelector('.custom-dropdown')?.contains(event.target as Node);
+    if (!clickedInside) {
+      this.showCategoryDropdown = false;
+    }
+  }
   @Input() totalQuestions: number = 0;
   @Input() paginatedQuestions: Question[] = [];
   @Input() uniqueCategories: string[] = [];
@@ -318,7 +327,6 @@ export class AdminQuestionsComponent implements OnInit, OnChanges {
     const trimmed = this.newQuestionText.trim();
     this.addQuestion.emit({
       question: trimmed,
-      text: trimmed,
       category: this.categorySearchText.trim(),
       difficulty: this.newQuestionDifficulty,
       keywords: this.newQuestionKeywords.trim()
