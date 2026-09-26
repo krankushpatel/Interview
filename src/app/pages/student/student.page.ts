@@ -1628,9 +1628,10 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.submitted || this.isFinishingExam || this.isTransitioningQuestion || this.isSubmittingAnswer) {
       return;
     }
+    
     this.isTransitioningQuestion = true;
 
-    // Immediately disable action buttons
+    // Immediately disable action buttons to prevent rapid clicks
     const skipBtnEl = document.getElementById('skip-btn') as HTMLButtonElement;
     if (skipBtnEl) {
       skipBtnEl.disabled = true;
@@ -1644,6 +1645,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     this.stopSpeechRecognition();
     clearInterval(this.timerInterval);
+    
     const skipRecord: AnswerRecord = {
       question_id: this.currentQuestion.id,
       question_text: this.currentQuestion.text,
@@ -1651,6 +1653,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       answer: '[Skipped by student]',
       session_id: this.examSessionId
     };
+    
     const existingIdx = this.answeredBuffer.findIndex(a => String(a.question_id) === String(this.currentQuestion.id));
     if (existingIdx !== -1) {
       this.answeredBuffer[existingIdx] = skipRecord;
@@ -1662,6 +1665,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.currentIndex + 1 >= this.questions.length) {
       this.finishExam();
     } else {
+      // ✅ FIX: Reset transition flag so nextQuestion() can actually execute!
+      this.isTransitioningQuestion = false; 
       this.nextQuestion();
     }
   }

@@ -136,706 +136,134 @@
       <div class="main-scroll">
 
         <!-- ── Overview ── -->
-        <div class="view" [class.active]="activeView === 'overview'">
-
-          <div class="page-header">
-            <div>
-              <h1 class="page-title">Dashboard Overview</h1>
-              <p class="page-subtitle">Monitor your interview platform in real-time</p>
-            </div>
-          </div>
-
-          <div class="kpi-grid">
-            <div class="kpi-card kpi-indigo" (click)="setView('students')" style="cursor: pointer;">
-              <div class="kpi-card-inner">
-                <div class="kpi-icon-wrap">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                </div>
-                <div class="kpi-data">
-                  <div class="kpi-value">{{ overviewStats.totalStudents }}</div>
-                  <div class="kpi-label">Total Students</div>
-                </div>
-              </div>
-              <div class="kpi-trend"><span class="trend-up">↗</span> All registered</div>
-            </div>
-
-            <div class="kpi-card kpi-emerald">
-              <div class="kpi-card-inner">
-                <div class="kpi-icon-wrap">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="kpi-data">
-                  <div class="kpi-value">{{ overviewStats.activeStudentsCount }}</div>
-                  <div class="kpi-label">Total Interview Done</div>
-                </div>
-              </div>
-              <div class="kpi-trend"><span class="trend-up">↗</span> Completed interviews</div>
-            </div>
-
-            <div class="kpi-card kpi-violet" (click)="setView('questions')" style="cursor: pointer;">
-              <div class="kpi-card-inner">
-                <div class="kpi-icon-wrap">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-                <div class="kpi-data">
-                  <div class="kpi-value">{{ overviewStats.totalQuestions }}</div>
-                  <div class="kpi-label">Total Questions</div>
-                </div>
-              </div>
-              <div class="kpi-trend"><span class="trend-up">↗</span> In question bank</div>
-            </div>
-
-            <div class="kpi-card kpi-amber" (click)="setView('students')" style="cursor: pointer;">
-              <div class="kpi-card-inner">
-                <div class="kpi-icon-wrap">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                </div>
-                <div class="kpi-data">
-                  <div class="kpi-value">{{ overviewStats.totalGroups }}</div>
-                  <div class="kpi-label">Total Groups</div>
-                </div>
-              </div>
-              <div class="kpi-trend"><span class="trend-up">↗</span> All batches</div>
-            </div>
-          </div>
-
-          <div class="section-card">
-            <div class="section-card-header">
-              <div class="section-card-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Student Activity
-              </div>
-              <button class="link-btn" (click)="setView('students')">View all →</button>
-            </div>
-            <div *ngIf="!overviewStats?.studentActivity || overviewStats.studentActivity.length === 0" class="empty-state">
-              <div class="empty-icon">📊</div>
-              <div class="empty-text">No activity yet</div>
-            </div>
-            <div *ngFor="let act of (overviewStats?.studentActivity || [])" class="activity-row" (click)="filterByStudent(act.username, act.name)">
-              <div class="act-avatar">{{ (act.name || act.username || '?')[0].toUpperCase() }}</div>
-              <div class="act-info">
-                <div class="act-name">{{ act.name }}</div>
-                <div class="act-user">@{{ act.username }}</div>
-              </div>
-              <div class="act-stat">
-                <div class="act-count">{{ act.count }}</div>
-                <div class="act-count-label">submission{{ act.count !== 1 ? 's' : '' }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <app-admin-overview
+          *ngIf="activeView === 'overview'"
+          [overviewStats]="overviewStats"
+          (navigateView)="setView($event)"
+          (filterStudentActivity)="filterByStudent($event.username, $event.name)">
+        </app-admin-overview>
 
         <!-- ── Submissions ── -->
-        <div class="view" [class.active]="activeView === 'submissions'">
-          <div class="page-header">
-            <div><h1 class="page-title">All Submissions</h1><p class="page-subtitle">Every student answer in one place</p></div>
-            <span class="stat-chip">{{ filteredSubmissions.length }} results</span>
-          </div>
-
-          <div class="filter-bar">
-            <div class="search-wrap flex-1">
-              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" type="text" placeholder="Search by student, question, answer…" [(ngModel)]="searchTerm" (input)="applyFilters()" />
-            </div>
-            <select class="filter-select" [(ngModel)]="filterStudent" (change)="applyFilters()">
-              <option value="">All Students</option>
-              <option *ngFor="let st of students" [value]="st.username">{{ st.name }}</option>
-            </select>
-            <select class="filter-select" [(ngModel)]="submissionFilterCategory" (change)="applyFilters()">
-              <option value="">All Categories</option>
-              <option *ngFor="let opt of categoryOptions" [value]="opt.value">{{ opt.label }}</option>
-            </select>
-          </div>
-
-          <div *ngIf="filteredSubmissions.length === 0" class="empty-state-full">
-            <div class="esf-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-            <div class="esf-title">No submissions found</div>
-            <div class="esf-sub">Try adjusting your filters or search query</div>
-          </div>
-
-          <div class="submissions-list">
-            <div *ngFor="let s of filteredSubmissions" class="submission-card" (click)="openSubmission(s)">
-              <div class="sub-card-left">
-                <div class="sub-avatar">{{ (s.student_name || s.username || '?')[0].toUpperCase() }}</div>
-              </div>
-              <div class="sub-card-body">
-                <div class="sub-card-top">
-                  <div class="sub-student-info">
-                    <span class="sub-name">{{ s.student_name }}</span>
-                    <span class="sub-username">@{{ s.username }}</span>
-                  </div>
-                  <div class="sub-chips">
-                    <span class="chip chip-cat">{{ s.question_category }}</span>
-                    <span *ngIf="s.has_video" class="chip chip-video">🎥 Video</span>
-                    <span *ngIf="!s.has_video" class="chip chip-no-video">No video</span>
-                    <span class="sub-time">{{ s.submitted_at | date:'MMM d, h:mm a' }}</span>
-                  </div>
-                </div>
-                <div class="sub-question">{{ s.question_text }}</div>
-                <div class="sub-answer">{{ s.answer }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <app-admin-submissions
+          *ngIf="activeView === 'submissions'"
+          [filteredSubmissions]="filteredSubmissions"
+          [students]="students"
+          [categoryOptions]="categoryOptions"
+          [searchTerm]="searchTerm"
+          [filterStudent]="filterStudent"
+          [submissionFilterCategory]="submissionFilterCategory"
+          (openSubmission)="openSubmission($event)"
+          (filterChange)="onSubmissionsFilterChange($event)">
+        </app-admin-submissions>
 
         <!-- ── Students ── -->
-        <div class="view" [class.active]="activeView === 'students'">
-          <div class="page-header">
-            <div><h1 class="page-title">Students</h1><p class="page-subtitle">Manage registered student accounts and groups</p></div>
-          </div>
+        <app-admin-students
+          *ngIf="activeView === 'students'"
+          [students]="students"
+          [filteredStudents]="filteredStudents"
+          [groups]="groups"
+          [studentSearch]="studentSearch"
+          [studentSubView]="studentSubView"
+          [selectedStudentsForEmail]="selectedStudentsForEmail"
+          [answerCounts]="answerCounts"
+          [videoCounts]="videoCounts"
+          [studentNames]="studentNames"
+          (studentSearchChange)="studentSearch = $event; filterStudents()"
+          (subViewChange)="studentSubView = $event"
+          (openAddStudent)="openAddStudentModal()"
+          (openCreateGroup)="openCreateGroupModal()"
+          (selectStudent)="filterByStudent($event.username, $event.name)"
+          (toggleEmailSelection)="toggleEmailSelection($event)"
+          (openTimetable)="openTimetableModal($event)"
+          (createGroupFromSelection)="openCreateGroupFromSelectionModal()"
+          (openBulkSchedule)="openBulkScheduleModal()"
+          (openBulkEmail)="openBulkEmailModal()"
+          (clearEmailSelection)="clearEmailSelection()"
+          (deleteGroup)="deleteGroup($event.id, $event.name)"
+          (openGroupDetail)="openGroupDetail($event.group, $event.tab)">
+        </app-admin-students>
 
-          <div class="students-toolbar">
-            <div class="search-wrap flex-1">
-              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" type="text" placeholder="Search by name, username, email..." [(ngModel)]="studentSearch" (input)="filterStudents()" />
-            </div>
-            
-            <button class="btn btn-outline btn-sm" (click)="openCreateGroupModal()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>
-              Create Group
-            </button>
-            <button class="btn btn-primary btn-sm" (click)="openAddStudentModal()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Student
-            </button>
-          </div>
+        <!-- ── Questions Bank ── -->
+        <app-admin-questions
+          *ngIf="activeView === 'questions'"
+          [totalQuestions]="totalQuestions"
+          [paginatedQuestions]="paginatedQuestions"
+          [uniqueCategories]="uniqueCategories"
+          [allCategories]="allCategories"
+          [currentPage]="currentPage"
+          [pageSize]="pageSize"
+          [totalPages]="totalPages"
+          [displayedRangeEnd]="displayedRangeEnd"
+          [visiblePages]="getVisiblePages()"
+          [questionFilterCategory]="questionFilterCategory"
+          [filterDifficulty]="filterDifficulty"
+          [addFeedback]="addFeedback"
+          [addFeedbackType]="addFeedbackType"
+          (addQuestion)="onAddQuestionFromComponent($event)"
+          (editQuestion)="editQuestion($event)"
+          (deleteQuestion)="deleteQuestion($event)"
+          (filterChange)="onQuestionFilterChange($event)"
+          (resetFilters)="resetFilters()"
+          (goToPage)="goToPage($event)"
+          (changePageSize)="changePageSize($event)">
+        </app-admin-questions>
 
-          <div class="segment-tabs">
-            <button class="seg-tab" [class.active]="studentSubView === 'individual'" (click)="studentSubView = 'individual'">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              Individual <span class="seg-count">{{ students.length }}</span>
-            </button>
-            <button class="seg-tab" [class.active]="studentSubView === 'groups'" (click)="studentSubView = 'groups'">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              Groups <span class="seg-count" *ngIf="groups.length > 0">{{ groups.length }}</span>
-            </button>
-          </div>
-
-          <!-- Individual -->
-          <div *ngIf="studentSubView === 'individual'">
-            <div class="students-grid">
-              <div *ngFor="let st of filteredStudents" class="student-card" (click)="filterByStudent(st.username, st.name)">
-                <div class="student-select" (click)="$event.stopPropagation()">
-                  <label class="checkbox-wrap">
-                    <input type="checkbox" [checked]="selectedStudentsForEmail.includes(st.username)" (change)="toggleEmailSelection(st.username)" />
-                    <span class="checkmark"></span>
-                  </label>
-                </div>
-                <div *ngIf="st.isLive" class="student-live-indicator"><span class="live-pulse-dot"></span> LIVE</div>
-                <div class="student-card-top">
-                  <div class="student-avatar-lg">{{ (st.name || st.username || '?')[0].toUpperCase() }}</div>
-                  <div class="student-identity">
-                    <div class="student-name">{{ st.name }}</div>
-                    <div class="student-handle">@{{ st.username }}</div>
-                    <div *ngIf="st['is_terminated']" class="terminated-chip">🚫 Terminated</div>
-                  </div>
-                </div>
-                <div class="student-email">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                  {{ st.email || '—' }}
-                </div>
-                <div class="student-stats-row">
-                  <div class="stu-stat"><div class="stu-stat-val">{{ getStudentAnswerCount(st.username) }}</div><div class="stu-stat-label">Answers</div></div>
-                  <div class="stu-stat-divider"></div>
-                  <div class="stu-stat"><div class="stu-stat-val">{{ getStudentVideoCount(st.username) }}</div><div class="stu-stat-label">Videos</div></div>
-                </div>
-                <div class="student-card-actions">
-                  <button class="card-action-btn" (click)="$event.stopPropagation(); openTimetableModal(st)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    Set Schedule
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="floating-group-bar" *ngIf="selectedStudentsForEmail.length >= 1">
-              <div class="fgb-left">
-                <div class="fgb-count">{{ selectedStudentsForEmail.length }}</div>
-                <div class="fgb-label">students selected</div>
-              </div>
-              <div class="fgb-actions">
-                <button class="fgb-btn fgb-btn-group" (click)="openCreateGroupFromSelectionModal()">👥 Create Group</button>
-                <button class="fgb-btn fgb-btn-schedule" (click)="openBulkScheduleModal()">📅 Schedule</button>
-                <button class="fgb-btn fgb-btn-email" (click)="openBulkEmailModal()">📧 Email</button>
-                <button class="fgb-btn fgb-btn-cancel" (click)="clearEmailSelection()">✕ Clear</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Groups -->
-          <div *ngIf="studentSubView === 'groups'">
-            <div *ngIf="groups.length === 0" class="empty-state-full">
-              <div class="esf-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-              <div class="esf-title">No groups yet</div>
-              <div class="esf-sub">Create your first group to batch schedule interviews</div>
-              <button class="btn btn-primary" style="margin-top:1.5rem" (click)="openCreateGroupModal()">+ Create First Group</button>
-            </div>
-
-            <div class="groups-grid" *ngIf="groups.length > 0">
-              <div class="group-card" *ngFor="let group of groups">
-                <div class="group-card-header">
-                  <div class="group-icon-wrap">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  </div>
-                  <div class="group-meta">
-                    <div class="group-name">{{ group.name }}</div>
-                    <div class="group-date">Created {{ group.created_at | date:'dd MMM yyyy' }}</div>
-                  </div>
-                  <button class="group-delete-btn" (click)="deleteGroup(group.id, group.name)" title="Delete group">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
-                </div>
-                
-                <div class="group-students-row">
-                  <div class="group-avatars">
-                    <div class="group-av" *ngFor="let u of (group.students || []).slice(0, 5)" [title]="getStudentName(u)">{{ u[0].toUpperCase() }}</div>
-                    <div class="group-av group-av-more" *ngIf="(group.students?.length || 0) > 5">+{{ group.students.length - 5 }}</div>
-                  </div>
-                  <span class="group-count">{{ group.students?.length || 0 }} students</span>
-                </div>
-                <div class="group-scheduled" *ngIf="group.last_scheduled_at">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                  Scheduled {{ group.last_scheduled_at | date:'dd MMM yyyy, hh:mm a' }}
-                </div>
-                <div class="group-card-actions" style="display: flex; gap: 8px;">
-                  <!-- Button 1: Students -->
-                  <button class="group-action-btn group-action-outline" 
-                          style="flex: 1; background: var(--dip-surface); color: var(--dip-text-primary); border: 1px solid var(--dip-border); padding: 10px; font-weight: 600; border-radius: 8px; cursor: pointer;" 
-                          (click)="openGroupDetail(group, 'students')">
-                    👥 Students
-                  </button>
-                  
-                  <!-- Button 2: Settings -->
-                  <button class="group-action-btn group-action-outline" 
-                          style="flex: 1; background: var(--dip-surface); color: var(--dip-text-primary); border: 1px solid var(--dip-border); padding: 10px; font-weight: 600; border-radius: 8px; cursor: pointer;" 
-                          (click)="openGroupDetail(group, 'settings')">
-                    ⚙️ Settings
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Questions ── -->
-        <div class="view" [class.active]="activeView === 'questions'">
-          <div class="page-header">
-            <div><h1 class="page-title">Question Bank</h1><p class="page-subtitle">Manage interview questions across all categories</p></div>
-            <span class="stat-chip">{{ totalQuestions }} questions</span>
-          </div>
-
-          <div class="add-question-card">
-            <div class="aq-card-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add New Question
-            </div>
-            <div class="aq-form">
-              <div class="aq-field aq-field-full">
-                <label class="field-label">Question Text *</label>
-                <textarea class="field-textarea" [(ngModel)]="newQuestionText" rows="3" placeholder="Enter your interview question..."></textarea>
-              </div>
-              <div class="aq-field">
-                <label class="field-label">Category</label>
-                <div class="custom-dropdown">
-                  <div class="dropdown-input-wrap">
-                    <input type="text" class="field-input" [(ngModel)]="categorySearchText"
-                      (input)="filterCategories()"
-                      (focus)="showCategoryDropdown = true; filterCategories()"
-                      placeholder="Search or select category..."
-                      autocomplete="off" />
-                    <span class="dropdown-chevron" (click)="showCategoryDropdown = !showCategoryDropdown">▾</span>
-                  </div>
-                  <div class="dropdown-list" *ngIf="showCategoryDropdown">
-                    <div *ngFor="let cat of filteredCategories" class="dropdown-item" (click)="selectCategory(cat)">{{ cat }}</div>
-                    <div *ngIf="categorySearchText && !filteredCategories.includes(categorySearchText)" class="dropdown-item dropdown-item-add" (click)="addNewCategory()">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Add "{{ categorySearchText }}"
-                    </div>
-                    <div *ngIf="filteredCategories.length === 0 && !categorySearchText" class="dropdown-item dropdown-item-empty">No categories found</div>
-                  </div>
-                </div>
-              </div>
-              <div class="aq-field">
-                <label class="field-label">Difficulty</label>
-                <select class="field-select" [(ngModel)]="newQuestionDifficulty">
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
-              <div class="aq-actions">
-                <button class="btn btn-primary" (click)="addQuestion()">Add Question</button>
-                <span class="aq-feedback success" *ngIf="addFeedback && addFeedbackType === 'success'">✓ {{ addFeedback }}</span>
-                <span class="aq-feedback error" *ngIf="addFeedback && addFeedbackType === 'error'">✗ {{ addFeedback }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="filter-bar">
-            <div class="filter-chips">
-              <span class="filter-label">Filters:</span>
-              <select class="filter-chip-select" [(ngModel)]="questionFilterCategory" (change)="applyQuestionsFilters()">
-                <option value="">All Categories</option>
-                <option *ngFor="let cat of uniqueCategories" [value]="cat">{{ cat }}</option>
-              </select>
-              <select class="filter-chip-select" [(ngModel)]="filterDifficulty" (change)="applyQuestionsFilters()">
-                <option value="">All Difficulties</option>
-                <option value="Easy">🟢 Easy</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="Hard">🔴 Hard</option>
-              </select>
-              <button class="filter-reset-btn" *ngIf="questionFilterCategory || filterDifficulty" (click)="resetFilters()">Reset ✕</button>
-            </div>
-          </div>
-
-          <div *ngIf="paginatedQuestions.length === 0" class="empty-state-full">
-            <div class="esf-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-            <div class="esf-title">No questions found</div>
-            <div class="esf-sub">Adjust filters or add your first question above</div>
-          </div>
-
-          <div class="questions-grid">
-            <div *ngFor="let q of paginatedQuestions; let i = index" class="q-card">
-              <div class="q-card-header">
-                <!-- 🟢 FIXED: Ab actual ID ki jagah Serial Number dikhega (Pagination ke hisaab se) -->
-                <span class="q-id">#{{ (currentPage - 1) * pageSize + (i + 1) }}</span>
-                <div class="q-chips">
-                  <span class="chip chip-cat">{{ q.category || 'General' }}</span>
-                  <span class="chip" [class.chip-easy]="q.difficulty === 'Easy'" [class.chip-medium]="q.difficulty === 'Medium'" [class.chip-hard]="q.difficulty === 'Hard'">{{ q.difficulty }}</span>
-                </div>
-                <div class="q-actions">
-                  <button class="q-action-btn" (click)="editQuestion(q)" title="Edit">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                  <button class="q-action-btn q-action-delete" (click)="deleteQuestion(q.id)" title="Delete">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                  </button>
-                </div>
-              </div>
-              <div class="q-text">{{ q.text }}</div>
-            </div>
-          </div>
-
-          <div class="pagination-bar" *ngIf="totalPages > 0">
-            <div class="pagination-info">Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ displayedRangeEnd }} of {{ totalQuestions }}</div>
-            <div class="pagination-controls">
-              <button class="page-btn" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-              </button>
-              <ng-container *ngFor="let page of getVisiblePages()">
-                <button class="page-btn" [class.active]="page === currentPage" (click)="goToPage(page)">{{ page }}</button>
-              </ng-container>
-              <button class="page-btn" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-            </div>
-            <div class="page-size-wrap">
-              Show
-              <select class="page-size-select" (change)="changePageSize($any($event.target).value)">
-                <option value="25">25</option>
-                <option value="50" selected>50</option>
-                <option value="100">100</option>
-                <option value="200">200</option>
-              </select>
-              per page
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Exam Recordings ── -->
-        <div class="view" [class.active]="activeView === 'examvids'">
-          <div class="page-header"><div><h1 class="page-title">Exam Recordings</h1><p class="page-subtitle">Full session videos from each student</p></div></div>
-          <div class="info-banner">🎬 Each student's <strong>full exam session</strong> is recorded as one continuous video. Files are stored in <code>uploads/</code>.</div>
-          <div *ngIf="recordings.length === 0" class="empty-state-full"><div class="esf-icon">🎬</div><div class="esf-title">No exam recordings yet</div></div>
-          <div class="recordings-list">
-            <div *ngFor="let rec of recordings.slice(0,10)" class="recording-card">
-              <div class="rec-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
-              <div class="rec-info">
-                <div class="rec-name">{{ rec.student_name }}</div>
-                <div class="rec-user">@{{ rec.username }}</div>
-                <div class="rec-chips">
-                  <span class="chip chip-neutral">⏱ {{ Math.floor(rec.duration_sec / 60) }}m {{ rec.duration_sec % 60 }}s</span>
-                  <span class="chip chip-neutral">💾 {{ rec.size_mb }} MB</span>
-                </div>
-              </div>
-              <div class="rec-date">{{ rec.submitted_at | date:'MMM d, h:mm a' }}</div>
-              <button class="btn btn-outline btn-sm" (click)="playVideo(rec.video_file, rec.student_name)">▶ Play</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Screen Recordings ── -->
-        <div class="view" [class.active]="activeView === 'screenvids'">
-          <div class="page-header"><div><h1 class="page-title">Screen Recordings</h1><p class="page-subtitle">Full screen recordings of student desktop activity</p></div></div>
-          <div *ngIf="screenRecordings.length === 0" class="empty-state-full"><div class="esf-icon">🖥️</div><div class="esf-title">No screen recordings yet</div></div>
-          <div class="recordings-list">
-            <div *ngFor="let rec of screenRecordings.slice(0,10)" class="recording-card">
-              <div class="rec-icon">🖥️</div>
-              <div class="rec-info">
-                <div class="rec-name">{{ rec.student_name }}</div>
-                <div class="rec-user">@{{ rec.username }}</div>
-                <div class="rec-chips"><span class="chip chip-neutral">💾 {{ rec.size_mb }} MB</span></div>
-              </div>
-              <div class="rec-date">{{ rec.submitted_at | date:'MMM d, h:mm a' }}</div>
-              <button class="btn btn-outline btn-sm" (click)="playScreenVideo(rec.video_file, rec.student_name)">▶ Play</button>
-            </div>
-          </div>
-        </div>
+        <!-- ── Exam & Screen Recordings ── -->
+        <app-admin-recordings
+          *ngIf="activeView === 'examvids' || activeView === 'screenvids'"
+          [viewType]="activeView"
+          [recordings]="recordings"
+          [screenRecordings]="screenRecordings"
+          (playVideo)="playVideo($event.file, $event.name)"
+          (playScreenVideo)="playScreenVideo($event.file, $event.name)">
+        </app-admin-recordings>
 
         <!-- ── Session Logs ── -->
-        <div class="view" [class.active]="activeView === 'sessionlogs'">
-          <div class="page-header"><div><h1 class="page-title">Session Logs</h1><p class="page-subtitle">Student login, logout, and exam activity</p></div></div>
-          <div class="filter-bar">
-            <div class="search-wrap flex-1">
-              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" type="text" placeholder="Search by student, action, or details..." [(ngModel)]="sessionLogSearch" (input)="filterSessionLogs()" />
-            </div>
-          </div>
-          <div *ngIf="filteredSessionLogs.length === 0" class="empty-state-full"><div class="esf-icon">📋</div><div class="esf-title">No logs found</div></div>
-          <div class="logs-table">
-            <div class="logs-table-head">
-              <div>User</div><div>Action</div><div>Details</div><div>Timestamp</div>
-            </div>
-            <div class="log-row" *ngFor="let log of filteredSessionLogs">
-              <div class="log-user">
-                <div class="log-user-avatar">{{ (log.username || '?')[0].toUpperCase() }}</div>
-                <span>{{ log.username }}</span>
-              </div>
-              <div>
-                <span class="log-action-badge"
-                  [class.badge-login]="log.action === 'login'"
-                  [class.badge-logout]="log.action === 'logout'"
-                  [class.badge-start]="log.action === 'start_exam'"
-                  [class.badge-finish]="log.action === 'finish_exam'"
-                  [class.badge-terminated]="log.action === 'exam_terminated'">
-                  {{ log.action | titlecase }}
-                </span>
-              </div>
-              <div class="log-details">{{ log.details }}</div>
-              <div class="log-time">{{ log.timestamp | date:'medium' }}</div>
-            </div>
-          </div>
-        </div>
+        <app-admin-session-logs
+          *ngIf="activeView === 'sessionlogs'"
+          [logs]="filteredSessionLogs"
+          [search]="sessionLogSearch"
+          (searchChange)="sessionLogSearch = $event; filterSessionLogs()">
+        </app-admin-session-logs>
 
         <!-- ── Bulk Import ── -->
-        <div class="view" [class.active]="activeView === 'bulkimport'">
-          <div class="page-header"><div><h1 class="page-title">Bulk Import</h1><p class="page-subtitle">Import students and questions from Excel or CSV files</p></div></div>
-          <div class="import-grid">
-            <div class="import-card">
-              <div class="import-card-header">
-                <div class="import-card-icon import-icon-indigo">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
-                </div>
-                <div><div class="import-card-title">Bulk Import Students</div><div class="import-card-sub">Upload Excel / CSV file</div></div>
-              </div>
-              <div class="drop-zone" (click)="$event.stopPropagation(); studentFileInput.click()" [class.has-file]="studentFile">
-                <input type="file" #studentFileInput accept=".xlsx,.xls,.csv" (change)="onStudentFileSelected($event)" hidden>
-                <div *ngIf="!studentFile" class="drop-zone-content">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                  <div class="drop-zone-text">Drop your file here or <span>browse</span></div>
-                  <div class="drop-zone-hint">Supports .xlsx, .xls, .csv</div>
-                </div>
-                <div *ngIf="studentFile" class="drop-zone-file">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <span>{{ studentFile.name }}</span>
-                </div>
-              </div>
-              <div class="import-loading-bar" *ngIf="studentsUploading">
-                <div class="loading-indicator"><div class="loading-spinner"></div><span>Importing students, please wait…</span></div>
-              </div>
-              <div class="import-options">
-                <label class="toggle-wrap">
-                  <input type="checkbox" [(ngModel)]="sendEmailToStudents" />
-                  <span class="toggle-slider"></span>
-                  <span class="toggle-label">Send credentials to students via email</span>
-                </label>
-              </div>
-              <div class="import-actions">
-                <button class="btn btn-primary" style="flex:1" (click)="uploadStudents()" [disabled]="!studentFile || studentsUploading">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/></svg>
-                  Import Students
-                </button>
-                <button class="btn btn-outline" (click)="downloadStudentTemplate()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Template
-                </button>
-              </div>
-            </div>
-
-            <div class="import-card">
-              <div class="import-card-header">
-                <div class="import-card-icon import-icon-violet">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-                <div><div class="import-card-title">Bulk Import Questions</div><div class="import-card-sub">Upload Excel / CSV file</div></div>
-              </div>
-              <div class="drop-zone" (click)="questionFileInput.click()" [class.has-file]="questionFile">
-                <input type="file" #questionFileInput accept=".xlsx,.xls,.csv" (change)="onQuestionFileSelected($event)" hidden>
-                <div *ngIf="!questionFile" class="drop-zone-content">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                  <div class="drop-zone-text">Drop your file here or <span>browse</span></div>
-                  <div class="drop-zone-hint">Supports .xlsx, .xls, .csv</div>
-                </div>
-                <div *ngIf="questionFile" class="drop-zone-file">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <span>{{ questionFile.name }}</span>
-                </div>
-              </div>
-              <div class="import-loading-bar" *ngIf="questionsUploading">
-                <div class="loading-indicator"><div class="loading-spinner"></div><span>Importing questions, please wait…</span></div>
-              </div>
-              <div class="import-actions" style="margin-top:1rem">
-                <button class="btn btn-primary" style="flex:1" (click)="uploadQuestions()" [disabled]="!questionFile || questionsUploading">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/></svg>
-                  Import Questions
-                </button>
-                <button class="btn btn-outline" (click)="downloadQuestionTemplate()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Template
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <app-admin-bulk-import
+          *ngIf="activeView === 'bulkimport'"
+          [studentFile]="studentFile"
+          [questionFile]="questionFile"
+          [studentsUploading]="studentsUploading"
+          [questionsUploading]="questionsUploading"
+          [sendEmailToStudents]="sendEmailToStudents"
+          (studentFileSelected)="studentFile = $event"
+          (questionFileSelected)="questionFile = $event"
+          (uploadStudents)="uploadStudents()"
+          (uploadQuestions)="uploadQuestions()"
+          (downloadStudentTemplate)="downloadStudentTemplate()"
+          (downloadQuestionTemplate)="downloadQuestionTemplate()"
+          (sendEmailChange)="sendEmailToStudents = $event">
+        </app-admin-bulk-import>
 
         <!-- ── Live Tracking ── -->
-        <div class="view" [class.active]="activeView === 'live'">
-          <div class="page-header">
-            <div><h1 class="page-title">Live Tracking</h1><p class="page-subtitle">Real-time monitoring of active exams</p></div>
-            <div class="live-header-badge"><span class="live-pulse-dot"></span><span>Live</span></div>
-          </div>
-          <div class="live-kpi-row">
-            <div class="live-kpi-card">
-              <div class="live-kpi-value live-kpi-green">{{ liveExamsCount }}</div>
-              <div class="live-kpi-label">Active Students</div>
-            </div>
-            <div class="live-kpi-card">
-              <div class="live-kpi-value live-kpi-indigo">{{ totalQuestionsAnswered }}</div>
-              <div class="live-kpi-label">Questions Answered</div>
-            </div>
-          </div>
-          <div class="live-grid">
-            <div *ngFor="let exam of liveExams" class="live-exam-card" (click)="viewLiveExam(exam.username)">
-              <div class="live-card-status-bar" [class.status-active]="exam.status === 'active'" [class.status-idle]="exam.status === 'idle'" [class.status-terminated]="exam.status === 'terminated'"></div>
-              <div class="live-card-top">
-                <div class="live-exam-avatar">{{ (exam.username || '?').charAt(0).toUpperCase() }}</div>
-                <div class="live-exam-identity">
-                  <div class="live-exam-username">{{ exam.username }}</div>
-                  <div class="live-exam-status-label">
-                    <span class="live-pulse-dot" *ngIf="exam.status === 'active'"></span>
-                    {{ exam.status === 'active' ? 'Taking Exam' : exam.status === 'idle' ? '🟡 Idle' : '🔴 Terminated' }}
-                  </div>
-                </div>
-                <div class="live-timer">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  {{ formatTime(exam.time_spent_seconds) }}
-                </div>
-              </div>
-              <div class="live-progress-section">
-                <div class="live-progress-labels"><span>Progress</span><span class="live-progress-count">{{ exam.answered_count }}/{{ exam.total_questions }}</span></div>
-                <div class="live-progress-track"><div class="live-progress-fill" [style.width.%]="(exam.answered_count / (exam.total_questions || 1)) * 100" [class.fill-active]="exam.status === 'active'"></div></div>
-                <div class="live-progress-pct">{{ ((exam.answered_count / (exam.total_questions || 1)) * 100) | number:'1.0-0' }}%</div>
-              </div>
-              <div class="live-details">
-                <div class="live-detail-row"><span class="live-detail-label">Started</span><span class="live-detail-val">{{ exam.started_at | date:'hh:mm a' }}</span></div>
-                <div class="live-detail-row"><span class="live-detail-label">Current Q</span><span class="live-detail-val live-detail-q">{{ exam.current_question_text || 'Loading…' }}</span></div>
-              </div>
-              <div class="live-card-actions" (click)="$event.stopPropagation()">
-                <button class="live-action-btn" (click)="viewProctoringLogs(exam.username, exam.username)">📋 Proctor Logs</button>
-                <button class="live-action-btn" (click)="viewLiveScreen(exam.username)">🖥️ Live Screen</button>
-              </div>
-            </div>
-            <div *ngIf="liveExams.length === 0" class="live-empty-state">
-              <div class="live-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg></div>
-              <div class="live-empty-title">No active exams</div>
-              <div class="live-empty-sub">This view updates automatically when students begin their interviews</div>
-            </div>
-          </div>
-        </div>
+        <app-admin-live-tracking
+          *ngIf="activeView === 'live'"
+          [liveExams]="liveExams"
+          [liveExamsCount]="liveExamsCount"
+          [totalQuestionsAnswered]="totalQuestionsAnswered"
+          (viewLiveExam)="viewLiveExam($event)"
+          (viewProctoringLogs)="viewProctoringLogs($event.username, $event.username)"
+          (viewLiveScreen)="viewLiveScreen($event)">
+        </app-admin-live-tracking>
 
         <!-- ── Settings ── -->
-        <div class="view" [class.active]="activeView === 'settings'">
-          <div class="page-header">
-            <div><h1 class="page-title">Settings</h1><p class="page-subtitle">Configure exam timer, input methods, and student defaults</p></div>
-          </div>
-
-          <div *ngIf="settingsLoading" class="settings-loading">
-            <div class="loading-spinner" style="width:24px;height:24px;border-width:3px"></div>
-            <span>Loading settings...</span>
-          </div>
-
-          <div *ngIf="!settingsLoading" class="settings-container">
-
-            <!-- Interview Timer -->
-            <div class="settings-card">
-              <div class="settings-card-header">
-                <div class="settings-card-icon settings-icon-indigo">⏱</div>
-                <div>
-                  <div class="settings-card-title">Interview Timer</div>
-                  <div class="settings-card-sub">Time given to each student per question</div>
-                </div>
-              </div>
-              <div class="settings-field">
-                <label class="field-label">Time Per Question</label>
-                <div class="timer-presets">
-                  <button class="timer-preset-btn" [class.active]="examSettings.question_timer_seconds === 60" (click)="examSettings.question_timer_seconds = 60">1 min</button>
-                  <button class="timer-preset-btn" [class.active]="examSettings.question_timer_seconds === 120" (click)="examSettings.question_timer_seconds = 120">2 min</button>
-                  <button class="timer-preset-btn" [class.active]="examSettings.question_timer_seconds === 180" (click)="examSettings.question_timer_seconds = 180">3 min</button>
-                  <button class="timer-preset-btn" [class.active]="examSettings.question_timer_seconds === 300" (click)="examSettings.question_timer_seconds = 300">5 min</button>
-                  <button class="timer-preset-btn" [class.active]="examSettings.question_timer_seconds === 600" (click)="examSettings.question_timer_seconds = 600">10 min</button>
-                  <button class="timer-preset-btn" [class.active]="examSettings.question_timer_seconds === 900" (click)="examSettings.question_timer_seconds = 900">15 min</button>
-                </div>
-                <div class="timer-custom-row">
-                  <span class="field-label" style="margin-bottom:0;text-transform:none;letter-spacing:0">Custom (seconds):</span>
-                  <input type="number" class="field-input settings-input-sm" [(ngModel)]="examSettings.question_timer_seconds" min="30" max="3600" step="30" />
-                </div>
-                <div class="timer-preview">
-                  <div class="timer-preview-clock">{{ formatTimerPreview(examSettings.question_timer_seconds) }}</div>
-                  <div class="timer-preview-label">Timer shown to student</div>
-                </div>
-              </div>
-              <div class="settings-field" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
-                <label class="field-label">Input Methods</label>
-                <label class="toggle-wrap" style="margin-top: 0.5rem;">
-                  <input type="checkbox" [(ngModel)]="examSettings.allow_typing" />
-                  <span class="toggle-slider"></span>
-                  <span class="toggle-label">
-                    <strong style="color: var(--text-primary);">Allow Keyboard Typing</strong><br>
-                    <span style="font-size: 0.8rem; opacity: 0.8;">If disabled, students can only answer using the Voice (Mic) feature. Textbox will be read-only.</span>
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Student Defaults -->
-            <div class="settings-card">
-              <div class="settings-card-header">
-                <div class="settings-card-icon settings-icon-violet">👤</div>
-                <div>
-                  <div class="settings-card-title">Student Defaults</div>
-                  <div class="settings-card-sub">Default values applied to new students</div>
-                </div>
-              </div>
-              <div class="settings-field">
-                <label class="field-label">Default Max Attempts</label>
-                <div class="settings-input-with-hint">
-                  <input type="number" class="field-input settings-input-sm" [(ngModel)]="examSettings.max_attempts_default" min="1" max="10" />
-                  <span class="settings-hint">How many times a new student can take the exam by default</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-actions">
-              <button class="btn btn-outline" (click)="resetSettings()" [disabled]="settingsSaving">↺ Reset to Defaults</button>
-              <button class="btn btn-primary settings-save-btn" (click)="saveSettings()" [disabled]="settingsSaving">
-                <div class="loading-spinner" *ngIf="settingsSaving" style="width:14px;height:14px;margin-right:6px;border-width:2px"></div>
-                <span *ngIf="!settingsSaving && !settingsSaved">💾 Save Settings</span>
-                <span *ngIf="settingsSaved">✅ Saved!</span>
-                <span *ngIf="settingsSaving">Saving...</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <app-admin-settings
+          *ngIf="activeView === 'settings'"
+          [examSettings]="examSettings"
+          [settingsLoading]="settingsLoading"
+          [settingsSaving]="settingsSaving"
+          [settingsSaved]="settingsSaved"
+          (save)="saveSettingsFromComponent($event)"
+          (resetSettings)="resetSettings()">
+        </app-admin-settings>
 
       </div><!-- /main-scroll -->
     </div><!-- /admin-main -->
@@ -846,145 +274,33 @@
   ═══════════════════════════════════════════════ -->
 
   <!-- Edit Question Modal -->
-  
-
-  <!-- Edit Question Modal -->
-  <ion-modal class="auto-fit-modal" [isOpen]="showEditModal" (ionModalDidDismiss)="closeEditModal()">
-    <ng-template>
-      <div style="background: var(--dip-surface, #ffffff); width: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
-        
-        <ion-header class="ion-no-border">
-          <ion-toolbar class="modal-toolbar">
-            <ion-title>Edit Question</ion-title>
-          </ion-toolbar>
-        </ion-header>
-
-        <div class="modal-body">
-          
-          <div class="modal-field">
-            <label class="field-label">Question Text *</label>
-            <textarea [(ngModel)]="editQuestionText" rows="4" class="field-textarea" placeholder="Enter question text..."></textarea>
-          </div>
-
-          <div class="modal-field">
-            <label class="field-label">Category</label>
-            <div class="custom-dropdown">
-              <div class="dropdown-input-wrap">
-                <input type="text" class="field-input" [(ngModel)]="editQuestionCategory"
-                  (input)="filterEditCategories()"
-                  (focus)="showEditCategoryDropdown = true; filterEditCategories()"
-                  placeholder="Search or select category..."
-                  autocomplete="off" />
-                <span class="dropdown-chevron" (click)="showEditCategoryDropdown = !showEditCategoryDropdown">▾</span>
-              </div>
-              <div class="dropdown-list" *ngIf="showEditCategoryDropdown">
-                <div *ngFor="let cat of filteredEditCategories" class="dropdown-item" (click)="selectEditCategory(cat)">{{ cat }}</div>
-                <div *ngIf="editQuestionCategory && !filteredEditCategories.includes(editQuestionCategory)" class="dropdown-item dropdown-item-add" (click)="addNewEditCategory()">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Add "{{ editQuestionCategory }}"
-                </div>
-                <div *ngIf="filteredEditCategories.length === 0 && !editQuestionCategory" class="dropdown-item dropdown-item-empty">No categories found</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-field">
-            <label class="field-label">Difficulty</label>
-            <!-- FIXED: Swapped ion-select for a standard select -->
-            <select [(ngModel)]="editQuestionDifficulty" class="field-select">
-              <option value="Easy">🟢 Easy</option>
-              <option value="Medium">🟡 Medium</option>
-              <option value="Hard">🔴 Hard</option>
-            </select>
-          </div>
-
-          <div class="modal-actions">
-            <button class="btn btn-ghost" (click)="closeEditModal()">Cancel</button>
-            <button class="btn btn-primary" (click)="saveEditQuestion()" [disabled]="!editQuestionText">Save Changes</button>
-          </div>
-
-        </div>
-      </div>
-    </ng-template>
-  </ion-modal>
+  <app-edit-question-modal
+    [isOpen]="showEditModal"
+    [text]="editQuestionText"
+    [category]="editQuestionCategory"
+    [difficulty]="editQuestionDifficulty"
+    [allCategories]="allCategories"
+    (dismiss)="closeEditModal()"
+    (save)="onSaveEditQuestionFromModal($event)">
+  </app-edit-question-modal>
 
   <!-- Import Result Modal -->
-  
-
-  <!-- Import Result Modal (FIXED VISIBILITY) -->
-  <ion-modal class="auto-fit-modal" [isOpen]="showImportResult" (ionModalDidDismiss)="closeImportResult()">
-    <ng-template>
-      <div style="background: #ffffff; color: #1e293b; width: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
-        
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid #e2e8f0;">
-          <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a;">Import Result</h2>
-          <button style="background: none; border: none; font-size: 14px; font-weight: 700; color: #64748b; cursor: pointer;" (click)="closeImportResult()">✕ Close</button>
-        </div>
-        
-        <!-- Content -->
-        <div style="padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;" *ngIf="importResult">
-          
-          <!-- Icon -->
-          <div style="font-size: 48px; line-height: 1; text-align: center;" [style.color]="importResult.created > 0 ? '#10b981' : '#ef4444'">
-            <span *ngIf="importResult.created > 0">✅</span><span *ngIf="importResult.created === 0">❌</span>
-          </div>
-          
-          <!-- Title -->
-          <div style="font-size: 20px; font-weight: 800; color: #0f172a; text-align: center;">
-            {{ importResult.created > 0 ? 'Import Successful' : 'Import Failed' }}
-          </div>
-          
-          <!-- Stats Cards -->
-          <div style="display: flex; gap: 12px; width: 100%; justify-content: center; margin-top: 8px;">
-            <div style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; text-align: center; flex: 1;">
-              <div style="font-size: 24px; font-weight: 800; color: #334155;">{{ importResult.total }}</div>
-              <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total</div>
-            </div>
-            <div style="background: #ecfdf5; padding: 12px 16px; border-radius: 8px; text-align: center; flex: 1;">
-              <div style="font-size: 24px; font-weight: 800; color: #10b981;">{{ importResult.created }}</div>
-              <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">Created</div>
-            </div>
-            <div style="background: #fef2f2; padding: 12px 16px; border-radius: 8px; text-align: center; flex: 1;">
-              <div style="font-size: 24px; font-weight: 800; color: #ef4444;">{{ importResult.failed }}</div>
-              <div style="font-size: 11px; font-weight: 700; color: #dc2626; text-transform: uppercase;">Failed</div>
-            </div>
-          </div>
-
-          <!-- Email Status -->
-          <div style="width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; text-align: center; color: #475569; font-size: 14px; font-weight: 600;" *ngIf="importResult.emails_sent !== undefined">
-            📧 Emails sent: <span style="color: #0f172a; font-weight: 800;">{{ importResult.emails_sent }}</span>
-            <span *ngIf="importResult.emails_failed > 0" style="color: #ef4444; margin-left: 8px;">· {{ importResult.emails_failed }} failed</span>
-          </div>
-
-          <!-- Done Button -->
-          <button class="btn btn-primary" style="width: 100%; margin-top: 12px; padding: 12px; border-radius: 8px; font-weight: 700; background: #2563eb; color: white; border: none; cursor: pointer;" (click)="closeImportResult()">
-            Done
-          </button>
-        </div>
-
-      </div>
-    </ng-template>
-  </ion-modal>
+  <app-import-result-modal
+    [isOpen]="showImportResult"
+    [result]="importResult"
+    (dismiss)="closeImportResult()">
+  </app-import-result-modal>
 
   <!-- Bulk Email Modal -->
-  <ion-modal [isOpen]="showBulkEmailModal" (ionModalDidDismiss)="closeBulkEmailModal()">
-    <ng-template>
-      <ion-header><ion-toolbar class="modal-toolbar"><ion-title>Send Bulk Email</ion-title><ion-buttons slot="end"><ion-button (click)="closeBulkEmailModal()">Cancel</ion-button></ion-buttons></ion-toolbar></ion-header>
-      <ion-content class="modal-content">
-        <div class="modal-body">
-          <div class="modal-info-banner"><strong>{{ selectedStudentsForEmail.length }}</strong> students will receive this email</div>
-          <div class="modal-field"><label class="field-label">Email Type</label><ion-select [(ngModel)]="emailType" interface="popover" class="modal-select"><ion-select-option value="custom">Custom Message</ion-select-option><ion-select-option value="credentials">Send Login Credentials</ion-select-option><ion-select-option value="exam_reminder">Exam Reminder</ion-select-option></ion-select></div>
-          <div class="modal-field" *ngIf="emailType === 'custom'"><label class="field-label">Subject</label><ion-input [(ngModel)]="emailSubject" class="modal-input" placeholder="Email subject..."></ion-input></div>
-          <div class="modal-field" *ngIf="emailType === 'custom'"><label class="field-label">Message</label><ion-textarea [(ngModel)]="emailMessage" rows="5" class="modal-textarea" placeholder="Your message..."></ion-textarea></div>
-          <div class="modal-actions">
-            <button class="btn btn-ghost" (click)="closeBulkEmailModal()">Cancel</button>
-            <button class="btn btn-primary" (click)="sendBulkEmail()" [disabled]="emailType === 'custom' && !emailMessage">Send Email</button>
-          </div>
-        </div>
-      </ion-content>
-    </ng-template>
-  </ion-modal>
+  <app-bulk-email-modal
+    [isOpen]="showBulkEmailModal"
+    [selectedCount]="selectedStudentsForEmail.length"
+    [emailType]="emailType"
+    [emailSubject]="emailSubject"
+    [emailMessage]="emailMessage"
+    (dismiss)="closeBulkEmailModal()"
+    (send)="onSendBulkEmailFromModal($event)">
+  </app-bulk-email-modal>
 
   <!-- Bulk Action Bar -->
   <div class="bulk-action-bar" *ngIf="selectedStudentsForEmail.length > 0">
@@ -997,106 +313,36 @@
     </div>
   </div>
 
-  <!-- Timetable Modal -->
-  
-
-
-
   <!-- Bulk Schedule Modal -->
-  <ion-modal [isOpen]="showBulkScheduleModal" (ionModalDidDismiss)="closeBulkScheduleModal()">
-    <ng-template>
-      <ion-header><ion-toolbar class="modal-toolbar"><ion-title>📅 Schedule {{ selectedStudentsForEmail.length }} Students</ion-title><ion-buttons slot="end"><ion-button (click)="closeBulkScheduleModal()">Cancel</ion-button></ion-buttons></ion-toolbar></ion-header>
-      <ion-content class="modal-content">
-        <div class="modal-body">
-          <div class="modal-field"><label class="field-label">Start Date & Time *</label><input type="datetime-local" class="field-input" [(ngModel)]="bulkScheduleStart" [min]="minDateTime" /></div>
-          <div class="modal-field"><label class="field-label">End Date & Time *</label><input type="datetime-local" class="field-input" [(ngModel)]="bulkScheduleEnd" [min]="bulkScheduleStart" /></div>
-          <div class="modal-field"><label class="field-label">Topics</label><ion-input [(ngModel)]="bulkScheduleTopics" class="modal-input" placeholder="Python, OOP"></ion-input></div>
-          <div class="modal-field">
-            <label class="toggle-wrap"><input type="checkbox" [(ngModel)]="bulkScheduleSendEmail" /><span class="toggle-slider"></span><span class="toggle-label">Send email notification</span></label>
-          </div>
-          <button class="btn btn-primary" style="width:100%;margin-top:1rem" (click)="applyBulkScheduleToSelected()" [disabled]="!bulkScheduleStart || !bulkScheduleEnd">Apply Schedule</button>
-        </div>
-      </ion-content>
-    </ng-template>
-  </ion-modal>
+  <app-bulk-schedule-modal
+    [isOpen]="showBulkScheduleModal"
+    [selectedCount]="selectedStudentsForEmail.length"
+    [minDateTime]="minDateTime"
+    [bulkScheduleStart]="bulkScheduleStart"
+    [bulkScheduleEnd]="bulkScheduleEnd"
+    [bulkScheduleTopics]="bulkScheduleTopics"
+    [bulkScheduleSendEmail]="bulkScheduleSendEmail"
+    (dismiss)="closeBulkScheduleModal()"
+    (apply)="onApplyBulkScheduleFromModal($event)">
+  </app-bulk-schedule-modal>
 
-  <!-- Create Group Modal (Fully Visible & Clean) -->
-  <ion-modal class="auto-fit-modal" [isOpen]="showCreateGroupModal" (ionModalDidDismiss)="showCreateGroupModal = false">
-    <ng-template>
-      <div style="background: #ffffff; color: #1e293b; width: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; font-family: inherit;">
-        
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid #e2e8f0;">
-          <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a;">Create New Group</h2>
-          <button style="background: none; border: none; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer;" (click)="showCreateGroupModal = false">Cancel</button>
-        </div>
+  <!-- Create Group Modal -->
+  <app-create-group-modal
+    [isOpen]="showCreateGroupModal"
+    [groupName]="groupName"
+    (dismiss)="showCreateGroupModal = false"
+    (create)="onCreateGroupFromModal($event)">
+  </app-create-group-modal>
 
-        <!-- Body Content -->
-        <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-          <div style="text-align: center; font-size: 36px; margin-bottom: 2px;">👥</div>
-          
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px; letter-spacing: 0.5px;">GROUP NAME *</label>
-            <input type="text" [(ngModel)]="groupName" placeholder="e.g. Python Batch Jan 2026" autofocus style="width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; font-size: 14px; outline: none; box-sizing: border-box;" />
-          </div>
-
-          
-
-          <div style="font-size: 13px; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; line-height: 1.4;">
-            An empty group will be created. You can add students from the group detail view.
-          </div>
-
-          <!-- Actions Footer (Right below the text) -->
-          <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px; border-top: 1px solid #e2e8f0; margin-top: 4px;">
-            <button style="padding: 10px 18px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; font-weight: 600; cursor: pointer;" (click)="showCreateGroupModal = false">Cancel</button>
-            <button style="padding: 10px 20px; border-radius: 8px; border: none; background: #2563eb; color: #ffffff; font-weight: 600; cursor: pointer;" [disabled]="!groupName || !groupName.trim()" [style.opacity]="(!groupName || !groupName.trim()) ? '0.5' : '1'" (click)="createGroup()">✅ Create Group</button>
-          </div>
-        </div>
-
-      </div>
-    </ng-template>
-  </ion-modal>
-
-  <!-- Create Group from Selection (Fixed & Visible) -->
-  <ion-modal [isOpen]="showCreateBatchModal" (ionModalDidDismiss)="showCreateBatchModal = false">
-    <ng-template>
-      <div style="background: var(--dip-surface, #ffffff); width: 100%; height: 100%; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden;">
-        <ion-header class="ion-no-border">
-          <ion-toolbar class="modal-toolbar">
-            <ion-title>Create Group from Selection</ion-title>
-            <ion-buttons slot="end">
-              <ion-button (click)="showCreateBatchModal = false">Cancel</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
-
-        <div style="padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px;">
-          <div style="text-align: center; font-size: 36px; margin-bottom: 8px;">👥</div>
-          
-          <div class="modal-field">
-            <label class="field-label" style="color: var(--text-main, #333); font-weight: 600;">Group Name *</label>
-            <input type="text" [(ngModel)]="groupName" class="field-input" placeholder="e.g. Python Batch Jan 2026" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc;" />
-          </div>
-
-          
-
-          <div class="group-selection-preview" style="background: #f9f9f9; padding: 12px; border-radius: 8px;">
-            <div class="gsp-label" style="font-weight: 500; margin-bottom: 6px;">{{ selectedStudentsForEmail.length }} students selected:</div>
-            <div class="gsp-chips" style="display: flex; flex-wrap: wrap; gap: 6px;">
-              <span class="gsp-chip" *ngFor="let u of selectedStudentsForEmail" style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                {{ getStudentName(u) }}
-              </span>
-            </div>
-          </div>
-
-          <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 12px;">
-            <button class="btn btn-ghost" (click)="showCreateBatchModal = false">Cancel</button>
-            <button class="btn btn-primary" (click)="createGroupFromSelection()" [disabled]="!groupName.trim() || selectedStudentsForEmail.length < 1">✅ Create Group ({{ selectedStudentsForEmail.length }})</button>
-          </div>
-        </div>
-      </div>
-    </ng-template>
-  </ion-modal>
+  <!-- Create Group from Selection -->
+  <app-create-batch-selection-modal
+    [isOpen]="showCreateBatchModal"
+    [groupName]="groupName"
+    [selectedStudents]="selectedStudentsForEmail"
+    [studentNameMap]="studentNameMap"
+    (dismiss)="showCreateBatchModal = false"
+    (create)="onCreateBatchGroupFromModal($event)">
+  </app-create-batch-selection-modal>
 
   <!-- ============================================ -->
   <!-- GROUP DETAIL MODAL (Themed & Fully Populated)-->
@@ -1443,197 +689,54 @@
     </ng-template>
   </ion-modal>
 
-  <!-- ============================================ -->
-  <!-- INDIVIDUAL TIMETABLE MODAL (Must be at the very bottom) -->
-  <!-- ============================================ -->
-  <ion-modal class="auto-fit-modal" [isOpen]="showTimetableModal" (ionModalDidDismiss)="showTimetableModal = false">
-    <ng-template>
-      <div style="background: var(--dip-surface, #ffffff); width: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
-        
-        <ion-header class="ion-no-border">
-          <ion-toolbar class="modal-toolbar">
-            <ion-title>📅 Schedule: {{ selectedStudentForTimetable }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button (click)="showTimetableModal = false">Close</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
+  <!-- Individual Timetable Modal -->
+  <app-student-timetable-modal
+    [isOpen]="showTimetableModal"
+    [studentUsername]="selectedStudentForTimetable"
+    [minDateOnly]="minDateOnly"
+    [startDateOnly]="startDateOnly"
+    [startTimeOnly]="startTimeOnly"
+    [startAmPm]="startAmPm"
+    [endDateOnly]="endDateOnly"
+    [endTimeOnly]="endTimeOnly"
+    [endAmPm]="endAmPm"
+    [timetableTopics]="timetableTopics"
+    [hasCurrentTimetable]="!!currentTimetable"
+    [isSaving]="timetableSaving"
+    (dismiss)="showTimetableModal = false"
+    (save)="onSaveStudentTimetableFromModal($event)"
+    (delete)="deleteTimetable()">
+  </app-student-timetable-modal>
 
-        <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
-          
-          <div class="modal-field">
-            <label class="field-label">Start Date & Time</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="date" class="field-input" [(ngModel)]="startDateOnly" style="flex: 2;" [min]="minDateOnly" />
-              <input type="time" class="field-input" [(ngModel)]="startTimeOnly" style="flex: 1.5;" />
-              <select class="field-select" [(ngModel)]="startAmPm" style="flex: 1;">
-                <option value="AM">AM</option><option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
+  <!-- Group Settings Modal -->
+  <app-group-settings-modal
+    [isOpen]="showGroupSettingsModal"
+    [groupName]="selectedGroup?.name || ''"
+    [allClasses]="allClasses"
+    [availableCategories]="availableCategoriesForGroup"
+    [groupSettings]="groupSettings"
+    (dismiss)="showGroupSettingsModal = false"
+    (save)="saveGroupSettings()"
+    (addClass)="pendingClassSelection = $event; addClassToGroup()"
+    (removeClass)="removeClassFromGroup($event)"
+    (toggleCategory)="toggleGroupCategorySelection($event)">
+  </app-group-settings-modal>
 
-          <div class="modal-field">
-            <label class="field-label">End Date & Time</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="date" class="field-input" [(ngModel)]="endDateOnly" style="flex: 2;" [min]="startDateOnly" />
-              <input type="time" class="field-input" [(ngModel)]="endTimeOnly" style="flex: 1.5;" />
-              <select class="field-select" [(ngModel)]="endAmPm" style="flex: 1;">
-                <option value="AM">AM</option><option value="PM">PM</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="modal-field">
-            <label class="field-label">Message / Instructions (Optional)</label>
-            <textarea class="field-textarea" [(ngModel)]="timetableTopics" rows="3" placeholder="e.g. Prepare for Python & Data Structures interview..."></textarea>
-          </div>
-
-          <div class="modal-actions">
-            <button class="btn btn-danger-outline" *ngIf="currentTimetable" (click)="deleteTimetable()" [disabled]="timetableSaving">Delete</button>
-            <button class="btn btn-primary" (click)="setTimetableStrict12Hour()" [disabled]="timetableSaving" style="display: flex; align-items: center;">
-              <div class="loading-spinner" *ngIf="timetableSaving" style="width:14px;height:14px;margin-right:8px;border-width:2px;border-color:rgba(255,255,255,.3);border-top-color:white"></div>
-              {{ timetableSaving ? 'Saving...' : '💾 Save Schedule' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </ng-template>
-  </ion-modal>
-
-  <!-- ============================================ -->
-  <!-- GROUP SETTINGS MODAL                         -->
-  <!-- ============================================ -->
-  <ion-modal class="auto-fit-modal" [isOpen]="showGroupSettingsModal" (ionModalDidDismiss)="showGroupSettingsModal = false">
-    <ng-template>
-      <div style="background: var(--dip-surface, #ffffff); width: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
-        
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--dip-border);">
-          <h2 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--dip-text-primary);">⚙️ Group Settings: {{ selectedGroup?.name }}</h2>
-          <button style="background: none; border: none; font-size: 14px; font-weight: 600; color: var(--dip-text-secondary); cursor: pointer;" (click)="showGroupSettingsModal = false">✕ Close</button>
-        </div>
-
-        <!-- Body Content -->
-        <div class="modal-body" style="overflow-y: auto; max-height: 80vh; padding: 24px;">
-          
-          <!-- ============================================== -->
-          <!-- SECTION 1: Scope Selection (Class & Category)  -->
-          <!-- ============================================== -->
-          <div style="margin-bottom: 24px;">
-            <label style="display: block; font-size: 13px; font-weight: 800; color: var(--dip-text-primary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
-              1. Topic-Wise Question Distribution
-            </label>
-
-            <!-- Class Selection Row -->
-            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px;">
-              <select [(ngModel)]="pendingClassSelection" style="flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--dip-border); background: var(--dip-surface); color: var(--dip-text-primary); font-weight: 600; outline: none; cursor: pointer;">
-                <option value="" disabled hidden>Choose Class...</option>
-                <option *ngFor="let cls of allClasses" [value]="cls">{{ cls }}</option>
-              </select>
-              <button (click)="addClassToGroup()" [disabled]="!pendingClassSelection" style="background: var(--dip-brand-1); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s;" [style.opacity]="!pendingClassSelection ? '0.5' : '1'">
-                + Add Class
-              </button>
-            </div>
-
-            <!-- Added Classes Chips -->
-            <div *ngIf="groupSettings.selectedClasses.length > 0" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; padding: 12px; background: var(--dip-bg-secondary); border-radius: 8px; border: 1px dashed var(--dip-border);">
-              <span *ngFor="let cls of groupSettings.selectedClasses" style="display: inline-flex; align-items: center; gap: 6px; background: var(--dip-surface); border: 1px solid var(--dip-border); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; color: var(--dip-text-primary);">
-                {{ cls }}
-                <button (click)="removeClassFromGroup(cls)" style="background: rgba(239,68,68,0.1); color: var(--dip-danger); border: none; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 10px;">✕</button>
-              </span>
-            </div>
-
-            <!-- Auto-Fetched Categories -->
-            <div *ngIf="groupSettings.selectedClasses.length > 0">
-              <label style="display: block; font-size: 12px; font-weight: 700; color: var(--dip-text-secondary); margin-bottom: 10px;">Select Categories for the above classes:</label>
-              
-              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <span *ngFor="let cat of availableCategoriesForGroup" 
-                      (click)="toggleGroupCategorySelection(cat)"
-                      [style.background]="groupSettings.selectedCategories.includes(cat) ? 'var(--dip-brand-1)' : 'var(--dip-surface)'"
-                      [style.color]="groupSettings.selectedCategories.includes(cat) ? '#ffffff' : 'var(--dip-text-primary)'"
-                      [style.borderColor]="groupSettings.selectedCategories.includes(cat) ? 'var(--dip-brand-1)' : 'var(--dip-border)'"
-                      style="cursor: pointer; border: 1px solid; font-weight: 600; padding: 8px 16px; border-radius: 8px; transition: 0.2s; font-size: 13px;">
-                  {{ groupSettings.selectedCategories.includes(cat) ? '☑' : '☐' }} {{ cat }}
-                </span>
-                <div *ngIf="availableCategoriesForGroup.length === 0" style="font-size: 13px; color: var(--dip-text-secondary); font-style: italic;">
-                  No categories found.
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <hr style="border: 0; border-top: 1px dashed var(--dip-border); margin: 24px 0;">
-
-          <!-- ============================================== -->
-          <!-- SECTION 2: Exam Rules & Question Quantity      -->
-          <!-- ============================================== -->
-          <div>
-            <label style="display: block; font-size: 13px; font-weight: 800; color: var(--dip-text-primary); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em;">
-              2. Exam Rules & Question Quantity
-            </label>
-
-            <!-- Typing Toggle -->
-            <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px; background: var(--dip-bg-secondary); padding: 12px 16px; border-radius: 8px;">
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" [(ngModel)]="groupSettings.allowTyping" style="width: 18px; height: 18px; accent-color: var(--dip-brand-1);" />
-                <span style="font-weight: 700; font-size: 14px; color: var(--dip-text-primary);">Enable Keyboard Typing</span>
-              </label>
-              <span style="font-size: 12px; color: var(--dip-text-secondary);">(Disable to force Voice-only answers)</span>
-            </div>
-
-            <!-- Dynamic Rows for Selected Categories -->
-            <div *ngIf="groupSettings.topicDistribution.length > 0" style="display: flex; flex-direction: column; gap: 12px;">
-              
-              <div *ngFor="let row of groupSettings.topicDistribution" style="display: flex; justify-content: space-between; align-items: center; background: var(--dip-surface); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--dip-border);">
-                
-                <!-- Category Name -->
-                <div style="flex: 1; font-size: 14px; font-weight: 800; color: var(--dip-brand-1);">
-                  {{ row.topic }}
-                </div>
-
-                <!-- L1, L2, L3 Inputs -->
-                <div style="display: flex; align-items: center; gap: 16px;">
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;" title="Level 1 (Easy)">
-                    <span style="font-size: 11px; font-weight: 800; color: #10B981;">L1</span>
-                    <input type="number" [(ngModel)]="row.l1" style="width: 45px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid var(--dip-border); font-weight: 800; outline: none; font-size: 13px;" min="0" />
-                  </div>
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;" title="Level 2 (Medium)">
-                    <span style="font-size: 11px; font-weight: 800; color: #F59E0B;">L2</span>
-                    <input type="number" [(ngModel)]="row.l2" style="width: 45px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid var(--dip-border); font-weight: 800; outline: none; font-size: 13px;" min="0" />
-                  </div>
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;" title="Level 3 (Hard)">
-                    <span style="font-size: 11px; font-weight: 800; color: #EF4444;">L3</span>
-                    <input type="number" [(ngModel)]="row.l3" style="width: 45px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid var(--dip-border); font-weight: 800; outline: none; font-size: 13px;" min="0" />
-                  </div>
-                </div>
-
-              </div>
-
-              <!-- Total Questions Calculator Badge -->
-              <div style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; padding: 8px 16px; border-radius: 8px;">
-                <span style="font-size: 13px; font-weight: 700; color: var(--dip-text-secondary); margin-right: 12px;">Total Questions Selected:</span>
-                <span style="font-size: 20px; font-weight: 900; color: var(--dip-text-primary);">{{ getTopicQuestionsSum() }}</span>
-              </div>
-
-            </div>
-            
-            <div *ngIf="groupSettings.topicDistribution.length === 0" style="padding: 20px; background: var(--dip-bg-secondary); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--dip-text-secondary); text-align: center; border: 1px dashed var(--dip-border);">
-              Please select at least one Category above to set L1, L2, L3 quantities.
-            </div>
-
-          </div>
-
-          <!-- Actions -->
-          <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--dip-border); padding-top: 16px;">
-            <button class="btn btn-ghost" style="padding: 10px 20px; font-weight: 600; color: var(--dip-text-secondary); background: transparent; border: none; cursor: pointer;" (click)="showGroupSettingsModal = false">Cancel</button>
-            <button class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; background: var(--dip-brand-1); color: white; border: none; border-radius: 8px; cursor: pointer;" (click)="saveGroupSettings()">💾 Save Settings</button>
-          </div>
-
-        </div>
-      </div>
-    </ng-template>
-  </ion-modal>
+  <!-- Group Schedule Modal -->
+  <app-group-schedule-modal
+    [isOpen]="showGroupScheduleModal"
+    [groupName]="selectedGroup?.name || ''"
+    [minDateOnly]="minDateOnly"
+    [groupStartDateOnly]="groupStartDateOnly"
+    [groupStartTimeOnly]="groupStartTimeOnly"
+    [groupStartAmPm]="groupStartAmPm"
+    [groupEndDateOnly]="groupEndDateOnly"
+    [groupEndTimeOnly]="groupEndTimeOnly"
+    [groupEndAmPm]="groupEndAmPm"
+    [groupScheduleMessage]="groupScheduleMessage"
+    [isLoading]="timetableSaving"
+    (dismiss)="showGroupScheduleModal = false"
+    (apply)="onApplyGroupScheduleFromModal($event)">
+  </app-group-schedule-modal>
 
 </ion-content>

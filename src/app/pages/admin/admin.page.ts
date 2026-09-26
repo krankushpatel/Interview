@@ -11,11 +11,53 @@ import { AddStudentModalComponent } from '../../components/add-student-modal/add
 import { LiveViewModalComponent } from '../../components/live-view-modal/live-view-modal.component';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ProctoringLogsModalComponent } from '../../components/proctoring-logs-modal/proctoring-logs-modal.component';
+import {
+  AdminOverviewComponent,
+  AdminSubmissionsComponent,
+  AdminStudentsComponent,
+  AdminQuestionsComponent,
+  AdminRecordingsComponent,
+  AdminSessionLogsComponent,
+  AdminBulkImportComponent,
+  AdminLiveTrackingComponent,
+  AdminSettingsComponent,
+  BulkEmailModalComponent,
+  BulkScheduleModalComponent,
+  CreateBatchSelectionModalComponent,
+  CreateGroupModalComponent,
+  EditQuestionModalComponent,
+  GroupScheduleModalComponent,
+  GroupSettingsModalComponent,
+  ImportResultModalComponent,
+  StudentTimetableModalComponent
+} from './components';
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    IonicModule,
+    AdminOverviewComponent,
+    AdminSubmissionsComponent,
+    AdminStudentsComponent,
+    AdminQuestionsComponent,
+    AdminRecordingsComponent,
+    AdminSessionLogsComponent,
+    AdminBulkImportComponent,
+    AdminLiveTrackingComponent,
+    AdminSettingsComponent,
+    BulkEmailModalComponent,
+    BulkScheduleModalComponent,
+    CreateBatchSelectionModalComponent,
+    CreateGroupModalComponent,
+    EditQuestionModalComponent,
+    GroupScheduleModalComponent,
+    GroupSettingsModalComponent,
+    ImportResultModalComponent,
+    StudentTimetableModalComponent
+  ],
   templateUrl: './admin.page.html',
   styleUrls: ['./admin.page.scss'],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
@@ -296,7 +338,7 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
-  async setView(view: 'overview' | 'submissions' | 'students' | 'questions' | 'examvids' | 'screenvids' | 'sessionlogs' | 'bulkimport' | 'live' | 'settings') {
+  async setView(view: any) {
     this.activeView = view;
 
     // ⚡ Real-Time WebSocket: Sirf Students ya Live Tracking tab par active rahega, baki tabs par closed
@@ -1832,10 +1874,10 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
-  async deleteGroup(groupId: string, groupName?: string) {
+  async deleteGroup(groupId: string | number, groupName?: string) {
     if (!confirm(`Are you sure you want to delete group "${groupName || groupId}"?`)) return;
     try {
-      await this.adminService.deleteBatch(groupId);
+      await this.adminService.deleteBatch(String(groupId));
       this.showToast('Group deleted successfully', 'success');
       this.showGroupDetailModal = false;
       if (this.selectedGroup && this.selectedGroup.id === groupId) {
@@ -1847,7 +1889,7 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
-  openGroupDetail(group: any, tab: 'students' | 'settings' = 'students') {
+  openGroupDetail(group: any, tab: any = 'students') {
     this.selectedGroup = group;
     this.selectedBatch = group;
     this.activeGroupTab = tab;
@@ -1927,6 +1969,123 @@ export class AdminPage implements OnInit, OnDestroy {
 
   async setTimetable() {
     await this.setTimetableStrict12Hour();
+  }
+
+  // ============================================
+  // CHILD COMPONENT INTEGRATION HELPERS
+  // ============================================
+  get answerCounts(): Record<string, number> {
+    const map: Record<string, number> = {};
+    for (const s of this.submissions) {
+      if (s.username) map[s.username] = (map[s.username] || 0) + 1;
+    }
+    return map;
+  }
+
+  get videoCounts(): Record<string, number> {
+    const map: Record<string, number> = {};
+    for (const s of this.submissions) {
+      if (s.username && s.has_video) map[s.username] = (map[s.username] || 0) + 1;
+    }
+    return map;
+  }
+
+  get studentNames(): Record<string, string> {
+    const map: Record<string, string> = {};
+    for (const st of this.students) {
+      if (st.username) map[st.username] = st.name || st.username;
+    }
+    return map;
+  }
+
+  get studentNameMap(): Record<string, string> {
+    return this.studentNames;
+  }
+
+  onSubmissionsFilterChange(f: { search: string; student: string; category: string }) {
+    this.searchTerm = f.search;
+    this.filterStudent = f.student;
+    this.filterCategory = f.category;
+    this.applyFilters();
+  }
+
+  async onAddQuestionFromComponent(data: { text: string; category: string; difficulty: string }) {
+    this.newQuestionText = data.text;
+    this.newQuestionCategory = data.category;
+    this.newQuestionDifficulty = data.difficulty;
+    await this.addQuestion();
+  }
+
+  onQuestionFilterChange(filters: { category: string; difficulty: string }) {
+    this.questionFilterCategory = filters.category;
+    this.filterDifficulty = filters.difficulty;
+    this.applyQuestionsFilters();
+  }
+
+  async onSaveEditQuestionFromModal(payload: { text: string; category: string; difficulty: string }) {
+    this.editQuestionText = payload.text;
+    this.editQuestionCategory = payload.category;
+    this.editQuestionDifficulty = payload.difficulty;
+    await this.saveEditQuestion();
+  }
+
+  async onSendBulkEmailFromModal(payload: { emailType: string; emailSubject: string; emailMessage: string }) {
+    this.emailType = payload.emailType;
+    this.emailSubject = payload.emailSubject;
+    this.emailMessage = payload.emailMessage;
+    await this.sendBulkEmail();
+  }
+
+  async onApplyBulkScheduleFromModal(payload: { bulkScheduleStart: string; bulkScheduleEnd: string; bulkScheduleTopics: string; bulkScheduleSendEmail: boolean }) {
+    this.bulkScheduleStart = payload.bulkScheduleStart;
+    this.bulkScheduleEnd = payload.bulkScheduleEnd;
+    this.bulkScheduleTopics = payload.bulkScheduleTopics;
+    this.bulkScheduleSendEmail = payload.bulkScheduleSendEmail;
+    await this.applyBulkScheduleToSelected();
+  }
+
+  async onCreateGroupFromModal(name: string) {
+    this.groupName = name;
+    await this.createGroup();
+  }
+
+  async onCreateBatchGroupFromModal(name: string) {
+    this.groupName = name;
+    await this.createGroupFromSelection();
+  }
+
+  async onApplyGroupScheduleFromModal(payload: any) {
+    this.groupStartDateOnly = payload.groupStartDateOnly;
+    this.groupStartTimeOnly = payload.groupStartTimeOnly;
+    this.groupStartAmPm = payload.groupStartAmPm;
+    this.groupEndDateOnly = payload.groupEndDateOnly;
+    this.groupEndTimeOnly = payload.groupEndTimeOnly;
+    this.groupEndAmPm = payload.groupEndAmPm;
+    this.groupScheduleMessage = payload.groupScheduleMessage;
+    await this.applyGroupScheduleStrict12Hour();
+  }
+
+  async onSaveStudentTimetableFromModal(payload: any) {
+    this.startDateOnly = payload.startDateOnly;
+    this.startTimeOnly = payload.startTimeOnly;
+    this.startAmPm = payload.startAmPm;
+    this.endDateOnly = payload.endDateOnly;
+    this.endTimeOnly = payload.endTimeOnly;
+    this.endAmPm = payload.endAmPm;
+    this.timetableTopics = payload.timetableTopics;
+    await this.setTimetableStrict12Hour();
+  }
+
+  addClassToGroupDirect(cls: string) {
+    if (cls && !this.groupSettings.selectedClasses.includes(cls)) {
+      this.groupSettings.selectedClasses.push(cls);
+      this.fetchCategoriesForClasses();
+    }
+  }
+
+  async saveSettingsFromComponent(settings: any) {
+    this.examSettings = settings;
+    await this.saveSettings();
   }
 
 }

@@ -205,7 +205,7 @@ export class SpeechService {
       if (opts.punctuate !== undefined) params.set('punctuate', opts.punctuate ? 'true' : 'false');
       if (opts.smart_format !== undefined) params.set('smart_format', opts.smart_format ? 'true' : 'false');
       if (opts.keywords && opts.keywords.length > 0) {
-        opts.keywords.forEach(k => params.append('keywords', k));
+        opts.keywords.forEach((k: string) => params.append('keywords', k));
         if (opts.keyword_boost) params.set('keyword_boost', opts.keyword_boost.toString());
       }
       const qs = params.toString() ? `?${params.toString()}` : '';
