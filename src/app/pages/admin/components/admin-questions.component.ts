@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Question } from '../../../services/admin.service';
@@ -65,11 +65,11 @@ export interface AddQuestionData {
                   class="field-input"
                   [(ngModel)]="categorySearchText"
                   (input)="filterCategories()"
-                  (focus)="showCategoryDropdown = true; filterCategories()"
+                  (focus)="openCategoryDropdown()"
                   placeholder="Search or select category..."
                   autocomplete="off"
                 />
-                <span class="dropdown-chevron" (click)="showCategoryDropdown = !showCategoryDropdown">▾</span>
+                <span class="dropdown-chevron" (click)="toggleCategoryDropdown()">▾</span>
               </div>
               <div class="dropdown-list" *ngIf="showCategoryDropdown">
                 <div
@@ -232,7 +232,7 @@ export interface AddQuestionData {
     </div>
   `
 })
-export class AdminQuestionsComponent {
+export class AdminQuestionsComponent implements OnInit, OnChanges {
   @Input() totalQuestions: number = 0;
   @Input() paginatedQuestions: Question[] = [];
   @Input() uniqueCategories: string[] = [];
@@ -263,9 +263,38 @@ export class AdminQuestionsComponent {
   showCategoryDropdown: boolean = false;
   filteredCategories: string[] = [];
 
+  ngOnInit() {
+    this.filterCategories();
+  }
+
+  ngOnChanges(_changes: SimpleChanges) {
+    this.filterCategories();
+  }
+
+  openCategoryDropdown() {
+    this.showCategoryDropdown = true;
+    this.filterCategories();
+  }
+
+  toggleCategoryDropdown() {
+    this.showCategoryDropdown = !this.showCategoryDropdown;
+    if (this.showCategoryDropdown) {
+      this.filterCategories();
+    }
+  }
+
+  getCombinedCategories(): string[] {
+    const set = new Set<string>();
+    (this.allCategories || []).forEach(c => c && set.add(c.trim()));
+    (this.uniqueCategories || []).forEach(c => c && set.add(c.trim()));
+    if (set.size === 0) set.add('General');
+    return Array.from(set).sort();
+  }
+
   filterCategories() {
-    const q = (this.categorySearchText || '').toLowerCase();
-    this.filteredCategories = this.allCategories.filter(c => c.toLowerCase().includes(q));
+    const list = this.getCombinedCategories();
+    const q = (this.categorySearchText || '').toLowerCase().trim();
+    this.filteredCategories = q ? list.filter(c => c.toLowerCase().includes(q)) : list;
   }
 
   selectCategory(cat: string) {
@@ -274,8 +303,12 @@ export class AdminQuestionsComponent {
   }
 
   addNewCategory() {
-    if (this.categorySearchText && !this.allCategories.includes(this.categorySearchText)) {
-      this.allCategories.push(this.categorySearchText);
+    const val = (this.categorySearchText || '').trim();
+    if (val) {
+      if (!this.allCategories.includes(val)) {
+        this.allCategories.push(val);
+      }
+      this.filterCategories();
     }
     this.showCategoryDropdown = false;
   }

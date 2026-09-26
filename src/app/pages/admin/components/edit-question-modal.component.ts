@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -40,11 +40,11 @@ export interface EditQuestionPayload {
                     class="field-input"
                     [(ngModel)]="category"
                     (input)="filterCategories()"
-                    (focus)="showCategoryDropdown = true; filterCategories()"
+                    (focus)="openCategoryDropdown()"
                     placeholder="Search or select category..."
                     autocomplete="off"
                   />
-                  <span class="dropdown-chevron" (click)="showCategoryDropdown = !showCategoryDropdown">▾</span>
+                  <span class="dropdown-chevron" (click)="toggleCategoryDropdown()">▾</span>
                 </div>
                 <div class="dropdown-list" *ngIf="showCategoryDropdown">
                   <div *ngFor="let cat of filteredCategories" class="dropdown-item" (click)="selectCategory(cat)">
@@ -88,7 +88,7 @@ export interface EditQuestionPayload {
     </ion-modal>
   `
 })
-export class EditQuestionModalComponent {
+export class EditQuestionModalComponent implements OnInit, OnChanges {
   @Input() isOpen: boolean = false;
   @Input() text: string = '';
   @Input() category: string = '';
@@ -102,9 +102,30 @@ export class EditQuestionModalComponent {
   showCategoryDropdown: boolean = false;
   filteredCategories: string[] = [];
 
+  ngOnInit() {
+    this.filterCategories();
+  }
+
+  ngOnChanges(_changes: SimpleChanges) {
+    this.filterCategories();
+  }
+
+  openCategoryDropdown() {
+    this.showCategoryDropdown = true;
+    this.filterCategories();
+  }
+
+  toggleCategoryDropdown() {
+    this.showCategoryDropdown = !this.showCategoryDropdown;
+    if (this.showCategoryDropdown) {
+      this.filterCategories();
+    }
+  }
+
   filterCategories() {
-    const q = (this.category || '').toLowerCase();
-    this.filteredCategories = this.allCategories.filter(c => c.toLowerCase().includes(q));
+    const list = (this.allCategories && this.allCategories.length > 0) ? this.allCategories : ['General'];
+    const q = (this.category || '').toLowerCase().trim();
+    this.filteredCategories = q ? list.filter(c => c.toLowerCase().includes(q)) : list;
   }
 
   selectCategory(cat: string) {
@@ -113,8 +134,12 @@ export class EditQuestionModalComponent {
   }
 
   addNewCategory() {
-    if (this.category && !this.allCategories.includes(this.category)) {
-      this.allCategories.push(this.category);
+    const val = (this.category || '').trim();
+    if (val) {
+      if (!this.allCategories.includes(val)) {
+        this.allCategories.push(val);
+      }
+      this.filterCategories();
     }
     this.showCategoryDropdown = false;
   }

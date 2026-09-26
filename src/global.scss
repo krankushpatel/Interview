@@ -63,13 +63,27 @@
   --bg-surface-2:    #F1F5F9;
   --bg-elevated:     #FFFFFF;
 
-  // Sidebar
-  --sidebar-bg:      #0F172A;
-  --sidebar-text:    #94A3B8;
-  --sidebar-hover:   rgba(255,255,255,0.06);
-  --sidebar-active-bg: rgba(79,70,229,0.16);
-  --sidebar-border:  rgba(255,255,255,0.07);
-  --sidebar-width:   248px;
+  // Sidebar (Default Light Theme)
+  --sidebar-bg:                #FFFFFF;
+  --sidebar-text:              #475569;
+  --sidebar-text-hover:        #0F172A;
+  --sidebar-hover:             #F1F5F9;
+  --sidebar-active-bg:         rgba(79, 70, 229, 0.08);
+  --sidebar-active-text:       #4F46E5;
+  --sidebar-active-icon:       #4F46E5;
+  --sidebar-border:            #E2E8F0;
+  --sidebar-width:             248px;
+  --sidebar-brand-name:        #0F172A;
+  --sidebar-tagline:           #64748B;
+  --sidebar-section-label:     #94A3B8;
+  --sidebar-footer-bg:         #F8FAFC;
+  --sidebar-uname:             #0F172A;
+  --sidebar-role:              #64748B;
+  --sidebar-logout-border:     #E2E8F0;
+  --sidebar-logout-text:       #475569;
+  --sidebar-logout-hover-bg:   #FEE2E2;
+  --sidebar-logout-hover-text: #DC2626;
+  --sidebar-logo-filter:       none;
 
   // Text
   --text-primary:    #0F172A;
@@ -136,6 +150,27 @@ body.ion-palette-dark {
 
   --ion-background-color: #0F172A;
   --ion-text-color: #F1F5F9;
+
+  // Sidebar (Dark Theme)
+  --sidebar-bg:                #0F172A;
+  --sidebar-text:              #94A3B8;
+  --sidebar-text-hover:        #F1F5F9;
+  --sidebar-hover:             rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg:         rgba(79, 70, 229, 0.20);
+  --sidebar-active-text:       #FFFFFF;
+  --sidebar-active-icon:       #818CF8;
+  --sidebar-border:            rgba(255, 255, 255, 0.08);
+  --sidebar-brand-name:        #F1F5F9;
+  --sidebar-tagline:           #94A3B8;
+  --sidebar-section-label:     rgba(148, 163, 184, 0.5);
+  --sidebar-footer-bg:         rgba(0, 0, 0, 0.25);
+  --sidebar-uname:             #E2E8F0;
+  --sidebar-role:              #94A3B8;
+  --sidebar-logout-border:     rgba(255, 255, 255, 0.08);
+  --sidebar-logout-text:       #94A3B8;
+  --sidebar-logout-hover-bg:   rgba(239, 68, 68, 0.15);
+  --sidebar-logout-hover-text: #FCA5A5;
+  --sidebar-logo-filter:       brightness(0) invert(1);
 }
 
 /* ─── LIGHT THEME OVERRIDES ─── */
@@ -158,6 +193,27 @@ html.light-theme {
 
   --ion-background-color: #F8FAFC;
   --ion-text-color: #0F172A;
+
+  // Sidebar (Light Theme)
+  --sidebar-bg:                #FFFFFF;
+  --sidebar-text:              #475569;
+  --sidebar-text-hover:        #0F172A;
+  --sidebar-hover:             #F1F5F9;
+  --sidebar-active-bg:         rgba(79, 70, 229, 0.08);
+  --sidebar-active-text:       #4F46E5;
+  --sidebar-active-icon:       #4F46E5;
+  --sidebar-border:            #E2E8F0;
+  --sidebar-brand-name:        #0F172A;
+  --sidebar-tagline:           #64748B;
+  --sidebar-section-label:     #94A3B8;
+  --sidebar-footer-bg:         #F8FAFC;
+  --sidebar-uname:             #0F172A;
+  --sidebar-role:              #64748B;
+  --sidebar-logout-border:     #E2E8F0;
+  --sidebar-logout-text:       #475569;
+  --sidebar-logout-hover-bg:   #FEE2E2;
+  --sidebar-logout-hover-text: #DC2626;
+  --sidebar-logo-filter:       none;
 }
 
 /* ─── REUSABLE TOGGLE SWITCH COMPONENT ─── */

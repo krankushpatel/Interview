@@ -1,12 +1,21 @@
 from fastapi import APIRouter, Form
-from code.core.data_manager import load_categories, save_categories, db
+from code.core.data_manager import load_categories, save_categories, load_questions, db
 
 router = APIRouter()
 
 @router.get("/all")
 async def get_all_categories():
     """Get all categories"""
-    return {"categories": load_categories()}
+    cats = load_categories() or []
+    try:
+        questions = load_questions()
+        q_cats = [q.get("category") for q in questions if q.get("category")]
+        combined = sorted(list(set(cats + q_cats)))
+        if combined:
+            return {"categories": combined}
+    except Exception as e:
+        print(f"[CATEGORIES] {e}")
+    return {"categories": cats if cats else ["General"]}
 
 @router.post("/add")
 async def add_category(category: str = Form(...)):

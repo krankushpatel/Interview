@@ -332,8 +332,18 @@ export class AdminService {
 
   // ✅ Category Management APIs
   async getAllCategoriesStandalone(): Promise<string[]> {
-    const res = await lastValueFrom(this.http.get<{ categories: string[] }>(`${environment.apiUrl}/categories/all`));
-    return res.categories;
+    try {
+      const res = await lastValueFrom(this.http.get<{ categories: string[] }>(`${environment.apiUrl}/categories/all`));
+      const cats = Array.isArray(res?.categories) ? res.categories : [];
+      const qCats = await this.getCategories().catch(() => []);
+      const set = new Set<string>();
+      cats.forEach(c => c && set.add(c.trim()));
+      (qCats || []).forEach(c => c && set.add(c.trim()));
+      if (set.size === 0) set.add('General');
+      return Array.from(set).sort();
+    } catch {
+      return this.getCategories().catch(() => ['General']);
+    }
   }
 
   // ✅ Class Management API // 🟢 NAYA AUR SAHI CODE (Direct Array handle karega)

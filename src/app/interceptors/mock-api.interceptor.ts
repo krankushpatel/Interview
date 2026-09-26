@@ -101,18 +101,25 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
     })).pipe(delay(100));
   }
 
+  if (url.includes('/questions/categories/all')) {
+    return of(new HttpResponse({
+      status: 200,
+      body: { categories: ["General", "Frontend", "Backend", "Database", "System Design"] }
+    })).pipe(delay(50));
+  }
+
   if (url.includes('/questions/categories')) {
     return of(new HttpResponse({
       status: 200,
       body: ["General", "Frontend", "Backend", "Database", "System Design"]
-    })).pipe(delay(100));
+    })).pipe(delay(50));
   }
 
   if (url.includes('/categories/all')) {
     return of(new HttpResponse({
       status: 200,
       body: { categories: ["General", "Frontend", "Backend", "Database", "System Design"] }
-    })).pipe(delay(100));
+    })).pipe(delay(50));
   }
 
   // 3. Classes
@@ -148,10 +155,34 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
 
   // Recordings
   if (url.includes('/admin/exam-recordings') || url.includes('/admin/screen-recordings')) {
+    const isScreen = url.includes('/admin/screen-recordings');
     return of(new HttpResponse({
       status: 200,
-      body: { recordings: [] }
-    })).pipe(delay(100));
+      body: {
+        recordings: [
+          {
+            id: isScreen ? "screen-rec-1" : "rec-1",
+            session_id: "sess_student1_1",
+            username: "student1",
+            student_name: "Aarav Sharma",
+            video_file: isScreen ? "screen_sample.webm" : "sample_stream.mp4",
+            duration_sec: 145,
+            size_mb: 12.4,
+            submitted_at: new Date(Date.now() - 3600000).toISOString()
+          },
+          {
+            id: isScreen ? "screen-rec-2" : "rec-2",
+            session_id: "sess_student3_1",
+            username: "student3",
+            student_name: "Rohan Gupta",
+            video_file: isScreen ? "screen_sample.webm" : "sample_stream.mp4",
+            duration_sec: 180,
+            size_mb: 15.2,
+            submitted_at: new Date(Date.now() - 7200000).toISOString()
+          }
+        ]
+      }
+    })).pipe(delay(50));
   }
 
   // Timetable
@@ -167,15 +198,20 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
           is_active: true
         }
       }
-    })).pipe(delay(100));
+    })).pipe(delay(50));
   }
 
   // Proctoring events
   if (url.includes('/admin/proctoring')) {
     return of(new HttpResponse({
       status: 200,
-      body: { events: [] }
-    })).pipe(delay(100));
+      body: {
+        events: [
+          { type: "tab_switch", event: "tab_switch", message: "Tab switch detected", detail: "Switched away for 3s", timestamp: new Date(Date.now() - 3000000).toISOString() },
+          { type: "multiple_faces", event: "multiple_faces", message: "Multiple faces in frame", detail: "2 faces detected", timestamp: new Date(Date.now() - 2500000).toISOString() }
+        ]
+      }
+    })).pipe(delay(50));
   }
 
   // Results
@@ -442,8 +478,33 @@ export const mockApiInterceptor: HttpInterceptorFn = (req, next) => {
   if (url.includes('/admin/session-logs')) {
     return of(new HttpResponse({
       status: 200,
-      body: []
-    })).pipe(delay(100));
+      body: [
+        {
+          id: "log-1",
+          username: "student1",
+          action: "Exam Started",
+          details: "Student Aarav Sharma initiated full exam session",
+          timestamp: new Date(Date.now() - 7200000).toISOString(),
+          severity: "info"
+        },
+        {
+          id: "log-2",
+          username: "student2",
+          action: "Tab Switch Warning",
+          details: "Single tab switch detected and logged by proctoring engine",
+          timestamp: new Date(Date.now() - 5400000).toISOString(),
+          severity: "warning"
+        },
+        {
+          id: "log-3",
+          username: "student1",
+          action: "Exam Completed",
+          details: "All questions answered and submitted for evaluation",
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          severity: "success"
+        }
+      ]
+    })).pipe(delay(50));
   }
 
   // 9. Single Answer Evaluation
