@@ -67,10 +67,12 @@ def transform_to_internal_format(dipstick_questions: List[Dict]) -> List[Dict]:
         difficulty = BLOOM_TO_DIFFICULTY.get(bloom_level, "Easy")
         
         category = q.get("subtopic", "General")
+        q_text = q.get("question", "")
         
         internal_q = {
             "id": idx,
-            "text": q.get("question", ""),
+            "question": q_text,
+            "text": q_text,
             "category": category,
             "difficulty": difficulty,
             "type": q.get("questionType", "DESCRIPTIVE").lower(),

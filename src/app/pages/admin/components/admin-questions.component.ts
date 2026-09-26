@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Question } from '../../../services/admin.service';
 
 export interface AddQuestionData {
+  question?: string;
   text: string;
   category: string;
   difficulty: string;
@@ -15,6 +16,7 @@ export interface AddQuestionData {
   standalone: true,
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <div class="view active">
       <div class="page-header">
@@ -185,7 +187,7 @@ export interface AddQuestionData {
               </button>
             </div>
           </div>
-          <div class="q-text">{{ q.text }}</div>
+          <div class="q-text">{{ q.question || q.text }}</div>
           <div *ngIf="q.keywords && q.keywords.length > 0" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;">
             <span *ngFor="let kw of q.keywords" style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(20, 122, 131, 0.1); color: var(--dip-brand-1, #147A83); border: 1px solid rgba(20, 122, 131, 0.25); font-weight: 500;">
               {{ kw }}
@@ -280,8 +282,10 @@ export class AdminQuestionsComponent {
 
   onAddQuestion() {
     if (!this.newQuestionText.trim()) return;
+    const trimmed = this.newQuestionText.trim();
     this.addQuestion.emit({
-      text: this.newQuestionText.trim(),
+      question: trimmed,
+      text: trimmed,
       category: this.categorySearchText.trim(),
       difficulty: this.newQuestionDifficulty,
       keywords: this.newQuestionKeywords.trim()

@@ -318,11 +318,17 @@ async def get_admin_student_full_profile(username: str):
 
 @router.post("/questions/add")
 async def admin_add_question(
-    text: str = Form(...),
+    question: Optional[str] = Form(default=None),
+    text: Optional[str] = Form(default=None),
     category: str = Form(default="General"),
     difficulty: str = Form(default="Medium"),
+    keywords: Optional[str] = Form(default=None)
 ):
     try:
+        q_text = (question or text or "").strip()
+        if not q_text:
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+
         cat_name = category.strip()
         if cat_name:
             db.categories.update_one(
@@ -334,12 +340,21 @@ async def admin_add_question(
         max_q = db.questions.find_one(sort=[("id", -1)])
         next_id = (max_q["id"] + 1) if (max_q and "id" in max_q) else 1
 
+        # Process speech recognition keywords
+        if keywords and keywords.strip():
+            raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
+            kws = normalize_keywords(raw_list)
+        else:
+            kws = extract_keywords_from_text(q_text, cat_name)
+
         new_q = {
             "id": next_id,
             "category": cat_name,
             "difficulty": difficulty.strip(),
-            "text": text.strip(),
-            "class_name": "All"
+            "question": q_text,
+            "text": q_text,
+            "class_name": "All",
+            "keywords": kws
         }
         db.questions.insert_one(new_q)
         
@@ -347,19 +362,39 @@ async def admin_add_question(
         if "_id" in new_q: del new_q["_id"]
         
         return {"success": True, "question": new_q}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.post("/questions/update")
 async def admin_update_question(
     id: int = Form(...),
-    text: str = Form(...),
+    question: Optional[str] = Form(default=None),
+    text: Optional[str] = Form(default=None),
     category: str = Form(...),
-    difficulty: str = Form(...)
+    difficulty: str = Form(...),
+    keywords: Optional[str] = Form(default=None)
 ):
+    q_text = (question or text or "").strip()
+    if not q_text:
+        raise HTTPException(status_code=400, detail="Question text cannot be empty")
+
+    update_doc = {
+        "question": q_text,
+        "text": q_text,
+        "category": category.strip(),
+        "difficulty": difficulty.strip()
+    }
+    if keywords is not None and keywords.strip():
+        raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
+        update_doc["keywords"] = normalize_keywords(raw_list)
+    elif keywords is not None:
+        update_doc["keywords"] = extract_keywords_from_text(q_text, category.strip())
+
     result = db.questions.update_one(
         {"id": id},
-        {"$set": {"text": text.strip(), "category": category.strip(), "difficulty": difficulty.strip()}}
+        {"$set": update_doc}
     )
     if result.modified_count > 0 or result.matched_count > 0:
         return {"success": True}
@@ -402,7 +437,12 @@ async def bulk_import_questions_endpoint(file: UploadFile = File(...)):
             if not q_text or q_text.lower() == 'nan': continue
             total_rows += 1
 
-            exists = db.questions.find_one({"text": {"$regex": f"^{re.escape(q_text)}$", "$options": "i"}})
+            exists = db.questions.find_one({
+                "$or": [
+                    {"question": {"$regex": f"^{re.escape(q_text)}$", "$options": "i"}},
+                    {"text": {"$regex": f"^{re.escape(q_text)}$", "$options": "i"}}
+                ]
+            })
             if exists:
                 failed_count += 1
                 continue 
@@ -424,6 +464,7 @@ async def bulk_import_questions_endpoint(file: UploadFile = File(...)):
 
             new_q = {
                 "id": next_id,
+                "question": q_text,
                 "text": q_text,
                 "category": cat,
                 "difficulty": diff,

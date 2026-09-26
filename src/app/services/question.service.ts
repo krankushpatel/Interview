@@ -6,7 +6,8 @@ import { ProgressiveScore } from './progressive-evaluation.service';
 
 export interface Question {
   id: number;
-  text: string;
+  question?: string;
+  text?: string;
   category: string;
   difficulty: string;
   keywords?: string[];
@@ -56,7 +57,10 @@ export class QuestionService {
       lastValueFrom(this.http.get<any>(`${environment.apiUrl}/student/exam-status?username=${username}`)).catch(() => null)
     ]);
 
-    const allQ = questionsRes.questions || [];
+    const allQ = (questionsRes.questions || []).map(q => {
+      const qText = q.question || q.text || '';
+      return { ...q, question: qText, text: qText };
+    });
     const topicCounts = statusRes?.settings?.topicCounts;
 
     const getRandom = (arr: Question[], count: number) => {
@@ -102,10 +106,12 @@ export class QuestionService {
 
   async submitAnswer(answer: string, question: Question, answeredCount: number = 0, currentIndex: number = 0, sessionId: string): Promise<any> {
     const fd = new FormData();
+    const qText = question.question || question.text || '';
     fd.append('answer', answer);
     fd.append('username', sessionStorage.getItem('username') || 'anonymous');
     fd.append('question_id', String(question.id));
-    fd.append('question_text', question.text);
+    fd.append('question_text', qText);
+    fd.append('question', qText);
     fd.append('question_category', question.category);
     fd.append('answered_count', String(answeredCount));
     fd.append('current_index', String(currentIndex));

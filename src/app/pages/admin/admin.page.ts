@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
 import { IonicModule, NavController, ModalController, ToastController } from '@ionic/angular';
 import { AdminService, Submission, Student, Question, ExamRecording, ScreenRecording } from '../../services/admin.service';
+import { ThemeService } from '../../services/theme.service';
 import { SubmissionModalComponent } from '../../components/submission-modal/submission-modal.component';
 import { StudentDetailModalComponent } from '../../components/student-detail-modal/student-detail-modal.component';
 import { VideoModalComponent } from '../../components/video-modal/video-modal.component';
@@ -286,8 +287,18 @@ export class AdminPage implements OnInit, OnDestroy {
     private modalCtrl: ModalController,
     private toastCtrl: ToastController,
     private cdr: ChangeDetectorRef,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    public themeService: ThemeService
   ) {}
+
+  get isDarkTheme(): boolean {
+    return this.themeService.isDark();
+  }
+
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+    this.cdr.markForCheck();
+  }
 
   private loadedViews = {
     submissions: false, // already loaded in ngOnInit
@@ -688,7 +699,7 @@ export class AdminPage implements OnInit, OnDestroy {
 
   editQuestion(question: any) {
     this.editQuestionId = question.id;
-    this.editQuestionText = question.text;
+    this.editQuestionText = question.question || question.text || '';
     this.editQuestionCategory = question.category || 'General';
     this.editQuestionDifficulty = question.difficulty || 'Medium';
     this.editQuestionKeywords = Array.isArray(question.keywords) ? question.keywords.join(', ') : (question.keywords || '');
@@ -2028,8 +2039,8 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
-  async onAddQuestionFromComponent(data: { text: string; category: string; difficulty: string; keywords?: string }) {
-    this.newQuestionText = data.text;
+  async onAddQuestionFromComponent(data: { question?: string; text: string; category: string; difficulty: string; keywords?: string }) {
+    this.newQuestionText = data.question || data.text;
     this.newQuestionCategory = data.category;
     this.newQuestionDifficulty = data.difficulty;
     this.newQuestionKeywords = data.keywords || '';
@@ -2042,8 +2053,8 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyQuestionsFilters();
   }
 
-  async onSaveEditQuestionFromModal(payload: { text: string; category: string; difficulty: string; keywords?: string }) {
-    this.editQuestionText = payload.text;
+  async onSaveEditQuestionFromModal(payload: { question?: string; text: string; category: string; difficulty: string; keywords?: string }) {
+    this.editQuestionText = payload.question || payload.text;
     this.editQuestionCategory = payload.category;
     this.editQuestionDifficulty = payload.difficulty;
     this.editQuestionKeywords = payload.keywords || '';

@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { ThemeService, AppTheme } from '../../../services/theme.service';
 
 export interface ExamSettings {
   question_timer_seconds: number;
@@ -14,12 +15,13 @@ export interface ExamSettings {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <div class="view active">
       <div class="page-header">
         <div>
           <h1 class="page-title">Settings</h1>
-          <p class="page-subtitle">Configure exam timer, input methods, and student defaults</p>
+          <p class="page-subtitle">Configure theme appearance, exam timer, input methods, and student defaults</p>
         </div>
       </div>
 
@@ -29,6 +31,78 @@ export interface ExamSettings {
       </div>
 
       <div *ngIf="!settingsLoading" class="settings-container">
+        <!-- Appearance & Theme Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-card-icon" style="background: var(--c-amber-dim); font-size: 22px;">🎨</div>
+            <div style="flex: 1;">
+              <div class="settings-card-title">Appearance & Theme</div>
+              <div class="settings-card-sub">Choose between Light and Dark interface mode for the admin panel</div>
+            </div>
+            <span class="chip" [class.chip-easy]="isLightMode" [class.chip-neutral]="!isLightMode">
+              {{ isLightMode ? '☀️ Light Mode Active' : '🌙 Dark Mode Active' }}
+            </span>
+          </div>
+
+          <div class="settings-field">
+            <label class="field-label">Interface Mode</label>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1.25rem;">
+              <!-- Light Theme Card Selector -->
+              <div 
+                (click)="onSetTheme('light')"
+                style="flex: 1; min-width: 220px; padding: 16px; border-radius: var(--r-lg); border: 2px solid; cursor: pointer; transition: all var(--t-fast); display: flex; align-items: flex-start; gap: 12px;"
+                [style.borderColor]="isLightMode ? 'var(--c-indigo)' : 'var(--border)'"
+                [style.background]="isLightMode ? 'var(--c-indigo-dim)' : 'var(--bg-surface-2)'">
+                <span style="font-size: 28px; line-height: 1;">☀️</span>
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <strong style="font-size: 14px; color: var(--text-primary);">Light Mode</strong>
+                    <span *ngIf="isLightMode" style="color: var(--c-indigo); font-size: 13px; font-weight: 700;">✓ Active</span>
+                  </div>
+                  <p style="font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.4;">
+                    Crisp, clean bright appearance with high contrast for comfortable daytime viewing.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Dark Theme Card Selector -->
+              <div 
+                (click)="onSetTheme('dark')"
+                style="flex: 1; min-width: 220px; padding: 16px; border-radius: var(--r-lg); border: 2px solid; cursor: pointer; transition: all var(--t-fast); display: flex; align-items: flex-start; gap: 12px;"
+                [style.borderColor]="!isLightMode ? 'var(--c-indigo)' : 'var(--border)'"
+                [style.background]="!isLightMode ? 'var(--c-indigo-dim)' : 'var(--bg-surface-2)'">
+                <span style="font-size: 28px; line-height: 1;">🌙</span>
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <strong style="font-size: 14px; color: var(--text-primary);">Dark Mode</strong>
+                    <span *ngIf="!isLightMode" style="color: var(--c-indigo); font-size: 13px; font-weight: 700;">✓ Active</span>
+                  </div>
+                  <p style="font-size: 12.5px; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.4;">
+                    Sleek dark slate aesthetic that reduces glare and eye strain in low-light environments.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Direct Toggle Switch ("Light Theme Switch") -->
+            <div style="padding-top: 1rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <label class="field-label" style="margin-bottom: 2px;">Light Theme Toggle</label>
+                <div style="font-size: 13px; color: var(--text-secondary);">
+                  Switch between Light Mode (ON) and Dark Mode (OFF) instantly
+                </div>
+              </div>
+              <label class="toggle-wrap" style="margin: 0;">
+                <input type="checkbox" [checked]="isLightMode" (change)="onToggleLightSwitch($event)" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label" style="font-weight: 600; color: var(--text-primary);">
+                  {{ isLightMode ? '☀️ Light' : '🌙 Dark' }}
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <!-- Interview Timer -->
         <div class="settings-card">
           <div class="settings-card-header">
@@ -104,6 +178,9 @@ export interface ExamSettings {
   `
 })
 export class AdminSettingsComponent {
+  private themeService = inject(ThemeService);
+  private cdr = inject(ChangeDetectorRef);
+
   @Input() examSettings: ExamSettings = {
     question_timer_seconds: 180,
     max_attempts_default: 3,
@@ -115,6 +192,20 @@ export class AdminSettingsComponent {
 
   @Output() save = new EventEmitter<ExamSettings>();
   @Output() resetSettings = new EventEmitter<void>();
+
+  get isLightMode(): boolean {
+    return this.themeService.currentTheme() === 'light';
+  }
+
+  onSetTheme(theme: AppTheme) {
+    this.themeService.setTheme(theme);
+    this.cdr.markForCheck();
+  }
+
+  onToggleLightSwitch(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.onSetTheme(input.checked ? 'light' : 'dark');
+  }
 
   setTimer(seconds: number) {
     this.examSettings.question_timer_seconds = seconds;
@@ -135,3 +226,4 @@ export class AdminSettingsComponent {
     this.resetSettings.emit();
   }
 }
+

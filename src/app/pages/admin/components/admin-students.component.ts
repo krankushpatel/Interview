@@ -8,6 +8,7 @@ import { Student } from '../../../services/admin.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <div class="view active">
       <div class="page-header">

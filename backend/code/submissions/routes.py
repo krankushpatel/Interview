@@ -20,6 +20,7 @@ async def submit_answer(
     session_id: str = Form(...),
     question_id: int = Form(...),
     question_text: str = Form(default=""),
+    question: str = Form(default=""),
     question_category: str = Form(default="General"),
     answered_count: int = Form(0),
     current_index: int = Form(0),
@@ -28,6 +29,7 @@ async def submit_answer(
     """Submit answer with optional video directly to MongoDB"""
     timestamp = ts()
     video_filename = None
+    resolved_q_text = (question or question_text or "").strip()
     
     if video and video.filename:
         ext = Path(video.filename).suffix or ".webm"
@@ -42,7 +44,8 @@ async def submit_answer(
         "username": username,
         "session_id": session_id,
         "question_id": question_id,
-        "question_text": question_text,
+        "question": resolved_q_text,
+        "question_text": resolved_q_text,
         "category": question_category,
         "answer": safe_answer,
         "video_file": video_filename,

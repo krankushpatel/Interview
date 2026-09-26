@@ -243,7 +243,7 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
     for i, ans in enumerate(answers):
         ans = ans if isinstance(ans, dict) else {}
         qid = _coerce_qid(ans.get("question_id", i + 1), i + 1)
-        q_text = str(ans.get("question_text") or "")
+        q_text = str(ans.get("question") or ans.get("question_text") or ans.get("text") or "")
         raw_answer = str(ans.get("answer") or "")
         answer = clamp_answer_words(raw_answer)
         category = str(ans.get("category") or "General")
@@ -298,8 +298,9 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
         if qid_key in seen_res_qids:
             continue
         seen_res_qids.add(qid_key)
+        q_text_final = str(ans.get("question") or ans.get("question_text") or ans.get("text") or "")
         question_results.append(results_map.get(qid) or _missing_result(
-            qid, str(ans.get("question_text") or ""), str(ans.get("answer") or ""),
+            qid, q_text_final, str(ans.get("answer") or ""),
             str(ans.get("category") or "General")))
 
     behavior_events = await _fetch_proctoring_events(db, username, session_id)
@@ -413,12 +414,14 @@ async def evaluate_single(
     username: str = Form(...),
     session_id: str = Form(...),
     question_id: int = Form(...),
-    question_text: str = Form(...),
+    question_text: str = Form(default=""),
+    question: str = Form(default=""),
     answer: str = Form(...),
     category: str = Form(default="General"),
     reference_answer: str = Form(default=None),
     question_data_json: str = Form(default=None),
 ):
+    resolved_q = (question or question_text or "").strip()
     question_data = None
     if question_data_json:
         try:
@@ -427,12 +430,12 @@ async def evaluate_single(
             pass
 
     safe_answer = clamp_answer_words(answer)
-    item = {"id": question_id, "question_text": question_text, "answer": safe_answer, "category": category}
+    item = {"id": question_id, "question_text": resolved_q, "question": resolved_q, "answer": safe_answer, "category": category}
 
     if is_empty_answer(safe_answer) or is_skipped_answer(safe_answer):
-        entry = _skipped_result(question_id, question_text, safe_answer, category)
+        entry = _skipped_result(question_id, resolved_q, safe_answer, category)
     else:
-        res = await _call_single_ai(question_text, safe_answer, category,
+        res = await _call_single_ai(resolved_q, safe_answer, category,
                                     reference_answer=reference_answer,
                                     question_data=question_data)
         entry = _to_report_entry(item, res)

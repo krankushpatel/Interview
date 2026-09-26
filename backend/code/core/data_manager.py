@@ -76,8 +76,15 @@ def initialize_data():
                 with open(q_file, "r", encoding="utf-8") as f:
                     seed_q = json.load(f)
                     if isinstance(seed_q, list) and seed_q:
-                        db.questions.insert_many([q.copy() for q in seed_q])
-                        print(f"[SEED] Initialized {len(seed_q)} questions directly in MongoDB")
+                        prepared_seed = []
+                        for q in seed_q:
+                            c = q.copy()
+                            q_text = c.get("question") or c.get("text", "")
+                            c["question"] = q_text
+                            c["text"] = q_text
+                            prepared_seed.append(c)
+                        db.questions.insert_many(prepared_seed)
+                        print(f"[SEED] Initialized {len(prepared_seed)} questions directly in MongoDB")
     except Exception as e:
         print(f"[WARN] Failed checking/seeding questions to MongoDB: {e}")
     load_questions()
@@ -274,6 +281,10 @@ def save_users(users: dict):
 
 def load_questions() -> list:
     questions = list(db.questions.find({}, {"_id": 0}))
+    for q in questions:
+        q_text = q.get("question") or q.get("text", "")
+        q["question"] = q_text
+        q["text"] = q_text
     _data_store["questions"] = questions
     return questions
 
@@ -284,10 +295,13 @@ def save_questions(questions: list):
     requests = []
     for q in questions:
         q_copy = q.copy()
+        q_text = q_copy.get("question") or q_copy.get("text", "")
+        q_copy["question"] = q_text
+        q_copy["text"] = q_text
         if "id" in q_copy:
             requests.append(UpdateOne({"id": q_copy["id"]}, {"$set": q_copy}, upsert=True))
         else:
-            requests.append(UpdateOne({"text": q_copy.get("text", "")}, {"$set": q_copy}, upsert=True))
+            requests.append(UpdateOne({"question": q_text}, {"$set": q_copy}, upsert=True))
     if requests:
         try:
             db.questions.bulk_write(requests, ordered=False)

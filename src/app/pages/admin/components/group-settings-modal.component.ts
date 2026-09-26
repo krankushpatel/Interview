@@ -22,6 +22,7 @@ export interface GroupSettingsData {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <ion-modal class="auto-fit-modal" [isOpen]="isOpen" (ionModalDidDismiss)="onDismiss()">
       <ng-template>

@@ -180,7 +180,7 @@ def parse_questions_excel(content: bytes, questions: list, categories: list, cla
         next_id = max((q.get("id", 0) for q in questions), default=0) + 1
         
         # 🟢 NAYA CODE: Purane questions ka ek set bana lo (fast lookup ke liye)
-        existing_texts = {str(q.get("text", "")).strip().lower() for q in questions}
+        existing_texts = {str(q.get("question") or q.get("text", "")).strip().lower() for q in questions}
         duplicates_skipped = 0
 
         for _, row in df.iterrows():
@@ -209,6 +209,7 @@ def parse_questions_excel(content: bytes, questions: list, categories: list, cla
 
             new_q = {
                 "id": next_id,
+                "question": q_text,
                 "text": q_text,
                 "category": cat,
                 "difficulty": diff,

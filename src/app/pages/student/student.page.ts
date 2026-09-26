@@ -1550,7 +1550,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       
       const answerRecord: AnswerRecord = {
         question_id: this.currentQuestion.id,
-        question_text: this.currentQuestion.text,
+        question_text: this.currentQuestion.question || this.currentQuestion.text || '',
         category: this.currentQuestion.category,
         answer: this.answerText,
         session_id: this.examSessionId,
@@ -1678,7 +1678,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     
     const skipRecord: AnswerRecord = {
       question_id: this.currentQuestion.id,
-      question_text: this.currentQuestion.text,
+      question_text: this.currentQuestion.question || this.currentQuestion.text || '',
       category: this.currentQuestion.category,
       answer: '[Skipped by student]',
       session_id: this.examSessionId
@@ -1878,7 +1878,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
   updateProgressUI() {
     const questionTextEl = document.getElementById('question-text');
-    if (questionTextEl) questionTextEl.textContent = this.currentQuestion.text;
+    if (questionTextEl) questionTextEl.textContent = this.currentQuestion.question || this.currentQuestion.text || '';
     const badgeEl = document.getElementById('question-badge');
     if (badgeEl) badgeEl.innerHTML = `💡 ${this.currentQuestion.category} · <span style="color:var(--text2);font-size:.65rem">${this.currentQuestion.difficulty || 'Medium'}</span>`;
     const counterEl = document.getElementById('q-counter-label');

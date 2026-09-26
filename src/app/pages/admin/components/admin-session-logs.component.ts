@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <div class="view active">
       <div class="page-header">

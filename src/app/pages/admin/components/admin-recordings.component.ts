@@ -7,6 +7,7 @@ import { ExamRecording, ScreenRecording } from '../../../services/admin.service'
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <!-- Exam Recordings View -->
     <div class="view active" *ngIf="viewType === 'examvids'">

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 
 export interface EditQuestionPayload {
+  question?: string;
   text: string;
   category: string;
   difficulty: string;
@@ -15,6 +16,7 @@ export interface EditQuestionPayload {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <ion-modal class="auto-fit-modal" [isOpen]="isOpen" (ionModalDidDismiss)="onDismiss()">
       <ng-template>
@@ -123,6 +125,7 @@ export class EditQuestionModalComponent {
 
   onSave() {
     this.save.emit({
+      question: this.text,
       text: this.text,
       category: this.category,
       difficulty: this.difficulty,

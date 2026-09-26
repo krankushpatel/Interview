@@ -15,6 +15,7 @@ export interface ImportResultData {
   standalone: true,
   imports: [CommonModule, IonicModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <ion-modal class="auto-fit-modal" [isOpen]="isOpen" (ionModalDidDismiss)="onDismiss()">
       <ng-template>

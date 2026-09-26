@@ -32,9 +32,187 @@
  * https://ionicframework.com/docs/theming/dark-mode
  */
 
-/* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-@import '@ionic/angular/css/palettes/dark.system.css';
+@import "@ionic/angular/css/palettes/dark.class.css";
+
+/* ================================================================
+   EKLAKHYA GLOBAL DESIGN SYSTEM & THEME TOKENS
+   Configured globally in :root so all components, pages & modals
+   have seamless access to design tokens and light/dark theme toggle.
+================================================================ */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500;600&display=swap');
+
+:root {
+  // Brand colors
+  --c-indigo:        #4F46E5;
+  --c-indigo-l:      #6366F1;
+  --c-indigo-dim:    rgba(79, 70, 229, 0.10);
+  --c-indigo-ring:   rgba(79, 70, 229, 0.20);
+  --c-violet:        #7C3AED;
+  --c-violet-dim:    rgba(124, 58, 237, 0.10);
+  --c-emerald:       #10B981;
+  --c-emerald-dim:   rgba(16, 185, 129, 0.10);
+  --c-amber:         #F59E0B;
+  --c-amber-dim:     rgba(245, 158, 11, 0.10);
+  --c-danger:        #EF4444;
+  --c-danger-dim:    rgba(239, 68, 68, 0.08);
+  --c-success:       #10B981;
+
+  // Surfaces (Default Light)
+  --bg-base:         #F8FAFC;
+  --bg-surface:      #FFFFFF;
+  --bg-surface-2:    #F1F5F9;
+  --bg-elevated:     #FFFFFF;
+
+  // Sidebar
+  --sidebar-bg:      #0F172A;
+  --sidebar-text:    #94A3B8;
+  --sidebar-hover:   rgba(255,255,255,0.06);
+  --sidebar-active-bg: rgba(79,70,229,0.16);
+  --sidebar-border:  rgba(255,255,255,0.07);
+  --sidebar-width:   248px;
+
+  // Text
+  --text-primary:    #0F172A;
+  --text-secondary:  #475569;
+  --text-tertiary:   #94A3B8;
+
+  // Borders
+  --border:          #E2E8F0;
+  --border-strong:   #CBD5E1;
+
+  // Shadows
+  --sh-xs:  0 1px 2px rgba(0,0,0,0.05);
+  --sh-sm:  0 1px 3px rgba(0,0,0,0.07), 0 1px 2px -1px rgba(0,0,0,0.05);
+  --sh-md:  0 4px 16px -2px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.04);
+  --sh-lg:  0 12px 40px -8px rgba(0,0,0,0.14);
+  --sh-xl:  0 24px 60px -12px rgba(0,0,0,0.18);
+
+  // Spacing
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+
+  // Radii
+  --r-xs:  4px;
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  14px;
+  --r-xl:  20px;
+  --r-2xl: 24px;
+  --r-full: 9999px;
+
+  // Motion
+  --ease:   cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms;
+  --t-med:  220ms;
+  --t-slow: 380ms;
+
+  // Topbar
+  --topbar-h: 58px;
+  --mono: 'DM Mono', monospace;
+
+  // Ionic integration
+  --ion-background-color: var(--bg-base);
+  --ion-text-color: var(--text-primary);
+}
+
+/* ─── DARK THEME OVERRIDES ─── */
+body.dark,
+html.dark,
+body.dark-theme,
+html.ion-palette-dark,
+body.ion-palette-dark {
+  --bg-base:        #0F172A;
+  --bg-surface:     #1E293B;
+  --bg-surface-2:   #162032;
+  --bg-elevated:    #243044;
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-tertiary:  #64748B;
+  --border:         rgba(255,255,255,0.08);
+  --border-strong:  rgba(255,255,255,0.13);
+  --sh-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --sh-md: 0 4px 16px rgba(0,0,0,0.4);
+  --sh-lg: 0 12px 40px rgba(0,0,0,0.5);
+
+  --ion-background-color: #0F172A;
+  --ion-text-color: #F1F5F9;
+}
+
+/* ─── LIGHT THEME OVERRIDES ─── */
+body.light,
+html.light,
+body.light-theme,
+html.light-theme {
+  --bg-base:         #F8FAFC;
+  --bg-surface:      #FFFFFF;
+  --bg-surface-2:    #F1F5F9;
+  --bg-elevated:     #FFFFFF;
+  --text-primary:    #0F172A;
+  --text-secondary:  #475569;
+  --text-tertiary:   #94A3B8;
+  --border:          #E2E8F0;
+  --border-strong:   #CBD5E1;
+  --sh-sm:  0 1px 3px rgba(0,0,0,0.07), 0 1px 2px -1px rgba(0,0,0,0.05);
+  --sh-md:  0 4px 16px -2px rgba(0,0,0,0.08), 0 2px 6px -2px rgba(0,0,0,0.04);
+  --sh-lg:  0 12px 40px -8px rgba(0,0,0,0.14);
+
+  --ion-background-color: #F8FAFC;
+  --ion-text-color: #0F172A;
+}
+
+/* ─── REUSABLE TOGGLE SWITCH COMPONENT ─── */
+.toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+
+  input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .toggle-slider {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background-color: var(--border-strong, #cbd5e1);
+    border-radius: 999px;
+    transition: background-color 0.25s var(--ease, ease);
+    flex-shrink: 0;
+
+    &::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      background-color: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      transition: transform 0.25s var(--ease, ease);
+    }
+  }
+
+  input[type="checkbox"]:checked + .toggle-slider {
+    background-color: var(--c-indigo, #4f46e5);
+
+    &::before {
+      transform: translateX(20px);
+    }
+  }
+
+  .toggle-label {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+}
 
 
 /* ================================================================
@@ -58,19 +236,19 @@ ion-modal {
 
   /* ── Individual student card ──────────────────────────────── */
   .student-card {
-    background: #ffffff;
+    background: var(--bg-surface, #ffffff);
     border-radius: 16px;
     padding: 1rem;
-    border: 1.5px solid #e5e7eb;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+    border: 1.5px solid var(--border, #e5e7eb);
+    box-shadow: var(--sh-sm, 0 3px 12px rgba(0, 0, 0, 0.06));
     cursor: pointer;
     position: relative;
-    transition: transform 0.18s, box-shadow 0.18s;
+    transition: transform 0.18s, box-shadow 0.18s, background-color 0.2s, border-color 0.2s;
   }
 
   .student-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--sh-md, 0 8px 22px rgba(0, 0, 0, 0.1));
   }
 
   .student-card-header {
@@ -99,7 +277,7 @@ ion-modal {
   .student-card-name {
     font-weight: 700;
     font-size: 0.88rem;
-    color: #1f2937;
+    color: var(--text-primary, #1f2937);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -108,13 +286,13 @@ ion-modal {
 
   .student-card-user {
     font-size: 0.7rem;
-    color: #9ca3af;
+    color: var(--text-tertiary, #9ca3af);
     font-family: monospace;
   }
 
   .student-card-email {
     font-size: 0.72rem;
-    color: #6b7280;
+    color: var(--text-secondary, #6b7280);
     margin: 0.35rem 0 0.6rem;
     white-space: nowrap;
     overflow: hidden;
@@ -130,21 +308,21 @@ ion-modal {
   .s-stat {
     flex: 1;
     text-align: center;
-    background: #f8fafc;
+    background: var(--bg-surface-2, #f8fafc);
     border-radius: 8px;
     padding: 5px 4px;
-    border: 1px solid #f1f5f9;
+    border: 1px solid var(--border, #f1f5f9);
   }
 
   .s-stat-val {
     font-size: 1rem;
     font-weight: 800;
-    color: #1f2937;
+    color: var(--text-primary, #1f2937);
   }
 
   .s-stat-label {
     font-size: 0.58rem;
-    color: #9ca3af;
+    color: var(--text-tertiary, #9ca3af);
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }

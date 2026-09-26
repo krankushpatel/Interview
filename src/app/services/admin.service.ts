@@ -31,10 +31,12 @@ export interface Student {
 
 export interface Question {
   id: number;
-  text: string;
+  question?: string;
+  text?: string;
   category: string;
   difficulty: string;
   keywords?: string[];
+  class_name?: string;
 }
 
 export interface ExamRecording {
@@ -110,12 +112,16 @@ export class AdminService {
 
   async getQuestions(): Promise<Question[]> {
     const res = await lastValueFrom(this.http.get<{ questions: Question[] }>(`${environment.apiUrl}/questions/all`));
-    return (res.questions || []).map(q => ({
-      ...q,
-      text: q.text || 'Blank Question',
-      category: q.category || 'General',
-      difficulty: q.difficulty || 'Medium'
-    }));
+    return (res.questions || []).map(q => {
+      const qText = q.question || q.text || 'Blank Question';
+      return {
+        ...q,
+        question: qText,
+        text: qText,
+        category: q.category || 'General',
+        difficulty: q.difficulty || 'Medium'
+      };
+    });
   }
 
   async getExamRecordings(): Promise<ExamRecording[]> {
@@ -139,6 +145,7 @@ export class AdminService {
 
   async addQuestion(text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
     const fd = new FormData();
+    fd.append('question', text);
     fd.append('text', text);
     fd.append('category', category);
     fd.append('difficulty', difficulty);
@@ -307,6 +314,7 @@ export class AdminService {
     console.log('✅ downloadupdate question Template called with fetch');
     const fd = new FormData();
     fd.append('id', id.toString());
+    fd.append('question', text);
     fd.append('text', text);
     fd.append('category', category);
     fd.append('difficulty', difficulty);

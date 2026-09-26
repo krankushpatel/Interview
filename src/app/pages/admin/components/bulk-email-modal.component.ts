@@ -14,6 +14,7 @@ export interface BulkEmailPayload {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <ion-modal [isOpen]="isOpen" (ionModalDidDismiss)="onDismiss()">
       <ng-template>

@@ -18,6 +18,7 @@ export interface OverviewStats {
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin.page.scss'],
   template: `
     <div class="view active">
       <div class="page-header">
