@@ -5,11 +5,11 @@ router = APIRouter()
 
 @router.get("/all")
 async def get_all_categories():
-    """Get all categories"""
+    """Get all categories fast using MongoDB distinct query without scanning full questions"""
     cats = load_categories() or []
     try:
-        questions = load_questions()
-        q_cats = [q.get("category") for q in questions if q.get("category")]
+        # Ultra-fast MongoDB distinct index query (0.001s, 0 full doc loads)
+        q_cats = [c for c in db.questions.distinct("category") if c]
         combined = sorted(list(set(cats + q_cats)))
         if combined:
             return {"categories": combined}

@@ -300,7 +300,7 @@ export class StudentDetailModalComponent implements OnInit {
             try {
               await this.adminService.deleteStudent(this.username);
               this.showToast('Student deleted successfully.', 'success');
-              this.modalCtrl.dismiss(true);
+              this.modalCtrl.dismiss({ deleted: true, username: this.username });
             } catch (err) {
               this.showToast('Failed to delete student.', 'danger');
             }

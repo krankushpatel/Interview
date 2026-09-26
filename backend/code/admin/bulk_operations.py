@@ -4,7 +4,7 @@ from code.legacy.external_services import (
     parse_students_excel, parse_questions_excel,
     get_student_template, get_question_template
 )
-from code.core.data_manager import load_users, save_users, load_questions, save_questions, load_categories, save_categories, load_classes, save_classes
+from code.core.data_manager import load_users, save_users, load_questions, save_questions, load_categories, save_categories, load_classes, save_classes, db
 from code.config.settings import UPLOADS_DIR
 
 def bulk_import_students(content: bytes, users: dict, send_email_callback=None) -> dict:
@@ -15,19 +15,29 @@ def bulk_import_students(content: bytes, users: dict, send_email_callback=None) 
     return result
 
 def bulk_import_questions(content: bytes) -> dict:
-    """Import questions from Excel"""
+    """Import questions from Excel with fast direct insertion of only new questions"""
     questions = load_questions()
     categories = load_categories()
-    classes = load_classes()  # 🟢 CLASSES BHI LOAD KAREIN
+    classes = load_classes()
     
-    # 🟢 Parser ko classes list bhi paas karein
     result = parse_questions_excel(content, questions, categories, classes)
     
     if result["success"] and result.get("questions"):
-        all_questions = questions + result["questions"]
-        save_questions(all_questions)
+        new_questions = result["questions"]
+        # Fast bulk insert only the new questions
+        try:
+            from pymongo import UpdateOne
+            requests = [UpdateOne({"id": q["id"]}, {"$set": q, "$unset": {"text": ""}}, upsert=True) for q in new_questions]
+            if requests:
+                db.questions.bulk_write(requests, ordered=False)
+        except Exception as e:
+            print(f"[WARN] Error bulk inserting new questions: {e}")
+            all_questions = questions + new_questions
+            save_questions(all_questions)
+
+        # Sync categories & classes in DB
         save_categories(categories)
-        save_classes(classes) # 🟢 UPDATED CLASSES KO SAVE KAREIN
+        save_classes(classes)
         
     return result
 

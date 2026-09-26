@@ -799,17 +799,32 @@ export class AdminPage implements OnInit, OnDestroy {
 
   async saveEditQuestion() {
     if (!this.editQuestionId || !this.editQuestionText) return;
+    const id = this.editQuestionId;
+    const text = this.editQuestionText;
+    const cat = this.editQuestionCategory;
+    const diff = this.editQuestionDifficulty;
+    const kws = this.editQuestionKeywords;
+
     try {
-      await this.adminService.updateQuestion(
-        this.editQuestionId,
-        this.editQuestionText,
-        this.editQuestionCategory,
-        this.editQuestionDifficulty,
-        this.editQuestionKeywords
-      );
+      await this.adminService.updateQuestion(id, text, cat, diff, kws);
       this.showToast('Question updated successfully!', 'success');
       this.closeEditModal();
-      await this.loadQuestions();
+
+      // 🟢 Local instant update
+      const idx = this.questions.findIndex(q => q.id === id);
+      if (idx !== -1) {
+        this.questions[idx] = {
+          ...this.questions[idx],
+          question: text,
+          category: cat,
+          difficulty: diff,
+          keywords: kws ? kws.split(',').map(s => s.trim()).filter(Boolean) : []
+        };
+      }
+      if (cat && !this.allCategories.includes(cat)) {
+        this.allCategories.push(cat);
+        this.allCategories.sort();
+      }
       this.applyQuestionsFilters();
     } catch (err) {
       this.showToast('Failed to update question', 'danger');
@@ -829,21 +844,39 @@ export class AdminPage implements OnInit, OnDestroy {
       this.showFeedback('Question text is required', 'error');
       return;
     }
+    const cat = this.newQuestionCategory.trim() || 'General';
+    const text = this.newQuestionText.trim();
+    const diff = this.newQuestionDifficulty;
+    const kws = this.newQuestionKeywords.trim();
+
     try {
-      await this.adminService.addQuestion(
-        this.newQuestionText.trim(),
-        this.newQuestionCategory.trim() || 'General',
-        this.newQuestionDifficulty,
-        this.newQuestionKeywords.trim()
-      );
+      const res = await this.adminService.addQuestion(text, cat, diff, kws);
       this.showFeedback('Question added successfully!', 'success');
       this.newQuestionText = '';
       this.newQuestionCategory = '';
       this.newQuestionDifficulty = 'Medium';
       this.newQuestionKeywords = '';
-      await this.loadQuestions();
-      await this.loadAllCategories();
-      this.loadUniqueCategories();
+
+      // 🟢 Super-fast Optimistic Update: Avoid re-fetching the entire database!
+      const addedQ: Question = res?.question || {
+        id: Date.now(),
+        question: text,
+        category: cat,
+        difficulty: diff,
+        keywords: kws ? kws.split(',').map(s => s.trim()).filter(Boolean) : []
+      };
+
+      // 1. Add question locally at the top
+      this.questions.unshift(addedQ);
+
+      // 2. Add category locally if new
+      if (cat && !this.allCategories.includes(cat)) {
+        this.allCategories.push(cat);
+        this.allCategories.sort();
+      }
+
+      this.uniqueCategories = [...this.allCategories];
+      this.refreshCategoryOptions();
       this.applyQuestionsFilters();
     } catch (err) {
       this.showFeedback('Failed to add question', 'error');
@@ -866,8 +899,10 @@ export class AdminPage implements OnInit, OnDestroy {
     if (!confirm(`Delete question #${id}? This cannot be undone.`)) return;
     try {
       await this.adminService.deleteQuestion(id);
-      await this.loadQuestions();
+      // 🟢 Local instant removal without full database re-download
+      this.questions = this.questions.filter(q => q.id !== id);
       this.applyQuestionsFilters();
+      this.showToast(`Question #${id} deleted`, 'success');
     } catch (err) {
       alert('Delete failed');
     }
@@ -1453,9 +1488,14 @@ export class AdminPage implements OnInit, OnDestroy {
     });
     await modal.present();
     const { data } = await modal.onDidDismiss();
-    if (data?.deleted) {
-      await this.loadStudents();
-      await this.loadBatches();
+    if (data === true || data?.deleted === true) {
+      const deletedUser = data?.username || username;
+      // Instant UI removal
+      this.students = this.students.filter(s => s.username !== deletedUser);
+      this.filteredStudents = this.filteredStudents.filter(s => s.username !== deletedUser);
+      this.filterStudents();
+      // Auto-refresh from backend to ensure all batches and counts are synchronized
+      await Promise.all([this.loadStudents(), this.loadBatches()]);
     }
   }
 

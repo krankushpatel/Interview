@@ -78,10 +78,15 @@ async def get_all_questions(categories: Optional[str] = None):
 
 @router.get("/categories")
 async def get_all_categories():
-    """Get all unique question categories"""
-    questions = load_questions()
-    categories = sorted(set(q.get("category") for q in questions if q.get("category")))
-    return categories
+    """Get all unique question categories using ultra-fast distinct query"""
+    try:
+        categories = sorted([c for c in db.questions.distinct("category") if c])
+        if categories:
+            return categories
+    except Exception as e:
+        print(f"[CATEGORIES] distinct error: {e}")
+    cats = load_categories() or []
+    return sorted(cats) if cats else ["General"]
 
 @router.post("/extract-preview")
 async def extract_preview(
@@ -102,17 +107,19 @@ async def admin_add_question(
     difficulty: str = Form(default="Medium"),
     keywords: Optional[str] = Form(default=None)
 ):
-    """Add new question with auto or manual keywords"""
-    questions = load_questions()
-    categories = load_categories()
-    
+    """Add new question with auto or manual keywords and update categories fast"""
     q_text = (question or text or "").strip()
     if not q_text:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    cat_lower = category.lower().strip()
+    cat_clean = category.strip() or "General"
+    categories = load_categories()
+    cat_lower = cat_clean.lower()
+    
+    # Update category in DB if new
     if not any(c.lower() == cat_lower for c in categories):
-        categories.append(category)
+        categories.append(cat_clean)
+        categories.sort()
         save_categories(categories)
     
     # Process keywords
@@ -120,19 +127,35 @@ async def admin_add_question(
         raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
         kws = normalize_keywords(raw_list)
     else:
-        kws = extract_keywords_from_text(q_text, category.strip())
+        kws = extract_keywords_from_text(q_text, cat_clean)
 
-    next_id = max((q["id"] for q in questions), default=0) + 1
+    # Fast ID calculation via MongoDB aggregation or fallback
+    try:
+        last_doc = db.questions.find_one({}, sort=[("id", -1)], projection={"id": 1, "_id": 0})
+        next_id = (last_doc.get("id", 0) + 1) if last_doc else 1
+    except Exception:
+        questions = load_questions()
+        next_id = max((q["id"] for q in questions), default=0) + 1
+
     new_q = {
         "id": next_id,
-        "category": category.strip(),
-        "difficulty": difficulty.strip(),
+        "category": cat_clean,
+        "difficulty": difficulty.strip() or "Medium",
         "question": q_text,
         "keywords": kws
     }
-    questions.append(new_q)
-    save_questions(questions)
-    return {"success": True, "question": new_q, "total": len(questions)}
+    
+    # Direct fast insert
+    try:
+        db.questions.insert_one(new_q.copy())
+    except Exception as e:
+        print(f"[WARN] Error inserting single question: {e}")
+        questions = load_questions()
+        questions.append(new_q)
+        save_questions(questions)
+
+    total_count = db.questions.count_documents({})
+    return {"success": True, "question": new_q, "total": total_count}
 
 @router.delete("/{qid}")
 async def admin_delete_question(qid: int):

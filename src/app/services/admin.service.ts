@@ -328,19 +328,17 @@ export class AdminService {
     return res.categories;
   }
 
-  // ✅ Category Management APIs
+  // ✅ Category Management APIs (Fast single call)
   async getAllCategoriesStandalone(): Promise<string[]> {
     try {
       const res = await lastValueFrom(this.http.get<{ categories: string[] }>(`${environment.apiUrl}/categories/all`));
       const cats = Array.isArray(res?.categories) ? res.categories : [];
-      const qCats = await this.getCategories().catch(() => []);
       const set = new Set<string>();
       cats.forEach(c => c && set.add(c.trim()));
-      (qCats || []).forEach(c => c && set.add(c.trim()));
       if (set.size === 0) set.add('General');
       return Array.from(set).sort();
     } catch {
-      return this.getCategories().catch(() => ['General']);
+      return ['General'];
     }
   }
 
