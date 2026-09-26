@@ -7,6 +7,7 @@ import random
 import string
 import re
 import traceback
+from typing import Optional
 import pandas as pd
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, File, Form, UploadFile, BackgroundTasks
