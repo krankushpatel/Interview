@@ -190,16 +190,16 @@ import { Student } from '../../../services/admin.service';
               <div class="group-avatars">
                 <div
                   class="group-av"
-                  *ngFor="let u of (group.students || []).slice(0, 5)"
+                  *ngFor="let u of getValidGroupStudents(group).slice(0, 5)"
                   [title]="studentNames[u] || u"
                 >
                   {{ u[0].toUpperCase() }}
                 </div>
-                <div class="group-av group-av-more" *ngIf="(group.students?.length || 0) > 5">
-                  +{{ group.students.length - 5 }}
+                <div class="group-av group-av-more" *ngIf="getValidGroupStudents(group).length > 5">
+                  +{{ getValidGroupStudents(group).length - 5 }}
                 </div>
               </div>
-              <span class="group-count">{{ group.students?.length || 0 }} students</span>
+              <span class="group-count">{{ getValidGroupStudents(group).length }} students</span>
             </div>
 
             <div class="group-scheduled" *ngIf="group.last_scheduled_at">
@@ -255,4 +255,11 @@ export class AdminStudentsComponent {
   @Output() clearEmailSelection = new EventEmitter<void>();
   @Output() deleteGroup = new EventEmitter<{ id: number; name: string }>();
   @Output() openGroupDetail = new EventEmitter<{ group: any; tab: string }>();
+
+  getValidGroupStudents(group: any): string[] {
+    if (!group || !Array.isArray(group.students)) return [];
+    if (!this.students || this.students.length === 0) return group.students;
+    const validUsernames = new Set(this.students.map(s => s.username));
+    return group.students.filter((u: string) => validUsernames.has(u));
+  }
 }

@@ -24,10 +24,29 @@ class BatchSettings(BaseModel):
 
 @router.get("")
 async def get_all_batches():
-    """Return all batches as a list"""
+    """Return all batches as a list with only existing students"""
     db = get_db()
-    batches_cursor = db.batches.find({}, {"_id": 0})
-    return {"batches": list(batches_cursor)}
+    users = load_users()
+    existing_usernames = set(users.keys()) if isinstance(users, dict) else set()
+    
+    batches_cursor = list(db.batches.find({}, {"_id": 0}))
+    updated_batches = []
+    
+    for batch in batches_cursor:
+        raw_students = batch.get("students", [])
+        if not isinstance(raw_students, list):
+            raw_students = []
+        # Filter only students who actually exist in users
+        valid_students = [u for u in raw_students if u in existing_usernames]
+        # If any deleted student was in batch, clean it up in MongoDB
+        if len(valid_students) != len(raw_students):
+            batch["students"] = valid_students
+            db.batches.update_one({"id": batch.get("id")}, {"$set": {"students": valid_students}})
+        else:
+            batch["students"] = valid_students
+        updated_batches.append(batch)
+
+    return {"batches": updated_batches}
 
 @router.post("/create")
 async def create_batch(

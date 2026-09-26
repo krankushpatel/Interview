@@ -1527,6 +1527,12 @@ export class AdminPage implements OnInit, OnDestroy {
     return this.students.find(st => st.username === username);
   }
 
+  getGroupEnrolledStudents(group: any): string[] {
+    if (!group || !Array.isArray(group.students)) return [];
+    const validUsernames = new Set(this.students.map(s => s.username));
+    return group.students.filter((u: string) => validUsernames.has(u));
+  }
+
   // ============================================
   // SUBMISSIONS
   // ============================================
