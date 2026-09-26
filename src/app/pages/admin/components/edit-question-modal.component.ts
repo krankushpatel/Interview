@@ -7,6 +7,7 @@ export interface EditQuestionPayload {
   text: string;
   category: string;
   difficulty: string;
+  keywords?: string;
 }
 
 @Component({
@@ -71,6 +72,10 @@ export interface EditQuestionPayload {
                 <option value="Hard">🔴 Hard</option>
               </select>
             </div>
+            <div class="modal-field">
+              <label class="field-label">Keywords (comma-separated for Deepgram)</label>
+              <input type="text" [(ngModel)]="keywords" class="field-input" placeholder="e.g. PMOS, NMOS, CMOS, MOSFET" />
+            </div>
             <div class="modal-actions">
               <button class="btn btn-ghost" (click)="onDismiss()">Cancel</button>
               <button class="btn btn-primary" (click)="onSave()" [disabled]="!text">Save Changes</button>
@@ -86,6 +91,7 @@ export class EditQuestionModalComponent {
   @Input() text: string = '';
   @Input() category: string = '';
   @Input() difficulty: string = 'Medium';
+  @Input() keywords: string = '';
   @Input() allCategories: string[] = [];
 
   @Output() dismiss = new EventEmitter<void>();
@@ -119,7 +125,8 @@ export class EditQuestionModalComponent {
     this.save.emit({
       text: this.text,
       category: this.category,
-      difficulty: this.difficulty
+      difficulty: this.difficulty,
+      keywords: this.keywords
     });
   }
 }

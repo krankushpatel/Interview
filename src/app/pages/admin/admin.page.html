@@ -202,6 +202,7 @@
           (addQuestion)="onAddQuestionFromComponent($event)"
           (editQuestion)="editQuestion($event)"
           (deleteQuestion)="deleteQuestion($event)"
+          (backfillKeywords)="backfillKeywords()"
           (filterChange)="onQuestionFilterChange($event)"
           (resetFilters)="resetFilters()"
           (goToPage)="goToPage($event)"
@@ -279,6 +280,7 @@
     [text]="editQuestionText"
     [category]="editQuestionCategory"
     [difficulty]="editQuestionDifficulty"
+    [keywords]="editQuestionKeywords"
     [allCategories]="allCategories"
     (dismiss)="closeEditModal()"
     (save)="onSaveEditQuestionFromModal($event)">

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Form
-from typing import Optional
+from typing import Optional, List
 import random
-from code.core.data_manager import load_questions, save_questions, load_categories, save_categories
+import re
+from code.core.data_manager import load_questions, save_questions, load_categories, save_categories, db
+from code.questions.keyword_extractor import extract_keywords_from_text, normalize_keywords
 
 router = APIRouter()
 
@@ -18,7 +20,8 @@ async def get_question(id: Optional[int] = None):
         "id": q["id"],
         "text": q["text"],
         "category": q.get("category", "General"),
-        "difficulty": q.get("difficulty", "Medium")
+        "difficulty": q.get("difficulty", "Medium"),
+        "keywords": q.get("keywords", [])
     }
 
 # fetch question from local 
@@ -26,6 +29,9 @@ async def get_question(id: Optional[int] = None):
 async def get_all_questions(categories: Optional[str] = None):
     """Get all questions, optionally filtered by categories"""
     questions = load_questions()
+    for q in questions:
+        if "keywords" not in q or not q["keywords"]:
+            q["keywords"] = q.get("keywords", [])
     if categories:
         cat_list = [c.strip() for c in categories.split(",")]
         filtered = [q for q in questions if q.get("category", "").lower() in [c.lower() for c in cat_list]]
@@ -73,13 +79,23 @@ async def get_all_categories():
     categories = sorted(set(q.get("category") for q in questions if q.get("category")))
     return categories
 
+@router.post("/extract-preview")
+async def extract_preview(
+    text: str = Form(...),
+    category: Optional[str] = Form(default="")
+):
+    """Preview auto-extracted keywords from question text"""
+    kws = extract_keywords_from_text(text.strip(), category.strip() if category else None)
+    return {"keywords": kws}
+
 @router.post("/admin/add")
 async def admin_add_question(
     text: str = Form(...),
     category: str = Form(default="General"),
     difficulty: str = Form(default="Medium"),
+    keywords: Optional[str] = Form(default=None)
 ):
-    """Add new question"""
+    """Add new question with auto or manual keywords"""
     questions = load_questions()
     categories = load_categories()
     
@@ -88,12 +104,20 @@ async def admin_add_question(
         categories.append(category)
         save_categories(categories)
     
+    # Process keywords
+    if keywords and keywords.strip():
+        raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
+        kws = normalize_keywords(raw_list)
+    else:
+        kws = extract_keywords_from_text(text.strip(), category.strip())
+
     next_id = max((q["id"] for q in questions), default=0) + 1
     new_q = {
         "id": next_id,
         "category": category.strip(),
         "difficulty": difficulty.strip(),
-        "text": text.strip()
+        "text": text.strip(),
+        "keywords": kws
     }
     questions.append(new_q)
     save_questions(questions)
@@ -116,9 +140,10 @@ async def admin_update_question(
     id: int = Form(...),
     text: str = Form(...),
     category: str = Form(...),
-    difficulty: str = Form(...)
+    difficulty: str = Form(...),
+    keywords: Optional[str] = Form(default=None)
 ):
-    """Update existing question"""
+    """Update existing question including its keywords"""
     questions = load_questions()
     
     for q in questions:
@@ -126,7 +151,35 @@ async def admin_update_question(
             q["text"] = text.strip()
             q["category"] = category.strip()
             q["difficulty"] = difficulty.strip()
+            
+            if keywords is not None and keywords.strip():
+                raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
+                q["keywords"] = normalize_keywords(raw_list)
+            elif "keywords" not in q or not q["keywords"]:
+                q["keywords"] = extract_keywords_from_text(text.strip(), category.strip())
+            
             save_questions(questions)
             return {"success": True, "question": q}
     
     raise HTTPException(404, f"Question {id} not found")
+
+@router.post("/admin/backfill-keywords")
+async def backfill_keywords():
+    """Auto-generate and save keywords for any questions that lack them"""
+    questions = load_questions()
+    updated_count = 0
+    for q in questions:
+        existing_kws = q.get("keywords")
+        if not existing_kws or len(existing_kws) == 0:
+            q["keywords"] = extract_keywords_from_text(q.get("text", ""), q.get("category", ""))
+            updated_count += 1
+    
+    if updated_count > 0:
+        save_questions(questions)
+    
+    return {
+        "success": True,
+        "message": f"Successfully updated {updated_count} questions with auto-generated keywords",
+        "updated_count": updated_count,
+        "total_questions": len(questions)
+    }

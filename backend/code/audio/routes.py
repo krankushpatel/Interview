@@ -454,8 +454,16 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     smart_format = websocket.query_params.get("smart_format", "true")
     endpointing = websocket.query_params.get("endpointing", "150")
     utterance_end_ms = websocket.query_params.get("utterance_end_ms", "800")
-    keywords = websocket.query_params.getlist("keywords")
-    keyword_boost = websocket.query_params.get("keyword_boost", "5.0")
+    raw_keywords = websocket.query_params.getlist("keywords")
+    keywords = []
+    for item in raw_keywords:
+        for kw in item.split(","):
+            cleaned = kw.strip()
+            if cleaned and cleaned not in keywords:
+                keywords.append(cleaned)
+    # Maximum 100 keywords to Deepgram to optimize recognition and avoid limits
+    keywords = keywords[:100]
+    keyword_boost = websocket.query_params.get("keyword_boost", "6.0")
 
     dg_params = {
         "model": dg_model,

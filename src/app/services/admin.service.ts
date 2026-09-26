@@ -34,6 +34,7 @@ export interface Question {
   text: string;
   category: string;
   difficulty: string;
+  keywords?: string[];
 }
 
 export interface ExamRecording {
@@ -136,16 +137,23 @@ export class AdminService {
     }
   }
 
-  async addQuestion(text: string, category: string, difficulty: string): Promise<any> {
+  async addQuestion(text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
     const fd = new FormData();
     fd.append('text', text);
     fd.append('category', category);
     fd.append('difficulty', difficulty);
+    if (keywords) {
+      fd.append('keywords', keywords);
+    }
     return lastValueFrom(this.http.post(`${environment.apiUrl}/admin/questions/add`, fd));
   }
 
   async deleteQuestion(id: number): Promise<any> {
     return lastValueFrom(this.http.delete(`${environment.apiUrl}/questions/${id}`));
+  }
+
+  async backfillKeywords(): Promise<any> {
+    return lastValueFrom(this.http.post(`${environment.apiUrl}/questions/admin/backfill-keywords`, {}));
   }
 
   async getResults(username: string): Promise<any> {
@@ -295,13 +303,16 @@ export class AdminService {
   }
 
   // Update/Edit Question
-  async updateQuestion(id: number, text: string, category: string, difficulty: string): Promise<any> {
+  async updateQuestion(id: number, text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
     console.log('✅ downloadupdate question Template called with fetch');
     const fd = new FormData();
     fd.append('id', id.toString());
     fd.append('text', text);
     fd.append('category', category);
     fd.append('difficulty', difficulty);
+    if (keywords) {
+      fd.append('keywords', keywords);
+    }
     return lastValueFrom(this.http.post(`${environment.apiUrl}/admin/questions/update`, fd));
   }
 

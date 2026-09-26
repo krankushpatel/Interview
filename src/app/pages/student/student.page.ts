@@ -166,6 +166,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   wordCount = 0;
   readonly MAX_WORDS = 1000;
   preferredCategories: string[] = [];
+  examKeywords: string[] = [];
   private permissionsGranted = false;
   Math = Math;
 
@@ -491,11 +492,48 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       
       this.questions = finalQuestions;
       this.currentQuestion = this.questions[0];
+      this.buildExamKeywords(allQ);
 
     } catch (err) {
       console.error('Failed to load questions', err);
       this.showToast('Failed to load questions. Please refresh.', 'danger');
     }
+  }
+
+  private buildExamKeywords(categoryPool: Question[] = []) {
+    const tier1: string[] = [];
+    const tier2: string[] = [];
+    const tier3: string[] = [];
+
+    // TIER 1: Keywords from student's selected exam questions (highest priority)
+    if (this.questions && this.questions.length > 0) {
+      for (const q of this.questions) {
+        if (q.keywords && Array.isArray(q.keywords)) {
+          tier1.push(...q.keywords);
+        }
+      }
+    }
+
+    // TIER 2 & 3: Keywords from the entire category pool (e.g. Computer Science + AI)
+    if (categoryPool && categoryPool.length > 0) {
+      for (const q of categoryPool) {
+        if (q.keywords && Array.isArray(q.keywords)) {
+          for (const kw of q.keywords) {
+            // Acronyms (e.g. PMOS, NMOS, CMOS, SQL, VHDL) or terms with uppercase/hyphen
+            if (/^[A-Z0-9\-]{2,8}$/.test(kw.trim())) {
+              tier2.push(kw);
+            } else {
+              tier3.push(kw);
+            }
+          }
+        }
+      }
+    }
+
+    // Combine in priority order and deduplicate case-insensitively, capped at 100 keywords
+    const combined = [...tier1, ...tier2, ...tier3];
+    this.examKeywords = this.speech.deduplicateKeywords(combined).slice(0, 100);
+    console.log(`[ExamEngine] Generated ${this.examKeywords.length} optimized keywords for Deepgram:`, this.examKeywords);
   }
 
   initProctoring() {
@@ -1374,9 +1412,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       const endsWithSentence = /[.!?]\s*$/.test(this.answerText.trim());
       this.speech.clearTranscript(endsWithSentence || !this.answerText.trim());
       
-      // ✅ FIX: Pass username and sessionId
+      // ✅ Pass username, sessionId, and examKeywords
       const username = sessionStorage.getItem('username') || '';
-      this.speech.startListening(username, this.examSessionId);
+      this.speech.startListening(username, this.examSessionId, this.examKeywords);
       
       this.isSpeechListening = true;
       this.updateStatus('status-mic', 'ok', 'Active');
@@ -1417,7 +1455,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         this.speech.clearTranscript(endsWithSentence || !this.answerText.trim());
         const username = sessionStorage.getItem('username') || '';
         // This will start Deepgram if not already, or just resume
-        this.speech.startListening(username, this.examSessionId);
+        this.speech.startListening(username, this.examSessionId, this.examKeywords);
         this.speech.setMicActive(true);
         this.isSpeechListening = true;
         this.updateStatus('status-mic', 'ok', 'Active');

@@ -7,6 +7,7 @@ export interface AddQuestionData {
   text: string;
   category: string;
   difficulty: string;
+  keywords?: string;
 }
 
 @Component({
@@ -19,9 +20,20 @@ export interface AddQuestionData {
       <div class="page-header">
         <div>
           <h1 class="page-title">Question Bank</h1>
-          <p class="page-subtitle">Manage interview questions across all categories</p>
+          <p class="page-subtitle">Manage interview questions across all categories with Deepgram speech keywords</p>
         </div>
-        <span class="stat-chip">{{ totalQuestions }} questions</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-outline" (click)="backfillKeywords.emit()" title="Auto-extract speech recognition keywords for any questions missing them" style="font-size: 13px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 21h5v-5"/>
+            </svg>
+            Auto-Sync Keywords
+          </button>
+          <span class="stat-chip">{{ totalQuestions }} questions</span>
+        </div>
       </div>
 
       <!-- Add New Question Card -->
@@ -91,6 +103,15 @@ export interface AddQuestionData {
               <option value="Medium">Medium</option>
               <option value="Hard">Hard</option>
             </select>
+          </div>
+          <div class="aq-field aq-field-full">
+            <label class="field-label">Speech Keywords (Optional, comma-separated — auto-extracted if left blank)</label>
+            <input
+              type="text"
+              class="field-input"
+              [(ngModel)]="newQuestionKeywords"
+              placeholder="e.g. PMOS, NMOS, CMOS, MOSFET, inverter"
+            />
           </div>
           <div class="aq-actions">
             <button class="btn btn-primary" (click)="onAddQuestion()">Add Question</button>
@@ -165,6 +186,11 @@ export interface AddQuestionData {
             </div>
           </div>
           <div class="q-text">{{ q.text }}</div>
+          <div *ngIf="q.keywords && q.keywords.length > 0" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;">
+            <span *ngFor="let kw of q.keywords" style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(20, 122, 131, 0.1); color: var(--dip-brand-1, #147A83); border: 1px solid rgba(20, 122, 131, 0.25); font-weight: 500;">
+              {{ kw }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -222,12 +248,14 @@ export class AdminQuestionsComponent {
   @Output() addQuestion = new EventEmitter<AddQuestionData>();
   @Output() editQuestion = new EventEmitter<Question>();
   @Output() deleteQuestion = new EventEmitter<number>();
+  @Output() backfillKeywords = new EventEmitter<void>();
   @Output() filterChange = new EventEmitter<{ category: string; difficulty: string }>();
   @Output() resetFilters = new EventEmitter<void>();
   @Output() goToPage = new EventEmitter<number>();
   @Output() changePageSize = new EventEmitter<number>();
 
   newQuestionText: string = '';
+  newQuestionKeywords: string = '';
   categorySearchText: string = '';
   newQuestionDifficulty: string = 'Medium';
   showCategoryDropdown: boolean = false;
@@ -255,9 +283,11 @@ export class AdminQuestionsComponent {
     this.addQuestion.emit({
       text: this.newQuestionText.trim(),
       category: this.categorySearchText.trim(),
-      difficulty: this.newQuestionDifficulty
+      difficulty: this.newQuestionDifficulty,
+      keywords: this.newQuestionKeywords.trim()
     });
     this.newQuestionText = '';
+    this.newQuestionKeywords = '';
   }
 
   onFilterChange() {

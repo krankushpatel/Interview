@@ -46,6 +46,7 @@ export class SpeechService {
   private audioPreBuffer: ArrayBuffer[] = [];
   private lastUsername = '';
   private lastSessionId = '';
+  private currentKeywords: string[] = [];
 
   // True right after a completed sentence (speech_final) — next committed
   // chunk should start with a capital letter, matching natural writing.
@@ -76,13 +77,62 @@ export class SpeechService {
     }
   }
 
+  deduplicateKeywords(keywords: string[]): string[] {
+    const map = new Map<string, string>();
+    for (const kw of keywords) {
+      if (!kw || typeof kw !== 'string') continue;
+      const clean = kw.trim();
+      if (!clean) continue;
+      const lower = clean.toLowerCase();
+      if (!map.has(lower)) {
+        map.set(lower, clean);
+      } else {
+        const prev = map.get(lower)!;
+        const prevCaps = (prev.match(/[A-Z]/g) || []).length;
+        const currCaps = (clean.match(/[A-Z]/g) || []).length;
+        if (currCaps > prevCaps) {
+          map.set(lower, clean);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }
+
+  normalizePhoneticDomainTerms(text: string, activeKeywords: string[] = []): string {
+    if (!text) return text;
+    let res = text;
+    const lowerKws = new Set(activeKeywords.map(k => k.toLowerCase()));
+
+    // Target specific domain misrecognitions
+    if (lowerKws.has('pmos')) {
+      res = res.replace(/\b(p[\s\-]*(?:mass|moss|mos|fat|mose)|pea[\s\-]*moss)\b/gi, 'PMOS');
+    }
+    if (lowerKws.has('nmos')) {
+      res = res.replace(/\b(n[\s\-]*(?:mass|moss|mos|fat|mose)|knee[\s\-]*moss)\b/gi, 'NMOS');
+    }
+    if (lowerKws.has('cmos')) {
+      res = res.replace(/\b(c[\s\-]*(?:mass|moss|mos|fat|mose)|sea[\s\-]*moss)\b/gi, 'CMOS');
+    }
+    if (lowerKws.has('mosfet')) {
+      res = res.replace(/\b(?:mos[\s\-]*fet|moss[\s\-]*fet|moss[\s\-]*fat)\b/gi, 'MOSFET');
+    }
+    if (lowerKws.has('vhdl')) {
+      res = res.replace(/\bv[\s\.\-]*h[\s\.\-]*d[\s\.\-]*l\b/gi, 'VHDL');
+    }
+
+    return res;
+  }
+
   /**
    * Start listening. Tries Deepgram first, falls back to webkitSpeechRecognition.
    * Keeps existing connection warm to prevent dropping initial words on unmute.
    */
-  async startListening(username: string, sessionId: string): Promise<void> {
+  async startListening(username: string, sessionId: string, keywords: string[] = []): Promise<void> {
     this.lastUsername = username;
     this.lastSessionId = sessionId;
+    if (keywords && keywords.length > 0) {
+      this.currentKeywords = keywords;
+    }
     this.shouldKeepListening = true;
     this.accumulatedTranscript = '';
     this.capitalizeNextChunk = true;
@@ -98,7 +148,7 @@ export class SpeechService {
     if (this.isListening) return;
 
     // Try Deepgram first
-    const deepgramOk = await this.startDeepgram(username, sessionId);
+    const deepgramOk = await this.startDeepgram(username, sessionId, this.currentKeywords);
     if (deepgramOk) {
       this.currentEngine = 'deepgram';
       this.engineSource.next('deepgram');
@@ -158,7 +208,7 @@ export class SpeechService {
   }
 
   // ─── startDeepgram ──────────────────────────────────────────────
-  private async startDeepgram(username: string, sessionId: string): Promise<boolean> {
+  private async startDeepgram(username: string, sessionId: string, keywords: string[] = []): Promise<boolean> {
     try {
       this.reconnecting = false;
       this.lastUsername = username;
@@ -204,9 +254,11 @@ export class SpeechService {
       if (opts.utterance_end_ms) params.set('utterance_end_ms', opts.utterance_end_ms.toString());
       if (opts.punctuate !== undefined) params.set('punctuate', opts.punctuate ? 'true' : 'false');
       if (opts.smart_format !== undefined) params.set('smart_format', opts.smart_format ? 'true' : 'false');
-      if (opts.keywords && opts.keywords.length > 0) {
-        opts.keywords.forEach((k: string) => params.append('keywords', k));
-        if (opts.keyword_boost) params.set('keyword_boost', opts.keyword_boost.toString());
+      
+      const allKeywords = this.deduplicateKeywords([...(opts.keywords || []), ...keywords]);
+      if (allKeywords.length > 0) {
+        allKeywords.slice(0, 100).forEach((k: string) => params.append('keywords', k));
+        params.set('keyword_boost', (opts.keyword_boost ?? 6.0).toString());
       }
       const qs = params.toString() ? `?${params.toString()}` : '';
       const wsUrl = `${environment.wsUrl}/ws/stt-stream/${encodeURIComponent(username)}/${encodeURIComponent(sessionId)}${qs}`;
@@ -236,8 +288,8 @@ export class SpeechService {
             tier: opts.tier ?? 'enhanced',
             smart_format: opts.smart_format ?? true,
             punctuate: opts.punctuate ?? false,
-            keywords: opts.keywords ?? [],
-            keyword_boost: opts.keyword_boost ?? 5.0,
+            keywords: allKeywords.slice(0, 100),
+            keyword_boost: opts.keyword_boost ?? 6.0,
             endpointing: opts.endpointing ?? 150,
             utterance_end_ms: opts.utterance_end_ms ?? 800,
           };
@@ -307,6 +359,7 @@ export class SpeechService {
               if (msg.is_final) {
                 let chunk = msg.transcript || '';
                 if (chunk) {
+                  chunk = this.normalizePhoneticDomainTerms(chunk, this.currentKeywords);
                   if (this.capitalizeNextChunk) {
                     chunk = chunk.charAt(0).toUpperCase() + chunk.slice(1);
                   }
@@ -319,7 +372,9 @@ export class SpeechService {
                 }
                 this.transcriptSource.next(this.accumulatedTranscript.trim());
               } else {
-                this.transcriptSource.next((this.accumulatedTranscript + ' ' + msg.transcript).trim());
+                const interimRaw = (this.accumulatedTranscript + ' ' + msg.transcript).trim();
+                const interimNormalized = this.normalizePhoneticDomainTerms(interimRaw, this.currentKeywords);
+                this.transcriptSource.next(interimNormalized);
               }
               if (typeof msg.confidence === 'number') {
                 this.confidenceSource.next(msg.confidence);
@@ -349,7 +404,7 @@ export class SpeechService {
             setTimeout(() => {
               this.reconnecting = false;
               if (this.lastUsername && this.lastSessionId) {
-                this.startDeepgram(this.lastUsername, this.lastSessionId);
+                this.startDeepgram(this.lastUsername, this.lastSessionId, this.currentKeywords);
               }
             }, 2000);
           }

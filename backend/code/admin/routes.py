@@ -31,6 +31,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from code.admin.ws_manager import admin_ws_manager
 from code.admin.monitoring import get_live_exams
 from code.core.data_manager import db, get_db
+from code.questions.keyword_extractor import extract_keywords_from_text, normalize_keywords
 
 router = APIRouter()
 
@@ -413,12 +414,21 @@ async def bulk_import_questions_endpoint(file: UploadFile = File(...)):
                     upsert=True
                 )
 
+            # Check if keywords provided in file, otherwise auto-extract from question & category
+            raw_kw = str(row.get('keywords') or row.get('keyword') or '').strip()
+            if raw_kw and raw_kw.lower() != 'nan':
+                split_kws = [k.strip() for k in re.split(r'[,;]+', raw_kw) if k.strip()]
+                extracted_kws = normalize_keywords(split_kws)
+            else:
+                extracted_kws = extract_keywords_from_text(q_text, cat)
+
             new_q = {
                 "id": next_id,
                 "text": q_text,
                 "category": cat,
                 "difficulty": diff,
-                "class_name": cls_name if cls_name.lower() != 'nan' and cls_name else "All"
+                "class_name": cls_name if cls_name.lower() != 'nan' and cls_name else "All",
+                "keywords": extracted_kws
             }
             db.questions.insert_one(new_q)
             next_id += 1

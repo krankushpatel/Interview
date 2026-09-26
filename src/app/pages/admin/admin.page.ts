@@ -150,6 +150,8 @@ export class AdminPage implements OnInit, OnDestroy {
   editQuestionText = '';
   editQuestionCategory = '';
   editQuestionDifficulty = 'Medium';
+  editQuestionKeywords = '';
+  newQuestionKeywords = '';
 
   // Filter properties
   filterDifficulty = '';
@@ -689,6 +691,7 @@ export class AdminPage implements OnInit, OnDestroy {
     this.editQuestionText = question.text;
     this.editQuestionCategory = question.category || 'General';
     this.editQuestionDifficulty = question.difficulty || 'Medium';
+    this.editQuestionKeywords = Array.isArray(question.keywords) ? question.keywords.join(', ') : (question.keywords || '');
     this.showEditModal = true;
   }
 
@@ -698,6 +701,7 @@ export class AdminPage implements OnInit, OnDestroy {
     this.editQuestionText = '';
     this.editQuestionCategory = '';
     this.editQuestionDifficulty = 'Medium';
+    this.editQuestionKeywords = '';
   }
 
   loadUniqueCategories() {
@@ -779,7 +783,8 @@ export class AdminPage implements OnInit, OnDestroy {
         this.editQuestionId,
         this.editQuestionText,
         this.editQuestionCategory,
-        this.editQuestionDifficulty
+        this.editQuestionDifficulty,
+        this.editQuestionKeywords
       );
       this.showToast('Question updated successfully!', 'success');
       this.closeEditModal();
@@ -807,18 +812,32 @@ export class AdminPage implements OnInit, OnDestroy {
       await this.adminService.addQuestion(
         this.newQuestionText.trim(),
         this.newQuestionCategory.trim() || 'General',
-        this.newQuestionDifficulty
+        this.newQuestionDifficulty,
+        this.newQuestionKeywords.trim()
       );
       this.showFeedback('Question added successfully!', 'success');
       this.newQuestionText = '';
       this.newQuestionCategory = '';
       this.newQuestionDifficulty = 'Medium';
+      this.newQuestionKeywords = '';
       await this.loadQuestions();
       await this.loadAllCategories();
       this.loadUniqueCategories();
       this.applyQuestionsFilters();
     } catch (err) {
       this.showFeedback('Failed to add question', 'error');
+    }
+  }
+
+  async backfillKeywords() {
+    try {
+      this.showToast('Syncing speech recognition keywords for questions...', 'primary');
+      const res = await this.adminService.backfillKeywords();
+      this.showToast(res.message || 'Keywords synced successfully!', 'success');
+      await this.loadQuestions();
+      this.applyQuestionsFilters();
+    } catch (err: any) {
+      this.showToast('Failed to sync keywords', 'danger');
     }
   }
 
@@ -2009,10 +2028,11 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
-  async onAddQuestionFromComponent(data: { text: string; category: string; difficulty: string }) {
+  async onAddQuestionFromComponent(data: { text: string; category: string; difficulty: string; keywords?: string }) {
     this.newQuestionText = data.text;
     this.newQuestionCategory = data.category;
     this.newQuestionDifficulty = data.difficulty;
+    this.newQuestionKeywords = data.keywords || '';
     await this.addQuestion();
   }
 
@@ -2022,10 +2042,11 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyQuestionsFilters();
   }
 
-  async onSaveEditQuestionFromModal(payload: { text: string; category: string; difficulty: string }) {
+  async onSaveEditQuestionFromModal(payload: { text: string; category: string; difficulty: string; keywords?: string }) {
     this.editQuestionText = payload.text;
     this.editQuestionCategory = payload.category;
     this.editQuestionDifficulty = payload.difficulty;
+    this.editQuestionKeywords = payload.keywords || '';
     await this.saveEditQuestion();
   }
 

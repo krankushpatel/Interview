@@ -9,6 +9,7 @@ export interface Question {
   text: string;
   category: string;
   difficulty: string;
+  keywords?: string[];
 }
 
 export interface AnswerRecord {
