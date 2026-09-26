@@ -25,6 +25,7 @@ import os
 import random
 import re
 import time
+from datetime import datetime
 from functools import partial
 from typing import Any, Awaitable, Callable, List, Optional, Tuple
 
@@ -237,6 +238,81 @@ def _extract_gemini_function_args(resp: Any, tool_name: str) -> Optional[dict]:
     return None
 
 
+_total_llm_calls = 0
+_total_prompt_tokens = 0
+_total_completion_tokens = 0
+_total_tokens = 0
+_total_estimated_usd = 0.0
+
+def _print_evaluation_debug(provider: str, system: str, user_prompt: str, output: Any, resp: Any) -> None:
+    global _total_llm_calls, _total_prompt_tokens, _total_completion_tokens, _total_tokens, _total_estimated_usd
+
+    _total_llm_calls += 1
+
+    # Extract tokens
+    um = getattr(resp, "usage_metadata", None) or getattr(resp, "usage", None)
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+    if um:
+        prompt_tokens = getattr(um, "prompt_token_count", None) or getattr(um, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(um, "candidates_token_count", None) or getattr(um, "completion_tokens", 0) or 0
+        total_tokens = getattr(um, "total_token_count", None) or getattr(um, "total_tokens", 0) or 0
+
+    if not total_tokens and (prompt_tokens or completion_tokens):
+        total_tokens = prompt_tokens + completion_tokens
+
+    # Approximate Cost calculation:
+    # Gemini Flash (e.g. 2.5-flash / 1.5-flash): $0.075 / 1M input, $0.30 / 1M output
+    # Pro models: $1.25 / 1M input, $5.00 / 1M output (~16x higher!)
+    is_pro = "pro" in provider.lower()
+    in_rate = 1.25 if is_pro else 0.075
+    out_rate = 5.00 if is_pro else 0.30
+
+    call_cost_usd = (prompt_tokens / 1_000_000 * in_rate) + (completion_tokens / 1_000_000 * out_rate)
+    call_cost_inr = call_cost_usd * 86.5
+
+    _total_prompt_tokens += prompt_tokens
+    _total_completion_tokens += completion_tokens
+    _total_tokens += total_tokens
+    _total_estimated_usd += call_cost_usd
+    total_cost_inr = _total_estimated_usd * 86.5
+
+    # Output formatting
+    if isinstance(output, (dict, list)):
+        try:
+            output_formatted = json.dumps(output, indent=2)
+        except Exception:
+            output_formatted = str(output)
+    else:
+        output_formatted = str(output)
+
+    print("\n" + "=" * 85)
+    print(f"🤖 [AI EVALUATION CALL #{_total_llm_calls}] ➔ Model: {provider}")
+    print(f"⏰ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("-" * 85)
+    print("📝 [SYSTEM INSTRUCTION]:")
+    print(system[:500] + ("..." if len(system) > 500 else ""))
+    print("-" * 85)
+    print(f"📥 [USER PROMPT TO GEMINI] (Length: {len(user_prompt)} characters):")
+    print(user_prompt)
+    print("-" * 85)
+    print("📤 [OUTPUT RECEIVED FROM GEMINI]:")
+    print(output_formatted)
+    print("-" * 85)
+    print("📊 [TOKEN CONSUMPTION & COST FOR THIS CALL]:")
+    print(f"   • Prompt (Input) Tokens:      {prompt_tokens:,}")
+    print(f"   • Candidates (Output) Tokens: {completion_tokens:,}")
+    print(f"   • Total Tokens This Call:     {total_tokens:,}")
+    print(f"   • Est. Cost (This Call):      ${call_cost_usd:.5f} (~₹{call_cost_inr:.3f})")
+    print("-" * 85)
+    print("📈 [INTERVIEW SESSION CUMULATIVE STATS]:")
+    print(f"   • Total API Calls Made:       {_total_llm_calls}")
+    print(f"   • Cumulative Tokens Used:     {_total_tokens:,} (In: {_total_prompt_tokens:,} | Out: {_total_completion_tokens:,})")
+    print(f"   • Cumulative Estimated Cost:  ${_total_estimated_usd:.4f} (~₹{total_cost_inr:.2f})")
+    print("=" * 85 + "\n")
+
+
 def _log_usage(provider: str, resp: Any) -> None:
     try:
         um = getattr(resp, "usage_metadata", None) or getattr(resp, "usage", None)
@@ -282,6 +358,7 @@ async def _gemini_call_with_tool(model: str, system: str, user_prompt: str, tool
     if args is None:
         raise LLMInvalidResponseError(
             f"Gemini returned no usable '{tool['name']}' function call (possible output truncation)")
+    _print_evaluation_debug(f"gemini:{model}", system, user_prompt, args, resp)
     return args
 
 
@@ -326,6 +403,7 @@ async def _openrouter_call_with_tool(model: str, system: str, user_prompt: str,
             except json.JSONDecodeError as e:
                 raise LLMInvalidResponseError(f"OpenRouter tool arguments not valid JSON: {e}")
             if isinstance(args, dict) and args:
+                _print_evaluation_debug(f"openrouter:{model}", system, user_prompt, args, resp)
                 return args
     raise LLMInvalidResponseError(f"OpenRouter returned no '{tool['name']}' tool call")
 
@@ -344,6 +422,7 @@ async def _gemini_call_plain(model: str, system: str, user_prompt: str, max_toke
     text = (getattr(resp, "text", None) or "").strip()
     if not text:
         raise LLMInvalidResponseError("Gemini returned empty text")
+    _print_evaluation_debug(f"gemini:{model}", system, user_prompt, text, resp)
     return text
 
 
@@ -369,6 +448,7 @@ async def _openrouter_call_plain(model: str, system: str, user_prompt: str, max_
     content = (getattr(choices[0].message, "content", "") or "").strip() if choices else ""
     if not content:
         raise LLMInvalidResponseError("OpenRouter returned empty content")
+    _print_evaluation_debug(f"openrouter:{model}", system, user_prompt, content, resp)
     return content
 
 

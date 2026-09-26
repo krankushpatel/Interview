@@ -1562,17 +1562,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         this.answeredBuffer.push(answerRecord);
       }
 
-      // --- SMART BATCH TRIGGER LOGIC ---
-      const validAnswers = this.answeredBuffer.filter(a => 
-        a.answer && !a.answer.includes('[Skipped') && a.answer.trim().length > 0
-      );
-      const pendingForBatch = validAnswers.filter(a => 
-        !this.cachedBackgroundScores.some(cache => cache.question_id === a.question_id)
-      );
-      if (pendingForBatch.length === 6) {
-        this.sendBackgroundChunk(pendingForBatch);
-      }
-      // ---------------------------------
+      // Evaluation will be done cleanly in 2 API calls at finishExam()
+      // (1 for Intro + 1 batch call for the 9 technical questions)
+
 
       const banner = document.getElementById('submitted-banner');
       if (banner) banner.classList.add('visible');

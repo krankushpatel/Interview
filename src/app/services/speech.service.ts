@@ -260,6 +260,7 @@ export class SpeechService {
         allKeywords.slice(0, 100).forEach((k: string) => params.append('keywords', k));
         params.set('keyword_boost', (opts.keyword_boost ?? 6.0).toString());
       }
+      console.log(`[DEEPGRAM STT] 🔑 Connecting with ${allKeywords.slice(0, 100).length} keywords:`, allKeywords.slice(0, 100));
       const qs = params.toString() ? `?${params.toString()}` : '';
       const wsUrl = `${environment.wsUrl}/ws/stt-stream/${encodeURIComponent(username)}/${encodeURIComponent(sessionId)}${qs}`;
 
@@ -356,6 +357,9 @@ export class SpeechService {
               return;
             }
             if (msg.type === 'transcript') {
+              if (msg.transcript && msg.transcript.trim()) {
+                console.log(`[DEEPGRAM STT ➔ TRANSCRIPT] [${msg.speech_final ? 'SPEECH_FINAL' : (msg.is_final ? 'FINAL' : 'INTERIM')}] (conf: ${(msg.confidence || 0).toFixed(2)}): "${msg.transcript.trim()}"`);
+              }
               if (msg.is_final) {
                 let chunk = msg.transcript || '';
                 if (chunk) {

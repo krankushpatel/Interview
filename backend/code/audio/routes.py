@@ -485,6 +485,16 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     if keywords:
         dg_params["keywords"] = [f"{kw}:{keyword_boost}" for kw in keywords]
 
+    print("\n" + "="*80)
+    print(f"🎤 [DEEPGRAM STT CONNECTED] User: '{username}' | Session: '{session_id}'")
+    print(f"⚙️ Model: {dg_model} | Language: en-IN | Boost: {keyword_boost}")
+    print(f"🔑 Total Keywords Sent to Deepgram ({len(keywords)}):")
+    if keywords:
+        print(f"   {keywords}")
+    else:
+        print("   (No keywords provided)")
+    print("="*80 + "\n")
+
     try:
         dg_session = aiohttp.ClientSession()
         dg_ws = await dg_session.ws_connect(
@@ -583,6 +593,11 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
                         # speech_final is what the client should treat as "sentence
                         # complete" for reliable capitalization/full-stop handling.
                         speech_final = data.get("speech_final", False)
+
+                        # Print returned transcript to terminal for easy debugging
+                        if transcript and transcript.strip():
+                            status = "SPEECH_FINAL" if speech_final else ("FINAL" if is_final else "INTERIM")
+                            print(f"[DEEPGRAM STT ➔ CLIENT] [{status}] (conf: {confidence:.2f}): \"{transcript.strip()}\"")
 
                         # Send to client
                         await websocket.send_json({
