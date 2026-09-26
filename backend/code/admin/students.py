@@ -158,6 +158,8 @@ def delete_student(username: str) -> dict:
         db.screen_recordings.delete_many({"username": username})
         db.evidence_snapshots.delete_many({"username": username})
         db.eye_tracking.delete_many({"username": username})
+        # Remove student from all batches / groups
+        db.batches.update_many({}, {"$pull": {"students": username}})
         
     except Exception as e:
         print(f"[WARN] Failed to clean MongoDB collections for {username}: {e}")

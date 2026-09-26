@@ -1490,10 +1490,25 @@ export class AdminPage implements OnInit, OnDestroy {
     const { data } = await modal.onDidDismiss();
     if (data === true || data?.deleted === true) {
       const deletedUser = data?.username || username;
-      // Instant UI removal
+      // Instant UI removal from students list
       this.students = this.students.filter(s => s.username !== deletedUser);
       this.filteredStudents = this.filteredStudents.filter(s => s.username !== deletedUser);
       this.filterStudents();
+
+      // Instant UI removal from currently open group modal if any
+      if (this.selectedGroup && Array.isArray(this.selectedGroup.students)) {
+        this.selectedGroup.students = this.selectedGroup.students.filter((u: string) => u !== deletedUser);
+      }
+
+      // Also clean in groups list
+      if (Array.isArray(this.groups)) {
+        this.groups.forEach(g => {
+          if (Array.isArray(g.students)) {
+            g.students = g.students.filter((u: string) => u !== deletedUser);
+          }
+        });
+      }
+
       // Auto-refresh from backend to ensure all batches and counts are synchronized
       await Promise.all([this.loadStudents(), this.loadBatches()]);
     }
@@ -2049,12 +2064,25 @@ export class AdminPage implements OnInit, OnDestroy {
   async removeStudentFromGroup(username: string) {
     if (!this.selectedGroup) return;
     if (!confirm(`Remove ${username} from ${this.selectedGroup.name}?`)) return;
+    const batchId = this.selectedGroup.id;
+    // Optimistic UI update
+    if (this.selectedGroup && Array.isArray(this.selectedGroup.students)) {
+      this.selectedGroup.students = this.selectedGroup.students.filter((u: string) => u !== username);
+    }
+    if (Array.isArray(this.groups)) {
+      this.groups.forEach(g => {
+        if (g.id === batchId && Array.isArray(g.students)) {
+          g.students = g.students.filter((u: string) => u !== username);
+        }
+      });
+    }
     try {
-      await this.adminService.removeStudentFromBatch(this.selectedGroup.id, username);
+      await this.adminService.removeStudentFromBatch(batchId, username);
       this.showToast(`Removed ${username} from group`, 'success');
       await this.loadBatches();
     } catch (e) {
       this.showToast('Failed to remove student from group', 'danger');
+      await this.loadBatches();
     }
   }
 

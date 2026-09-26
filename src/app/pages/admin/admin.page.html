@@ -589,9 +589,8 @@
               </div>
 
               <div class="group-students-grid" *ngIf="selectedGroup.students?.length > 0">
-                <div *ngFor="let username of selectedGroup.students" class="group-student-card">
-                  <ng-container *ngIf="getStudentByUsername(username) as st">
-                    
+                <ng-container *ngFor="let username of selectedGroup.students">
+                  <div class="group-student-card" *ngIf="getStudentByUsername(username) as st">
                     <div class="gsc-header">
                       <div class="gsc-avatar">{{ st.name ? st.name[0].toUpperCase() : username[0].toUpperCase() }}</div>
                       <div class="gsc-id">
@@ -615,8 +614,8 @@
                       <button class="btn btn-outline" style="flex: 1; font-size: 12px; padding: 6px; color: var(--dip-text-primary); border: 1px solid var(--dip-border); background: var(--dip-surface); cursor: pointer;" (click)="openStudentProfileFromGroup(st.username, st.name)">👤 Profile</button>
                       <button class="btn btn-outline" style="flex: 1; font-size: 12px; padding: 6px; color: var(--dip-brand-1); border: 1px solid var(--dip-brand-1); background: var(--dip-surface); cursor: pointer;" (click)="openTimetableModal(st)">📅 Schedule</button>
                     </div>
-                  </ng-container>
-                </div>
+                  </div>
+                </ng-container>
               </div>
               
             </div> <!-- /TAB 2 END -->
