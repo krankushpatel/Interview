@@ -2,10 +2,27 @@
 Keyword Extractor Module
 Extracts domain-specific technical keywords, acronyms, and phonetic error-prone terms
 from question texts to boost speech recognition accuracy in Deepgram.
+Uses Google Gemini API dynamically if configured in .env, with automatic fallback
+to rule-based heuristic extraction.
 """
 
+import json
+import logging
+import os
 import re
+from pathlib import Path
 from typing import List, Optional
+
+logger = logging.getLogger("questions.keyword_extractor")
+
+# Ensure .env is loaded if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    # Look for .env in current folder or backend folder
+    load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+    load_dotenv()
+except Exception:
+    pass
 
 # Common general English words that might be uppercase in question texts but are NOT technical keywords
 STOPWORDS = {
@@ -61,17 +78,80 @@ KNOWN_TECH_TERMS = {
     "SCIKIT-LEARN", "PANDAS", "NUMPY", "OPENCV", "NLP", "NLTK", "SPACY", "FINE-TUNING"
 }
 
-# Regex to capture capitalized acronyms (2 to 8 chars, may include numbers or hyphens)
-ACRONYM_REGEX = re.compile(r'\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\b')
 
-def extract_keywords_from_text(text: str, category: Optional[str] = None, max_keywords: int = 15) -> List[str]:
+def _extract_keywords_via_gemini(text: str, category: Optional[str] = None, max_keywords: int = 15) -> Optional[List[str]]:
     """
-    Extracts high-value technical keywords and acronyms from a question text.
-    Handles domain terms (PMOS, NMOS, CMOS, etc.) and avoids stopwords.
+    Calls Google Gemini API to extract high-value domain-specific keywords and acronyms
+    optimized for speech-to-text (Deepgram STT) keyword boosting.
     """
-    if not text or not isinstance(text, str):
-        return []
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return None
 
+    model_name = os.getenv("GEMINI_MODEL", "").strip() or os.getenv("GEMINI_MODEL_FALLBACK", "").strip() or "gemini-2.5-flash"
+    base_url = os.getenv("GEMINI_BASE_URL", "").strip()
+
+    prompt = f"""You are a specialized AI speech-recognition assistant.
+Your task is to analyze the following technical interview or exam question and extract up to {max_keywords} critical technical keywords, acronyms, and terminology.
+These keywords will be fed into a Speech-to-Text (STT / Deepgram) keyword boosting engine so that technical terms are recognized with 100% accuracy and not misheard as common words (e.g., 'CMOS' not 'sea moss', 'PMOS' not 'promise', 'VHDL' not 'we had all', 'LUT' not 'loot', 'Polymorphism' not 'police morphism').
+
+Instructions:
+1. Extract domain-specific technical words, abbreviations, acronyms, protocols, algorithm names, and hardware/software terms.
+2. Maintain standard uppercase/camelCase spelling for acronyms and terms (e.g., 'PMOS', 'CMOS', 'MOSFET', 'FPGA', 'Polymorphism', 'Deadlock').
+3. DO NOT include generic English stopwords, question words ('What', 'Why', 'Explain', 'Difference', 'Advantage', 'Example'), or common filler words.
+4. If category '{category}' is relevant, keep the extracted terms aligned with this engineering domain.
+5. Return ONLY a valid JSON array of strings, nothing else. Example: ["CMOS", "PMOS", "NMOS", "Substrate", "Threshold Voltage"]
+
+Question:
+\"\"\"{text}\"\"\"
+
+Category: {category or 'General'}
+
+JSON Array:"""
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        kwargs = {"api_key": api_key}
+        if base_url:
+            kwargs["http_options"] = {"base_url": base_url}
+        client = genai.Client(**kwargs)
+
+        config = types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json"
+        )
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=config
+        )
+
+        resp_text = (response.text or "").strip()
+        # Clean potential markdown fences
+        if resp_text.startswith("```"):
+            resp_text = re.sub(r"^```(?:json)?\s*", "", resp_text)
+            resp_text = re.sub(r"\s*```$", "", resp_text)
+
+        parsed = json.loads(resp_text)
+        if isinstance(parsed, list):
+            valid_kws = [str(k).strip() for k in parsed if isinstance(k, (str, int, float)) and str(k).strip()]
+            if valid_kws:
+                return normalize_keywords(valid_kws, max_count=max_keywords)
+
+    except Exception as e:
+        logger.warning(f"[KeywordExtractor] Gemini API call failed ({e}), falling back to heuristic extractor")
+        return None
+
+    return None
+
+
+def _extract_keywords_heuristic(text: str, category: Optional[str] = None, max_keywords: int = 15) -> List[str]:
+    """
+    Fallback heuristic rule-based keyword extractor.
+    Extracts domain terms, uppercase acronyms, camelCase, and technical tokens.
+    """
     found_keywords = []
     seen_lower = set()
 
@@ -88,10 +168,8 @@ def extract_keywords_from_text(text: str, category: Optional[str] = None, max_ke
     # 1. Check known high-priority technical terms directly in text (case-insensitive search)
     text_upper = text.upper()
     for term in KNOWN_TECH_TERMS:
-        # Match as whole word or hyphenated word
         pattern = r'(?<![A-Za-z0-9])' + re.escape(term) + r'(?![A-Za-z0-9])'
         if re.search(pattern, text_upper):
-            # Prefer original capitalization if available, else term
             match = re.search(pattern, text, re.IGNORECASE)
             add_keyword(match.group(0) if match else term)
 
@@ -111,8 +189,7 @@ def extract_keywords_from_text(text: str, category: Optional[str] = None, max_ke
     for tok in quoted_tokens:
         add_keyword(tok)
 
-    # 5. Extract significant capitalized words (nouns/proper terms)
-    # Exclude sentence starting word unless it's a known technical term
+    # 5. Extract significant capitalized words
     words = re.findall(r'\b[A-Za-z0-9_\-]+\b', text)
     for idx, w in enumerate(words):
         if len(w) >= 3 and w[0].isupper() and idx > 0 and w.upper() not in STOPWORDS:
@@ -126,6 +203,24 @@ def extract_keywords_from_text(text: str, category: Optional[str] = None, max_ke
                 add_keyword(cw)
 
     return found_keywords[:max_keywords]
+
+
+def extract_keywords_from_text(text: str, category: Optional[str] = None, max_keywords: int = 15) -> List[str]:
+    """
+    Primary keyword extractor entrypoint.
+    First attempts Gemini AI extraction using GEMINI_API_KEY and GEMINI_MODEL from .env.
+    Falls back gracefully to heuristic rule-based extraction if Gemini is unavailable or errors.
+    """
+    if not text or not isinstance(text, str):
+        return []
+
+    # 1. Attempt dynamic AI extraction via Gemini
+    ai_keywords = _extract_keywords_via_gemini(text, category, max_keywords=max_keywords)
+    if ai_keywords and len(ai_keywords) > 0:
+        return ai_keywords
+
+    # 2. Fallback to heuristic extraction
+    return _extract_keywords_heuristic(text, category, max_keywords=max_keywords)
 
 
 def normalize_keywords(keywords: List[str], max_count: int = 100) -> List[str]:
@@ -145,7 +240,6 @@ def normalize_keywords(keywords: List[str], max_count: int = 100) -> List[str]:
             continue
         lower_key = cleaned.lower()
         if lower_key in seen:
-            # If current version has more uppercase letters, keep it (e.g. "PMOS" > "pmos")
             prev = seen[lower_key]
             curr_upper = sum(1 for c in cleaned if c.isupper())
             prev_upper = sum(1 for c in prev if c.isupper())

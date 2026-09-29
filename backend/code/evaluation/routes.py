@@ -36,6 +36,7 @@ from code.evaluation.ai_evaluation import (
 from code.evaluation.scoring_engine import (
     SCORING_ENGINE_VERSION,
     clamp_answer_words,
+    align_summary_with_final_result,
 )
 
 logger = logging.getLogger("evaluation.routes")
@@ -335,6 +336,9 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
                              if q["id"] not in intro_ids and not q.get("skipped")]
         ai_summary = await _generate_ai_summary(technical_entries)
 
+    if ai_summary:
+        ai_summary = align_summary_with_final_result(ai_summary, adjusted_score, grade, decision)
+
     review_reasons = [r for q in question_results for r in (q.get("review_reasons") or [])][:20]
     if failed:
         review_reasons.insert(0, f"{len(failed)} answer(s) failed automatic evaluation and were "
@@ -402,6 +406,12 @@ async def get_student_result(username: str, session_id: str = None):
     if not result:
         raise HTTPException(status_code=404, detail="Result not found or evaluation is still processing.")
     result["_id"] = str(result["_id"])
+    fr = result.get("final_result")
+    if isinstance(fr, dict) and fr.get("summary"):
+        adj_score = fr.get("adjusted_score") if fr.get("adjusted_score") is not None else (fr.get("raw_score") or 0)
+        grade = fr.get("grade") or ""
+        decision = fr.get("decision") or ""
+        fr["summary"] = align_summary_with_final_result(fr["summary"], adj_score, grade, decision)
     return result
 
 

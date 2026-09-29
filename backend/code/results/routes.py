@@ -1,7 +1,19 @@
 from fastapi import APIRouter, HTTPException
 from code.core.data_manager import get_loaded_data, db
+from code.evaluation.scoring_engine import align_summary_with_final_result
 
 router = APIRouter()
+
+def _align_doc_summary(doc: dict) -> dict:
+    if not isinstance(doc, dict):
+        return doc
+    fr = doc.get("final_result")
+    if isinstance(fr, dict) and fr.get("summary"):
+        adj_score = fr.get("adjusted_score") if fr.get("adjusted_score") is not None else (fr.get("raw_score") or 0)
+        grade = fr.get("grade") or ""
+        decision = fr.get("decision") or ""
+        fr["summary"] = align_summary_with_final_result(fr["summary"], adj_score, grade, decision)
+    return doc
 
 @router.get("/{username}")
 async def get_results(username: str, session_id: str = None):
@@ -14,12 +26,12 @@ async def get_results(username: str, session_id: str = None):
             
         doc = db.evaluations.find_one(query, {"_id": 0}, sort=[("evaluated_at", -1), ("started_at", -1)])
         if doc:
-            return doc
+            return _align_doc_summary(doc)
             
         # Fallback to latest evaluation for user regardless of session_id
         doc = db.evaluations.find_one({"username": username}, {"_id": 0}, sort=[("evaluated_at", -1), ("started_at", -1)])
         if doc:
-            return doc
+            return _align_doc_summary(doc)
     except Exception as e:
         print(f"[WARN] Error querying MongoDB evaluations: {e}")
 
@@ -39,7 +51,7 @@ async def get_results(username: str, session_id: str = None):
     if not result:
         raise HTTPException(status_code=404, detail="No results found. Complete the interview first.")
         
-    return result
+    return _align_doc_summary(result)
 
 @router.get("/admin/all-results")
 async def admin_all_results():
@@ -56,9 +68,10 @@ async def admin_all_results():
         if isinstance(v, dict) and f"{v.get('username')}_{v.get('session_id')}" not in seen_keys:
             mongo_results.append(v)
             
+    combined_results = [_align_doc_summary(r) for r in mongo_results]
     return {
-        "count": len(mongo_results),
-        "results": mongo_results
+        "count": len(combined_results),
+        "results": combined_results
     }
 
 @router.get("/admin/exam-recordings")

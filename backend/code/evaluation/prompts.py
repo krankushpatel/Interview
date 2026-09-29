@@ -158,9 +158,13 @@ def _build_technical_batch_prompt(batch_items: list, include_summary: bool = Fal
         summary_block = f"""
 After evaluating ALL {len(batch_items)} questions, write the overall_summary object covering the WHOLE set, with EXACTLY these four parts (technical performance only):
 - overall_depth (Line 1): ONE sentence, max 30 words, on the overall depth and solidity of the candidate's technical knowledge across all {len(batch_items)} questions.
-- strongest_topic (Line 2): their strongest topic (use one of the topic tags you assigned) and why it was strong.
-- weakest_topic (Line 3): their weakest topic and the specific gap to close.
-- final_technical_performance (Line 4): exactly one of {format_grade_bands_for_prompt()}, judged from the scores you just gave.
+- strongest_topic (Line 2): The candidate's strongest topic (use one of the topic tags you assigned) and why it was strong.
+- weakest_topic (Line 3): The candidate's weakest topic and the specific gap to close.
+- final_technical_performance (Line 4): exactly one of {format_grade_bands_for_prompt()}, judged strictly from the scores you just gave.
+
+CRITICAL STYLE & GRAMMAR REQUIREMENT FOR ALL SUMMARY FIELDS:
+- NEVER use pronouns like "he", "she", "they", "their", "his", "her".
+- ALWAYS refer to the person as "The candidate" or "The candidate's" (e.g., "The candidate demonstrated...", "The candidate's strongest topic was...").
 The summary must reflect TECHNICAL performance ONLY. NEVER mention proctoring events, penalties, score adjustments, or hiring decisions - those are handled elsewhere and are out of scope here."""
         closing = (f"Call the submit_batch_evaluation_with_summary tool with your structured result "
                    f"covering ALL {len(batch_items)} questions AND the overall_summary. "
@@ -189,7 +193,7 @@ For EACH question above, independently:
 6. Score clarity (0-10) from structure and precision of language ONLY - independent of whether the content is correct:
 {anchors_as_text(CLARITY_ANCHORS)}
 7. If (and only if) a question has a single unique numeric final answer, set candidate_final_value (the candidate's final value) and expected_final_value (the correct one); otherwise omit both.
-8. Give a short topic tag (2-4 words) and 1-2 sentences of feedback (under 60 words) per question: what was strong, then EXPLICITLY 1-2 missing points from the key points marked 'missing' or 'partial' (e.g. "Missing points: X, Y."). If every key point was covered, say so and suggest one concrete enhancement - never invent gaps.
+8. Give a short topic tag (2-4 words) and 1-2 sentences of feedback (under 60 words) per question: what was strong, then EXPLICITLY 1-2 missing points from the key points marked 'missing' or 'partial' (e.g. "Missing points: X, Y."). If every key point was covered, say so and suggest one concrete enhancement - never invent gaps. Always refer to "The candidate" instead of using pronouns like he, she, they, their.
 
 Score every question independently - a weak answer to one question must not lower the score of another.
 {summary_block}
@@ -218,9 +222,13 @@ def _build_summary_prompt(summary_items: list) -> str:
 
 Write the overall_summary object with EXACTLY these four parts (technical performance only):
 - overall_depth (Line 1): ONE sentence, max 30 words, on the overall depth and solidity of the candidate's technical knowledge across all questions above.
-- strongest_topic (Line 2): their strongest topic and why it was strong.
-- weakest_topic (Line 3): their weakest topic and the specific gap to close.
-- final_technical_performance (Line 4): exactly one of {format_grade_bands_for_prompt()}, judged from the scores above.
+- strongest_topic (Line 2): The candidate's strongest topic and why it was strong.
+- weakest_topic (Line 3): The candidate's weakest topic and the specific gap to close.
+- final_technical_performance (Line 4): exactly one of {format_grade_bands_for_prompt()}, judged strictly from the scores above.
+
+CRITICAL STYLE & GRAMMAR REQUIREMENT FOR ALL SUMMARY FIELDS:
+- NEVER use pronouns like "he", "she", "they", "their", "his", "her".
+- ALWAYS refer to the person as "The candidate" or "The candidate's" (e.g., "The candidate demonstrated...", "The candidate's strongest topic was...").
 Do NOT re-score individual questions. NEVER mention proctoring events, penalties, score adjustments, or hiring decisions - those are handled elsewhere and are out of scope here.
 
 Call the submit_summary tool with your result. Do not include any text outside the tool call."""

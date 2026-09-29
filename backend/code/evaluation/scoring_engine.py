@@ -27,6 +27,7 @@ reuse of server-side cached scores.
 """
 
 import math
+import re
 from typing import List, Optional, Tuple
 
 SCORING_ENGINE_VERSION = "v3.1-inbatch-summary"
@@ -257,30 +258,133 @@ def _summary_line(text, cap: int = 280) -> str:
     return line[:cap].rstrip() if len(line) <= cap else line[:cap].rstrip() + "..."
 
 
-def render_overall_summary(fields, average_score: Optional[float]) -> Optional[str]:
+def sanitize_pronouns(text: str) -> str:
+    """Replace third-person pronouns (he, she, they, their, his, her, etc.) with
+    'the candidate' / 'the candidate\'s' to guarantee consistent objective tone."""
+    if not text or not isinstance(text, str):
+        return text or ""
+    replacements = [
+        (r'\bHe\b', 'The candidate'),
+        (r'\bShe\b', 'The candidate'),
+        (r'\bThey\b', 'The candidate'),
+        (r'\bhe\b', 'the candidate'),
+        (r'\bshe\b', 'the candidate'),
+        (r'\bthey\b', 'the candidate'),
+        (r'\bHis\b', "The candidate's"),
+        (r'\bHer\b', "The candidate's"),
+        (r'\bTheir\b', "The candidate's"),
+        (r'\bhis\b', "the candidate's"),
+        (r'\bher\b', "the candidate's"),
+        (r'\btheir\b', "the candidate's"),
+        (r'\bHim\b', 'the candidate'),
+        (r'\bThem\b', 'the candidate'),
+        (r'\bhim\b', 'the candidate'),
+        (r'\bthem\b', 'the candidate'),
+    ]
+    res = text
+    for pattern, repl in replacements:
+        res = re.sub(pattern, repl, res)
+    return res
+
+
+def get_final_recommendation_line(
+    score: Optional[float] = None,
+    grade: Optional[str] = None,
+    decision: Optional[str] = None
+) -> str:
+    """Produce a deterministic, conflict-free Line 4 recommendation text
+    strictly based on the calculated score, grade, and decision.
+
+    Guarantees that a Poor/Rejected score (e.g. 36) can NEVER show
+    'Conditionally recommended' or contradictory advice."""
+    val = float(score) if score is not None else None
+    if val is not None and 0.0 < val <= 10.0:
+        val = val * 10.0  # normalize 0-10 scale to 0-100
+
+    d_lower = (decision or "").strip().lower()
+    g_lower = (grade or "").strip().lower()
+
+    if d_lower == "rejected" or g_lower in ["poor", "very poor"] or (val is not None and val <= 39.0):
+        rec_desc = "Not recommended (Poor technical performance - needs significant preparation)"
+    elif d_lower == "recommend preparation" or g_lower in ["fair", "good"] or (val is not None and 40.0 <= val <= 80.0):
+        if (val is not None and val <= 60.0) or g_lower == "fair":
+            rec_desc = "Recommend preparation (Fair performance - additional preparation advised)"
+        else:
+            rec_desc = "Recommend preparation (Good technical foundation - review specific gap areas)"
+    elif d_lower == "shortlisted" or g_lower == "very good" or (val is not None and 81.0 <= val <= 90.0):
+        rec_desc = "Shortlisted (Very Good technical performance)"
+    elif d_lower == "selected" or g_lower == "excellent" or (val is not None and val > 90.0):
+        rec_desc = "Selected (Excellent technical performance)"
+    else:
+        if val is not None:
+            if val < 40.0:
+                rec_desc = "Not recommended (Poor technical performance - needs significant preparation)"
+            elif val <= 60.0:
+                rec_desc = "Recommend preparation (Fair performance - additional preparation advised)"
+            elif val <= 80.0:
+                rec_desc = "Recommend preparation (Good technical foundation - review specific gap areas)"
+            elif val <= 90.0:
+                rec_desc = "Shortlisted (Very Good technical performance)"
+            else:
+                rec_desc = "Selected (Excellent technical performance)"
+        else:
+            rec_desc = f"{decision or grade or 'Assessment complete'}"
+
+    return f"Final recommendation: {rec_desc}"
+
+
+def render_overall_summary(
+    fields,
+    average_score: Optional[float] = None,
+    grade: Optional[str] = None,
+    decision: Optional[str] = None
+) -> Optional[str]:
     """Render EXACTLY 4 lines from the structured summary fields.
 
-    Line 4's grade is derived from score bands when an average is available
-    (deterministic authority - the LLM's enum is a cross-check handled by
-    the caller), so the summary can never contradict the numeric scores."""
+    Line 4 is derived from score bands/decision so the summary can never
+    contradict the numeric scores or hiring decision (e.g. 36 will strictly
+    show Not recommended / Poor). Lines 1-3 are sanitized against pronouns."""
     if not isinstance(fields, dict):
         return None
-    if average_score is not None:
-        try:
-            grade = derive_technical_performance_grade(float(average_score))
-        except (TypeError, ValueError):
-            grade = None
+
+    line1 = sanitize_pronouns(_summary_line(fields.get('overall_depth')))
+    line2 = sanitize_pronouns(_summary_line(fields.get('strongest_topic'), 200))
+    line3 = sanitize_pronouns(_summary_line(fields.get('weakest_topic'), 200))
+    line4 = get_final_recommendation_line(average_score, grade, decision)
+
+    return "\n".join([line1, line2, line3, line4])
+
+
+def align_summary_with_final_result(
+    summary_text: Optional[str],
+    adjusted_score: float,
+    grade: str,
+    decision: str
+) -> Optional[str]:
+    """Enforces that Line 4 in an existing 4-line summary strictly aligns with
+    the final calculated adjusted_score, grade, and hiring decision.
+    Sanitizes pronouns across all lines."""
+    if not summary_text or not isinstance(summary_text, str):
+        return summary_text
+
+    raw_lines = [l.strip() for l in summary_text.strip().split("\n") if l.strip()]
+    if not raw_lines:
+        return summary_text
+
+    lines = [sanitize_pronouns(l) for l in raw_lines]
+    rec_line = get_final_recommendation_line(adjusted_score, grade, decision)
+
+    if len(lines) >= 4:
+        lines[3] = rec_line
+        return "\n".join(lines[:4])
+    elif len(lines) == 3:
+        lines.append(rec_line)
+        return "\n".join(lines)
     else:
-        grade = None
-    if grade is None:
-        g = str(fields.get("final_technical_performance") or "").strip()
-        grade = g if g in _VALID_GRADES else "Not available"
-    return "\n".join([
-        _summary_line(fields.get('overall_depth')),
-        _summary_line(fields.get('strongest_topic'), 200),
-        _summary_line(fields.get('weakest_topic'), 200),
-        f"Final recommendation: {grade}",
-    ])
+        if "recommend" in lines[-1].lower() or "performance:" in lines[-1].lower():
+            lines[-1] = rec_line
+            return "\n".join(lines)
+        return "\n".join(lines + [rec_line])
 
 
 # ---------------------------------------------------------------------------
