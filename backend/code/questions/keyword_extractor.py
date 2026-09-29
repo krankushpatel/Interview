@@ -109,40 +109,50 @@ Category: {category or 'General'}
 
 JSON Array:"""
 
-    try:
-        from google import genai
-        from google.genai import types
+    import time
 
-        kwargs = {"api_key": api_key}
-        if base_url:
-            kwargs["http_options"] = {"base_url": base_url}
-        client = genai.Client(**kwargs)
+    attempts = 0
+    max_retries = 2  # Total 3 attempts (1 initial + 2 retries)
+    while attempts <= max_retries:
+        attempts += 1
+        try:
+            from google import genai
+            from google.genai import types
 
-        config = types.GenerateContentConfig(
-            temperature=0.1,
-            response_mime_type="application/json"
-        )
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=config
-        )
+            kwargs = {"api_key": api_key}
+            if base_url:
+                kwargs["http_options"] = {"base_url": base_url}
+            client = genai.Client(**kwargs)
 
-        resp_text = (response.text or "").strip()
-        # Clean potential markdown fences
-        if resp_text.startswith("```"):
-            resp_text = re.sub(r"^```(?:json)?\s*", "", resp_text)
-            resp_text = re.sub(r"\s*```$", "", resp_text)
+            config = types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json"
+            )
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=config
+            )
 
-        parsed = json.loads(resp_text)
-        if isinstance(parsed, list):
-            valid_kws = [str(k).strip() for k in parsed if isinstance(k, (str, int, float)) and str(k).strip()]
-            if valid_kws:
-                return normalize_keywords(valid_kws, max_count=max_keywords)
+            resp_text = (response.text or "").strip()
+            # Clean potential markdown fences
+            if resp_text.startswith("```"):
+                resp_text = re.sub(r"^```(?:json)?\s*", "", resp_text)
+                resp_text = re.sub(r"\s*```$", "", resp_text)
 
-    except Exception as e:
-        logger.warning(f"[KeywordExtractor] Gemini API call failed ({e}), falling back to heuristic extractor")
-        return None
+            parsed = json.loads(resp_text)
+            if isinstance(parsed, list):
+                valid_kws = [str(k).strip() for k in parsed if isinstance(k, (str, int, float)) and str(k).strip()]
+                if valid_kws:
+                    return normalize_keywords(valid_kws, max_count=max_keywords)
+
+        except Exception as e:
+            if attempts <= max_retries:
+                logger.warning(f"[KeywordExtractor] Gemini attempt {attempts} failed ({e}), retrying in 1s...")
+                time.sleep(1.0)
+            else:
+                logger.warning(f"[KeywordExtractor] Gemini failed after {attempts} attempts ({e}), falling back to heuristic extractor")
+                return None
 
     return None
 
