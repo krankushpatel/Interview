@@ -3,6 +3,7 @@ from code.audio.vad_processor import VADProcessor
 from code.audio.diarization import DiarizationDetector
 from code.proctoring.manager import log_proctoring_event
 from code.recording.websocket_handlers import router as deepgram_router
+from code.core.data_manager import db
 # from code.audio.noise_filter import NoiseFilter
 import asyncio
 import json
@@ -313,65 +314,20 @@ async def speaker_enroll(username: str = Form(...), audio: UploadFile = File(...
 
         embedding = voice_encoder.embed_utterance(audio_np)
         enrolled_speakers[username] = embedding
-        print(f"[SPEAKER] Enrolled voiceprint for {username} (dim={embedding.shape})")
+        try:
+            db.speaker_embeddings.update_one(
+                {"username": username},
+                {"$set": {"username": username, "embedding": embedding.tolist()}},
+                upsert=True
+            )
+        except Exception as e_db:
+            print(f"[SPEAKER] Mongo persist warning: {e_db}")
+        print(f"[SPEAKER] ✅ Enrolled voiceprint for {username} (saved to DB and memory, dim={embedding.shape})")
         return {"success": True, "message": "Voiceprint enrolled", "embedding_dim": embedding.shape[0]}
 
     except Exception as e:
         print(f"[SPEAKER] Enroll error for {username}: {e}")
         return {"success": False, "message": str(e)}
-
-# @router.post("/speaker/verify")
-# async def verify_speaker(
-#     username: str = Form(...),
-#     audio: UploadFile = File(...)
-# ):
-#     """
-#     Verification endpoint: Receives a short audio chunk, compares with enrolled voice.
-#     """
-#     global enrolled_speakers, voice_encoder
-    
-#     # Check if user is enrolled
-#     if username not in enrolled_speakers:
-#         return {"success": False, "is_same": False, "similarity": 0.0, "message": "User not enrolled"}
-    
-#     try:
-#         # 1. Read and decode audio
-#         audio_bytes = await audio.read()
-#         audio_np, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype='float32')
-        
-#         # Convert stereo to mono if needed
-#         if len(audio_np.shape) > 1:
-#             audio_np = audio_np.mean(axis=1)
-            
-#         # Resample to 16kHz (resemblyzer requirement)
-#         if sample_rate != 16000:
-#             import librosa
-#             audio_np = librosa.resample(audio_np, orig_sr=sample_rate, target_sr=16000)
-            
-#         # 2. Extract embedding for the chunk
-#         chunk_embedding = voice_encoder.embed_utterance(audio_np)
-#         ref_embedding = enrolled_speakers[username]
-        
-#         # 3. Calculate Cosine Similarity
-#         similarity = np.dot(ref_embedding, chunk_embedding) / (
-#             np.linalg.norm(ref_embedding) * np.linalg.norm(chunk_embedding)
-#         )
-        
-#         # Threshold: >= 0.75 means same person
-#         is_same = similarity >= 0.75
-        
-#         print(f"[Speaker] Verify {username}: Similarity={similarity:.3f}, Match={is_same}")
-        
-#         return {
-#             "success": True, 
-#             "is_same": is_same, 
-#             "similarity": float(similarity)
-#         }
-        
-#     except Exception as e:
-#         print(f"[Speaker] Verification error for {username}: {e}")
-#         return {"success": False, "is_same": False, "similarity": 0.0, "message": str(e)}
-    
 
 @router.post("/speaker/verify")
 async def verify_speaker(
@@ -380,14 +336,20 @@ async def verify_speaker(
 ):
     """
     Verification endpoint: Receives a short audio chunk, compares with enrolled voice.
+    Checks memory cache, then MongoDB, or auto-enrolls if chunk is >= 1.6s.
     """
     global enrolled_speakers, voice_encoder
     
-    # 1. AGAR NAYA STUDENT HAI YA ENROLL NAHI HUA (Pehle yahan se is_same=False jaata tha)
+    # 1. Check memory cache or load from MongoDB
     if username not in enrolled_speakers:
-        print(f"[Speaker] Verify {username}: Not enrolled - BYPASSED")
-        return {"success": False, "is_same": True, "similarity": 1.0, "message": "User not enrolled"}
-    
+        try:
+            doc = db.speaker_embeddings.find_one({"username": username})
+            if doc and "embedding" in doc:
+                enrolled_speakers[username] = np.array(doc["embedding"], dtype=np.float32)
+                print(f"[Speaker] ✅ Restored voiceprint for {username} from MongoDB")
+        except Exception as e_db:
+            print(f"[Speaker] Mongo lookup error: {e_db}")
+
     try:
         # Read and decode audio
         audio_bytes = await audio.read()
@@ -401,7 +363,27 @@ async def verify_speaker(
         if sample_rate != 16000:
             import librosa
             audio_np = librosa.resample(audio_np, orig_sr=sample_rate, target_sr=16000)
-            
+            sample_rate = 16000
+
+        # Auto-enroll if still not enrolled and chunk is long enough
+        if username not in enrolled_speakers:
+            if len(audio_np) >= sample_rate * 1.6:
+                chunk_embedding = voice_encoder.embed_utterance(audio_np)
+                enrolled_speakers[username] = chunk_embedding
+                try:
+                    db.speaker_embeddings.update_one(
+                        {"username": username},
+                        {"$set": {"username": username, "embedding": chunk_embedding.tolist()}},
+                        upsert=True
+                    )
+                except Exception:
+                    pass
+                print(f"[Speaker] 🎙️ Auto-enrolled voiceprint for {username} from live audio! (dim={chunk_embedding.shape})")
+                return {"success": True, "is_same": True, "similarity": 1.0, "message": "Voiceprint auto-enrolled successfully"}
+            else:
+                print(f"[Speaker] Verify {username}: Enrolling voiceprint pending ({len(audio_np)/sample_rate:.1f}s sample) - BYPASSED")
+                return {"success": False, "is_same": True, "similarity": 1.0, "message": "User not enrolled"}
+        
         # Extract embedding for the chunk
         chunk_embedding = voice_encoder.embed_utterance(audio_np)
         ref_embedding = enrolled_speakers[username]
@@ -411,14 +393,14 @@ async def verify_speaker(
             np.linalg.norm(ref_embedding) * np.linalg.norm(chunk_embedding)
         )
         
-        # Threshold: >= 0.65 means same person
-        actual_is_same = similarity >= 0.75
+        # Threshold: >= 0.70 means same person
+        actual_is_same = bool(similarity >= 0.70)
         
-        print(f"[Speaker] Verify {username}: Similarity={similarity:.3f}, Match={actual_is_same} -> Bypassed")
+        print(f"[Speaker] Verify {username}: Similarity={similarity:.3f}, Match={actual_is_same}")
         
         return {
             "success": True, 
-            "is_same": True,  # <-- Forcefully True
+            "is_same": actual_is_same,
             "similarity": float(similarity)
         }
         

@@ -374,6 +374,23 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         return shuffled.slice(0, count);
       };
 
+      const isIntroQ = (q: any): boolean => {
+        if (!q) return false;
+        if (q.id === 1 || String(q.id) === '1') return true;
+        const cat = (q.category || '').toLowerCase().trim();
+        if (cat === 'introduction' || cat === 'intro' || cat === 'self-introduction' || cat === 'self introduction') return true;
+        const text = (q.question || q.text || '').toLowerCase().trim();
+        return text.includes('introduce yourself') || text.includes('tell me about yourself') || text.includes('describe yourself') || text.includes('walk me through your background');
+      };
+
+      const defaultIntroQ: Question = {
+        id: 1,
+        question: 'Please introduce yourself, describing your background, key technical strengths, and recent software projects.',
+        category: 'Introduction',
+        difficulty: 'Easy',
+        keywords: ['introduce', 'background', 'education', 'experience', 'projects', 'skills', 'strengths']
+      };
+
       let finalQuestions: Question[] = [];
       const topicDistribution = statusRes?.settings?.topicDistribution;
       const topicCounts = statusRes?.settings?.topicCounts;
@@ -396,9 +413,11 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
           // 1. ULTRA FAST FILTERING
           let topicQ = allQ.filter(q => {
+            // Intro question never acts as technical question
+            if (isIntroQ(q)) return false;
             // Topic match karo
             const qTopic = (q.category || '').toLowerCase().trim();
-            if (qTopic !== (topic || '').toLowerCase().trim() || q.id === 1) return false;
+            if (qTopic !== (topic || '').toLowerCase().trim()) return false;
 
             // Class match karo (Agar rule me class hai toh hi filter karo)
             if (targetClasses.length > 0) {
@@ -429,8 +448,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
           finalQuestions.push(...selected);
         }
 
-        const intro = allQ.find(q => q.id === 1);
-        if (intro) finalQuestions.unshift(intro);
+        const intro = allQ.find(isIntroQ) || { ...defaultIntroQ };
+        finalQuestions.unshift(intro);
       }
 
       // 🔵 SCENARIO B: ONLY TOPIC COUNTS FOUND (Legacy/Fallback Support)
@@ -439,7 +458,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
         for (const [topic, requestedCount] of Object.entries(topicCounts)) {
           let target = requestedCount as number;
-          const topicQ = allQ.filter(q => q.category && q.category.toLowerCase() === topic.toLowerCase() && q.id !== 1);
+          const topicQ = allQ.filter(q => q.category && q.category.toLowerCase() === topic.toLowerCase() && !isIntroQ(q));
           
           target = Math.min(target, topicQ.length);
           if (target === 0) continue;
@@ -473,25 +492,37 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
           finalQuestions.push(...selected);
         }
 
-        const intro = allQ.find(q => q.id === 1);
-        if (intro) finalQuestions.unshift(intro);
+        const intro = allQ.find(isIntroQ) || { ...defaultIntroQ };
+        finalQuestions.unshift(intro);
 
       } else {
         // 🔵 SCENARIO C: NO GROUP SETTINGS (Default Original Fallback)
         console.log('[ExamEngine] Using Original Fallback (1 Intro + 3 Easy + 3 Med + 3 Hard)');
-        const intro = allQ.find(q => q.id === 1);
-        const easy = allQ.filter(q => q.difficulty === 'Easy' && q.id !== 1);
-        const medium = allQ.filter(q => q.difficulty === 'Medium' && q.id !== 1);
-        const hard = allQ.filter(q => q.difficulty === 'Hard' && q.id !== 1);
+        const intro = allQ.find(isIntroQ) || { ...defaultIntroQ };
+        const easy = allQ.filter(q => (q.difficulty || '').toLowerCase() === 'easy' && !isIntroQ(q));
+        const medium = allQ.filter(q => (q.difficulty || '').toLowerCase() === 'medium' && !isIntroQ(q));
+        const hard = allQ.filter(q => (q.difficulty || '').toLowerCase() === 'hard' && !isIntroQ(q));
 
-        if (intro) finalQuestions.push(intro);
+        finalQuestions.push(intro);
         finalQuestions.push(...getRandom(easy, 3), ...getRandom(medium, 3), ...getRandom(hard, 3));
+      }
+
+      // 🛡️ GUARANTEE: Ensure Question 1 is ALWAYS the Introduce Yourself question
+      if (!isIntroQ(finalQuestions[0])) {
+        const introIdx = finalQuestions.findIndex(isIntroQ);
+        if (introIdx !== -1) {
+          const [foundIntro] = finalQuestions.splice(introIdx, 1);
+          finalQuestions.unshift(foundIntro);
+        } else {
+          finalQuestions.unshift({ ...defaultIntroQ });
+        }
       }
 
       if (finalQuestions.length === 0) throw new Error('No questions available');
       
       this.questions = finalQuestions;
       this.currentQuestion = this.questions[0];
+      this.currentIndex = 0;
       this.buildExamKeywords(allQ);
 
     } catch (err) {
@@ -594,7 +625,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       });
       this.micTestRecorder = new MediaRecorder(this.micTestStream);
       this.micTestRecorder.ondataavailable = (e) => { if (e.data.size) this.micTestChunks.push(e.data); };
-      this.micTestRecorder.start();
+      this.micTestRecorder.start(250);
       this.micTestRunning = true;
       this.startMicLevelIndicator();
       this.startMicTestSpeechRecognition(expectedSentence);
@@ -622,7 +653,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.micTestSpeechRecognition.interimResults = false;
     this.micTestSpeechRecognition.lang = 'en-IN';
     this.micTestSpeechRecognition.maxAlternatives = 5;
-    this.micTestSpeechRecognition.onresult = (event: any) => {
+    this.micTestSpeechRecognition.onresult = async (event: any) => {
       let bestMatch = false;
       let bestTranscript = '';
       for (let altIdx = 0; altIdx < (event.results[0]?.length || 0); altIdx++) {
@@ -647,9 +678,18 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         this.micTestPassed = true;
         this.showToast('✅ Microphone check passed! Enrolling voice...', 'success');
         
-        // NEW: Send audio to backend for Voice Enrollment
-        this.enrollVoiceSample();
-        
+        // Flush remaining audio chunks from recorder before enrolling
+        if (this.micTestRecorder && this.micTestRecorder.state !== 'inactive') {
+          await new Promise<void>((resolve) => {
+            if (this.micTestRecorder) {
+              this.micTestRecorder.onstop = () => resolve();
+              try { this.micTestRecorder.stop(); } catch (e) { resolve(); }
+            } else {
+              resolve();
+            }
+          });
+        }
+        await this.enrollVoiceSample();
         this.stopMicCheckCleanup();
       } else {
         this.micTestVerificationStatus = 'failed';
@@ -815,18 +855,19 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.proctorLogs.unshift(logMsg);
     console.warn(logMsg);
 
-    //  Background evidence capture 
-    this.captureEvidence(type, detail);
-
-    // Forward to proctor stream so it reaches the backend
+    // Forward to proctor stream so it reaches the backend and capture descriptive evidence
     if (type === 'face') {
       const evName = /multiple faces/i.test(detail) ? 'multiple_faces_detected' : 'face_mismatch';
+      this.captureEvidence(evName, detail);
       this.proctor.logEvent(evName, detail);
     } else if (type === 'voice') {
+      this.captureEvidence('voice_mismatch', detail);
       this.proctor.logEvent('voice_mismatch', detail);
     } else if (type === 'multiple_speakers') {
+      this.captureEvidence('multiple_speakers_detected', detail);
       this.proctor.logEvent('multiple_speakers_detected', detail);
     } else if (type === 'eye_contact') {
+      this.captureEvidence('eye_contact_violation', detail);
       this.proctor.logEvent('eye_contact_violation', detail);
       // Optional: Show a toast to the student immediately
       this.showToast(`⚠️ Eye Tracking: ${detail}`, 'warning');
@@ -1012,6 +1053,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
             this.referenceFaceDescriptor = detection.descriptor;
             clearInterval(this.cameraCheckInterval);
             
+            console.log('[Face] ✅ Candidate face enrolled successfully with descriptor');
+            this.captureEvidence('face_enrolled', 'Baseline candidate face enrolled during camera setup');
+
             this.showToast('✅ Face detected! Calibrating eye tracking...', 'success');
             
             // 1. Initialize MediaPipe
@@ -1153,6 +1197,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
   startPeriodicFaceVerification() {
     if (this.faceVerificationInterval) clearInterval(this.faceVerificationInterval);
+    this.faceMismatchCount = 0;
     this.faceVerificationInterval = setInterval(async () => {
       if (this.showEvaluation || !this.referenceFaceDescriptor) return;
       const videoEl = this.videoRef?.nativeElement;
@@ -1178,11 +1223,16 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
         const detection = detections[0];
         const distance = faceapi.euclideanDistance(this.referenceFaceDescriptor, detection.descriptor);
-        const threshold = 0.6;
+        const threshold = 0.65;
         
         if (distance > threshold) {
-          this.handleViolation('face', `Different person detected (distance: ${distance.toFixed(3)})`);
+          this.faceMismatchCount++;
+          console.warn(`[Face] Mismatch warning (count: ${this.faceMismatchCount}/2, distance: ${distance.toFixed(3)})`);
+          if (this.faceMismatchCount >= 2) {
+            this.handleViolation('face', `Different person detected (distance: ${distance.toFixed(3)})`);
+          }
         } else {
+          this.faceMismatchCount = 0;
           this.violationCounts.face = Math.max(0, this.violationCounts.face - 1);
         }
       } catch (err) {
@@ -2401,18 +2451,16 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     try {
       // 1. Capture Camera Snapshot
-      if (this.videoRef?.nativeElement) {
-        const videoEl = this.videoRef.nativeElement;
-        if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
-          const canvas = document.createElement('canvas');
-          canvas.width = videoEl.videoWidth;
-          canvas.height = videoEl.videoHeight;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-            const camBlob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.5));
-            if (camBlob) fd.append('camera_image', camBlob, `cam_${Date.now()}.jpg`);
-          }
+      const videoEl = this.videoRef?.nativeElement || this.testVideoRef?.nativeElement;
+      if (videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          const camBlob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.5));
+          if (camBlob) fd.append('camera_image', camBlob, `cam_${Date.now()}.jpg`);
         }
       }
 

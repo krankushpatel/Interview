@@ -25,10 +25,35 @@ async def get_question(id: Optional[int] = None):
         "keywords": q.get("keywords", [])
     }
 
+DEFAULT_INTRO_QUESTION = {
+    "id": 1,
+    "question": "Please introduce yourself, describing your background, key technical strengths, and recent software projects.",
+    "category": "Introduction",
+    "difficulty": "Easy",
+    "keywords": ["introduce", "background", "education", "experience", "projects", "strengths", "skills"]
+}
+
+def _is_intro_question_dict(q: dict) -> bool:
+    if not isinstance(q, dict):
+        return False
+    if q.get("id") == 1 or str(q.get("id")) == "1":
+        return True
+    cat = (q.get("category") or "").strip().lower()
+    if cat in ["introduction", "intro", "self-introduction", "self introduction", "general"]:
+        q_text = (q.get("question") or q.get("text") or "").strip().lower()
+        if any(m in q_text for m in ["introduce", "tell me about yourself", "describe yourself", "background"]):
+            return True
+        if q.get("id") == 1 or str(q.get("id")) == "1":
+            return True
+    q_text = (q.get("question") or q.get("text") or "").strip().lower()
+    return any(m in q_text for m in [
+        "introduce yourself", "tell me about yourself", "describe yourself", "walk me through your background"
+    ])
+
 # fetch question from local 
 @router.get("/all")
 async def get_all_questions(categories: Optional[str] = None):
-    """Get all questions, optionally filtered by categories"""
+    """Get all questions, optionally filtered by categories. Always guarantees Question 1 is Introduce Yourself."""
     questions = load_questions()
     for q in questions:
         q_text = q.get("question") or q.get("text", "")
@@ -36,13 +61,28 @@ async def get_all_questions(categories: Optional[str] = None):
         q.pop("text", None)
         if "keywords" not in q or not q["keywords"]:
             q["keywords"] = q.get("keywords", [])
+
+    # Find or prepare intro question
+    intro_q = next((q for q in questions if _is_intro_question_dict(q)), None)
+    if not intro_q:
+        intro_q = DEFAULT_INTRO_QUESTION.copy()
+
     if categories:
-        cat_list = [c.strip() for c in categories.split(",")]
-        filtered = [q for q in questions if q.get("category", "").lower() in [c.lower() for c in cat_list]]
+        cat_list = [c.strip().lower() for c in categories.split(",") if c.strip()]
+        filtered = [
+            q for q in questions 
+            if (q.get("category", "").strip().lower() in cat_list) and not _is_intro_question_dict(q)
+        ]
         if not filtered:
-            raise HTTPException(404, f"No questions found for categories: {categories}")
-        return {"count": len(filtered), "questions": filtered}
-    return {"count": len(questions), "questions": questions}
+            # Fallback if no category-matched questions found: return all non-intro questions
+            filtered = [q for q in questions if not _is_intro_question_dict(q)]
+        final_list = [intro_q] + filtered
+        return {"count": len(final_list), "questions": final_list}
+
+    # If no category filter, ensure intro_q is at index 0
+    non_intro = [q for q in questions if not _is_intro_question_dict(q)]
+    final_list = [intro_q] + non_intro
+    return {"count": len(final_list), "questions": final_list}
 
 #  fetch question from dipstick first then local 
 # @router.get("/all")

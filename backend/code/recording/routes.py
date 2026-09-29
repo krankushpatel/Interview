@@ -62,7 +62,10 @@ async def upload_evidence(
     # 4. Save metadata directly to MongoDB (images remain on disk in UPLOADS_DIR)
     add_evidence_snapshot(record)
     
-    print(f"📸 [EVIDENCE SAVED TO MONGO] {username} -> {event_name}")
+    if event_name in ["face_enrolled", "baseline_face"]:
+        print(f"📸 [FACE ENROLLED] {username} -> Baseline face registered in Mongo")
+    else:
+        print(f"📸 [EVIDENCE SAVED TO MONGO] {username} -> {event_name}")
     return {"success": True, "record": record}
 
 @router.post("/submit/exam-recording")
