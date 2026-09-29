@@ -137,11 +137,19 @@ _openrouter_client: Any = None
 def _get_gemini_client() -> Any:
     global _gemini_client
     if _gemini_client is None:
-        api_key = os.getenv("GEMINI_API_KEY", "")
+        api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
         if not api_key:
+            print("\n❌ [GEMINI ERROR] GEMINI_API_KEY is not set in environment or .env!")
             raise _ProviderUnavailable("GEMINI_API_KEY not set")
         if not _gemini_models():
+            print("\n❌ [GEMINI ERROR] GEMINI_MODEL is not set in .env!")
             raise _ProviderUnavailable("GEMINI_MODEL not set in .env")
+        if not api_key.startswith("AIzaSy") and not GEMINI_BASE_URL:
+            print("\n" + "⚠️ " * 20)
+            print(f"⚠️ [GEMINI KEY WARNING] GEMINI_API_KEY starts with '{api_key[:8]}...' (Length: {len(api_key)})")
+            print("   Official Google Gemini API keys start with 'AIzaSy...'.")
+            print("   If this is an OpenRouter or invalid key, Google Gemini API will return 400 API_KEY_INVALID.")
+            print("⚠️ " * 20 + "\n")
         try:
             from google import genai
         except ImportError as e:
@@ -462,20 +470,46 @@ async def _run_provider_chain(entries: List[Tuple[str, Callable[[], Awaitable[An
         raise LLMProviderError(
             f"LLM circuit breaker open (cooling down after {_chain_failures} consecutive "
             f"chain failures); retrying shortly")
-    for name, fn in entries:
+    for idx, (name, fn) in enumerate(entries):
         for attempt in range(MAX_ATTEMPTS_PER_PROVIDER):
             try:
                 result = await fn()
                 _note_chain_success()
                 return result
             except _ProviderUnavailable as e:
-                errors.append(f"{name}: {e}")
+                err_str = f"Provider unavailable: {e}"
+                errors.append(f"{name}: {err_str}")
+                print("\n" + "!" * 85)
+                print(f"⚠️ [AI PROVIDER UNAVAILABLE] '{name}': {e}")
+                if idx < len(entries) - 1:
+                    next_name = entries[idx + 1][0]
+                    print(f"   ➔ Failover: Switching to next provider in chain: '{next_name}'...")
+                print("!" * 85 + "\n")
                 break
             except Exception as e:
-                errors.append(f"{name} attempt {attempt + 1}: {type(e).__name__}: {str(e)[:200]}")
+                err_msg = f"{type(e).__name__}: {str(e)}"
+                errors.append(f"{name} attempt {attempt + 1}: {err_msg[:200]}")
+                print("\n" + "!" * 85)
+                print(f"❌ [AI CALL FAILED] Provider '{name}' (Attempt {attempt + 1}/{MAX_ATTEMPTS_PER_PROVIDER}) encountered error:")
+                print(f"   • Error: {err_msg}")
+                if "gemini" in name.lower():
+                    g_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+                    if not g_key:
+                        print("   • Key Info: GEMINI_API_KEY is not set in environment or .env!")
+                    elif not g_key.startswith("AIzaSy") and not os.getenv("GEMINI_BASE_URL"):
+                        print(f"   • Key Diagnostic: GEMINI_API_KEY starts with '{g_key[:8]}...' (Length: {len(g_key)}).")
+                        print("     Official Google Gemini API keys start with 'AIzaSy...'. An invalid key will be rejected with 400 Bad Request.")
                 if _is_retryable(e) and attempt < MAX_ATTEMPTS_PER_PROVIDER - 1:
+                    print(f"   🔄 Retrying '{name}' with backoff...")
                     await _jittered_backoff(attempt)
                     continue
+                else:
+                    if idx < len(entries) - 1:
+                        next_name = entries[idx + 1][0]
+                        print(f"   ➔ Failover: Switching to fallback provider: '{next_name}'...")
+                    else:
+                        print("   ❌ No more providers remaining in chain!")
+                print("!" * 85 + "\n")
                 break
     _note_chain_failure()
     raise LLMProviderError("All LLM providers failed: " + " | ".join(errors))

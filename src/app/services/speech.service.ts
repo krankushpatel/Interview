@@ -262,7 +262,10 @@ export class SpeechService {
       }
       console.log(`[DEEPGRAM STT] 🔑 Connecting with ${allKeywords.slice(0, 100).length} keywords:`, allKeywords.slice(0, 100));
       const qs = params.toString() ? `?${params.toString()}` : '';
-      const wsUrl = `${environment.wsUrl}/ws/stt-stream/${encodeURIComponent(username)}/${encodeURIComponent(sessionId)}${qs}`;
+      const baseWs = (environment.apiUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/^http/, 'ws');
+      const cleanUser = encodeURIComponent(username || 'candidate');
+      const cleanSession = encodeURIComponent(sessionId || 'session_default');
+      const wsUrl = `${baseWs}/ws/stt-stream/${cleanUser}/${cleanSession}${qs}`;
 
       this.dgWebSocket = new WebSocket(wsUrl);
       this.dgWebSocket.binaryType = 'arraybuffer';
@@ -281,6 +284,7 @@ export class SpeechService {
         this.dgWebSocket!.onopen = () => {
           console.log('[SPEECH] Deepgram WebSocket opened, initializing settings...');
           this.deepgramConnected = true;
+          if (!resolved) { resolved = true; resolve(true); }
 
           // Send settings handshake
           const settings = {

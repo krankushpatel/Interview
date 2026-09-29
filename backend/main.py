@@ -12,7 +12,32 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parent
 load_dotenv(BACKEND_DIR / ".env")
 load_dotenv()
-print(f"DEBUG: GEMINI_API_KEY is: {os.getenv('GEMINI_API_KEY')}")
+
+gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+gemini_model = (os.getenv("GEMINI_MODEL") or "").strip()
+deepgram_key = (os.getenv("DEEPGRAM_API_KEY") or "").strip()
+openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+
+print("\n" + "=" * 70)
+print("🔑 [AI INTERVIEW PLATFORM - STARTUP CONFIG CHECK]")
+if not gemini_key:
+    print("❌ GEMINI_API_KEY: MISSING (.env me set nahi hai)")
+elif not gemini_key.startswith("AIzaSy") and not os.getenv("GEMINI_BASE_URL"):
+    print(f"⚠️ GEMINI_API_KEY: '{gemini_key[:8]}...' (Length: {len(gemini_key)})")
+    print("   WARNING: Google Gemini keys start with 'AIzaSy'. Check your .env key!")
+else:
+    print(f"✅ GEMINI_API_KEY: Valid format ('{gemini_key[:8]}...', model: {gemini_model or 'default'})")
+
+if not deepgram_key:
+    print("❌ DEEPGRAM_API_KEY: MISSING (.env me set nahi hai - /ws/stt-stream will reject)")
+else:
+    print(f"✅ DEEPGRAM_API_KEY: Present ('{deepgram_key[:8]}...')")
+
+if not openrouter_key:
+    print("ℹ️ OPENROUTER_API_KEY: Not configured")
+else:
+    print(f"✅ OPENROUTER_API_KEY: Present ('{openrouter_key[:8]}...') [Backup fallback]")
+print("=" * 70 + "\n")
 
 # ✅ Import routes
 from fastapi.staticfiles import StaticFiles

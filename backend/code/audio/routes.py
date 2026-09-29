@@ -424,8 +424,13 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     """
     await websocket.accept()
 
-    # Guard 1: no API key → tell client to fall back
-    if not DEEPGRAM_API_KEY:
+    # Guard 1: Dynamic check for API key
+    dg_key = (os.getenv("DEEPGRAM_API_KEY") or "").strip()
+    if not dg_key:
+        print("\n" + "!" * 80)
+        print("❌ [DEEPGRAM STT ERROR] Client connected to /ws/stt-stream but DEEPGRAM_API_KEY is MISSING in environment / .env!")
+        print("   Client will automatically fallback to browser webkitSpeechRecognition.")
+        print("!" * 80 + "\n")
         await websocket.send_json({"type": "fallback", "reason": "no_deepgram_key"})
         await websocket.close()
         return
@@ -467,6 +472,25 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     if keywords:
         dg_params["keywords"] = [f"{kw}:{keyword_boost}" for kw in keywords]
 
+    try:
+        dg_session = aiohttp.ClientSession()
+        dg_ws = await dg_session.ws_connect(
+            "wss://api.deepgram.com/v1/listen",
+            headers={"Authorization": f"Token {dg_key}"},
+            params=dg_params,
+        )
+    except Exception as e:
+        print("\n" + "!" * 80)
+        print(f"❌ [DEEPGRAM STT CONNECTION FAILED] User: {username} | Error: {e}")
+        print(f"   Key length: {len(dg_key)} | First 6 chars: '{dg_key[:6]}...'")
+        print("   Client will automatically fallback to browser webkitSpeechRecognition.")
+        print("!" * 80 + "\n")
+        await websocket.send_json({"type": "fallback", "reason": f"deepgram_connect_failed: {str(e)}"})
+        try: await dg_session.close()
+        except: pass
+        await websocket.close()
+        return
+
     print("\n" + "="*80)
     print(f"🎤 [DEEPGRAM STT CONNECTED] User: '{username}' | Session: '{session_id}'")
     print(f"⚙️ Model: {dg_model} | Language: en-IN | Boost: {keyword_boost}")
@@ -477,20 +501,13 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
         print("   (No keywords provided)")
     print("="*80 + "\n")
 
-    try:
-        dg_session = aiohttp.ClientSession()
-        dg_ws = await dg_session.ws_connect(
-            "wss://api.deepgram.com/v1/listen",
-            headers={"Authorization": f"Token {DEEPGRAM_API_KEY}"},
-            params=dg_params,
-        )
-    except Exception as e:
-        print(f"[STT] Deepgram connect failed: {e}")
-        await websocket.send_json({"type": "fallback", "reason": f"deepgram_connect_failed: {str(e)}"})
-        try: await dg_session.close()
-        except: pass
-        await websocket.close()
-        return
+    # Inform client that connection was established
+    await websocket.send_json({
+        "type": "connected",
+        "model": dg_model,
+        "keywords_count": len(keywords),
+        "message": "Connected to Deepgram STT stream"
+    })
 
     print(f"[STT] Deepgram stream started for {username} / {session_id} using model {dg_model}")
 
