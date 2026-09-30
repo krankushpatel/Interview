@@ -460,3 +460,21 @@ ion-modal {
   border-radius: 16px; /* Modals ke corners gol karne ke liye */
   background: transparent;
 }
+
+/* ── STUDENT PAGE THEME OVERRIDE (#D3E3E8 background, #182F48 text) ── */
+app-student {
+  display: block;
+  background-color: #D3E3E8 !important;
+  color: #182F48 !important;
+
+  ion-content {
+    --background: #D3E3E8 !important;
+    background-color: #D3E3E8 !important;
+    color: #182F48 !important;
+  }
+
+  ion-header ion-toolbar {
+    --background: #D3E3E8 !important;
+    color: #182F48 !important;
+  }
+}
