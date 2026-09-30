@@ -35,6 +35,7 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
 
     # Declare variables up front to avoid UnboundLocalError in finally block
     username   = None
+    session_id = None
     dg_session = None
     dg_ws      = None
     ai_task    = None
@@ -48,7 +49,8 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
         init_msg = await websocket.receive_text()
         data     = json.loads(init_msg)
         username = data.get("username", "unknown")
-        print(f"[HYBRID] Monitoring started for: {username}")
+        session_id = data.get("session_id") or websocket.query_params.get("session_id")
+        print(f"[HYBRID] Monitoring started for: {username} (Session: {session_id})")
         print(f"[HYBRID] Turn-taking threshold: {TURN_DETECTION_THRESHOLD}s")
 
         vad_processor        = VADProcessor()
@@ -119,6 +121,7 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
                                     username,
                                     "multiple_speakers_detected",
                                     f"Simultaneous: {speaker_list}",
+                                    session_id=session_id
                                 )
                                 await websocket.send_json({
                                     "type":     "audio_violation",
@@ -149,6 +152,7 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
                                             username,
                                             "multiple_speakers_detected",
                                             f"Turn-taking: {current_speaker_id}->{new_speaker}",
+                                            session_id=session_id
                                         )
                                         await websocket.send_json({
                                             "type":     "audio_violation",
@@ -273,6 +277,7 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
                         username,
                         "multiple_speakers_detected",
                         "local VAD simultaneous",
+                        session_id=session_id
                     )
                     await websocket.send_json({
                         "type":     "audio_violation",
@@ -296,12 +301,61 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
         except Exception:
             pass
 
+def _decode_audio_to_wav(audio_bytes: bytes) -> tuple:
+    """Safely decode browser audio (WebM/MP4/OGG/WAV) to float32 numpy array and sample rate.
+    Uses pydub if available, otherwise runs ffmpeg subprocess as a robust fallback."""
+    import subprocess
+    import tempfile
+    
+    # 1. Try pydub if installed
+    try:
+        from pydub import AudioSegment
+        temp_audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        wav_io = io.BytesIO()
+        temp_audio.export(wav_io, format="wav")
+        wav_io.seek(0)
+        return sf.read(wav_io, dtype='float32')
+    except Exception as e_pydub:
+        # 2. Robust fallback: use ffmpeg directly (pre-installed at /usr/bin/ffmpeg)
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as in_f:
+                in_f.write(audio_bytes)
+                in_path = in_f.name
+
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as out_f:
+                out_path = out_f.name
+
+            cmd = [
+                "ffmpeg", "-y", "-i", in_path,
+                "-vn", "-ar", "16000", "-ac", "1",
+                "-f", "wav", out_path
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode == 0:
+                audio_np, sample_rate = sf.read(out_path, dtype='float32')
+                try:
+                    os.remove(in_path)
+                    os.remove(out_path)
+                except Exception:
+                    pass
+                return audio_np, sample_rate
+            else:
+                try:
+                    os.remove(in_path)
+                    os.remove(out_path)
+                except Exception:
+                    pass
+                # Fallback to direct soundfile read
+                return sf.read(io.BytesIO(audio_bytes), dtype='float32')
+        except Exception:
+            return sf.read(io.BytesIO(audio_bytes), dtype='float32')
+
 @router.post("/speaker/enroll")
 async def speaker_enroll(username: str = Form(...), audio: UploadFile = File(...)):
     """Enroll a speaker's voiceprint for later verification (voice mismatch check)."""
     try:
         audio_bytes = await audio.read()
-        audio_np, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype='float32')
+        audio_np, sample_rate = _decode_audio_to_wav(audio_bytes)
 
         if len(audio_np) < sample_rate * 1.6:
             return {"success": False, "message": f"Audio too short ({len(audio_np)/sample_rate:.1f}s). Need at least 1.6s."}
@@ -351,9 +405,9 @@ async def verify_speaker(
             print(f"[Speaker] Mongo lookup error: {e_db}")
 
     try:
-        # Read and decode audio
+        # Read and decode audio safely
         audio_bytes = await audio.read()
-        audio_np, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype='float32')
+        audio_np, sample_rate = _decode_audio_to_wav(audio_bytes)
         
         # Convert stereo to mono if needed
         if len(audio_np.shape) > 1:

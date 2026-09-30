@@ -571,7 +571,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.proctor.start(
       (warning: ProctorWarning) => this.onProctorWarning(warning),
       (info: any) => this.onProctorTerminate(info),
-      (event: ProctorEvent) => this.addProctorLog(event.event),
+      (event: ProctorEvent) => this.addProctorLog(event.event, event.detail || ''),
       (msg: string) => this.updateFaceStatus(msg),
       (secs: number) => this.handleNoFaceCountdown(secs)
     );
@@ -1414,7 +1414,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
             // Unified handler use karo taaki counter aur log dono update hon
             this.handleViolation('multiple_speakers', detail);
           }
-        }
+        },
+        this.examSessionId
       );
     } catch (err) {
       console.warn('[ProctoringAudio] Failed to setup audio proctoring:', err);
@@ -2057,12 +2058,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     } catch (err) { console.error('Termination call failed', err); }
   }
 
-  addProctorLog(event: string) {
+  addProctorLog(event: string, detail: string = '') {
     // Drop irrelevant normal-state events completely
     const droppedEvents = ['tab_return', 'devtools_exit'];
     if (droppedEvents.includes(event)) return;
 
-    this.proctorLogs.unshift(event);
+    const logEntry = detail ? `${event}: ${detail}` : event;
+    this.proctorLogs.unshift(logEntry);
 
     // Define events that require immediate backend logging and storage
     const immediateBackendEvents = [
@@ -2082,15 +2084,16 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         'app_switcher_detected', 'tab_switch', 'devtools_attempt', 'new_window_attempt'
       ];
       if (visualEventsToCapture.includes(event)) {
-        this.captureEvidence(event, 'Visual evidence captured');
+        this.captureEvidence(event, detail || 'Visual evidence captured');
       }
 
       const fd = new FormData();
       fd.append('username', username);
       fd.append('event_type', event);
       fd.append('session_id', this.examSessionId);
+      fd.append('detail', detail);
       this.http.post(`${environment.apiUrl}/proctoring/log-event`, fd).subscribe({
-        next: () => console.log(`[SYNC] Critical security event logged: ${event}`),
+        next: () => console.log(`[SYNC] Critical security event logged: ${event} (${detail})`),
         error: (err) => console.error('Proctor sync failed', err)
       });
     }

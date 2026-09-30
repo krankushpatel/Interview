@@ -53,15 +53,17 @@ export class DiarizationService {
   /**
    * Start diarization monitoring.
    *
-   * @param username  Student's username (sent to server as init msg)
-   * @param stream    The MediaStream containing the microphone audio track
-   * @param callback  Called with (type, detail) when a violation fires;
-   *                  type === 'multiple_speakers_detected' on a hit
+   * @param username   Student's username (sent to server as init msg)
+   * @param stream     The MediaStream containing the microphone audio track
+   * @param callback   Called with (type, detail) when a violation fires;
+   *                   type === 'multiple_speakers_detected' on a hit
+   * @param sessionId  Optional session ID to link proctoring events
    */
   start(
     username: string,
     stream:   MediaStream,
-    callback: (type: string, detail: string) => void
+    callback: (type: string, detail: string) => void,
+    sessionId: string = ''
   ): void {
     if (this.running) {
       console.warn('[Diarization] Already running — stop() first');
@@ -83,8 +85,8 @@ export class DiarizationService {
 
       this.ws.onopen = () => {
         console.log('[Diarization] WS connected →', wsUrl);
-        // Send text init frame (username registration)
-        this.wsSendText({ type: 'init', username });
+        // Send text init frame (username registration + session_id)
+        this.wsSendText({ type: 'init', username, session_id: sessionId });
         // Start keepalive ping every 10 s
         this.pingIntervalId = setInterval(() => {
           this.wsSendText({ type: 'ping' });

@@ -42,6 +42,7 @@ torchaudio>=2.1.0
 soundfile>=0.12.1
 librosa>=0.10.1
 resemblyzer>=0.1.4
+pydub>=0.25.1
 
 # --- Timezone & System Utilities ---
 pytz>=2024.1
