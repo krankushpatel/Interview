@@ -477,4 +477,27 @@ app-student {
     --background: #D3E3E8 !important;
     color: #182F48 !important;
   }
+
+  /* 3 Specific Action Buttons Styling: Proceed, Submit Answer, Next/Finish & Get Results */
+  .proceed-btn,
+  #submit-btn,
+  #next-btn,
+  .btn-success,
+  .btn-next {
+    background: #D3E3E8 !important;
+    color: #182F48 !important;
+    border: 1.5px solid rgba(24, 47, 72, 0.35) !important;
+    box-shadow: 0 4px 16px rgba(24, 47, 72, 0.12) !important;
+    font-weight: 700 !important;
+
+    * {
+      color: #182F48 !important;
+    }
+
+    &:hover:not(:disabled) {
+      background: #c3d9e0 !important;
+      border-color: #182F48 !important;
+      color: #182F48 !important;
+    }
+  }
 }
