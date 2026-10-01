@@ -8,6 +8,8 @@ from code.core.data_manager import db
 import asyncio
 import json
 import os
+import re
+import subprocess
 import aiohttp
 import numpy as np
 from resemblyzer import VoiceEncoder, preprocess_wav
@@ -15,15 +17,147 @@ from pathlib import Path
 import io
 import soundfile as sf
 from fastapi import UploadFile, File, Form
-import numpy as np
-import io
-import soundfile as sf
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 DEEPGRAM_MODEL = os.getenv("DEEPGRAM_MODEL", "nova-2")
 
 router = APIRouter()
 router.include_router(deepgram_router)
+
+
+# ============================================================
+# STT keyterm hygiene — generic, data-driven (no hardcoded terms).
+# Keywords come from the database; this only cleans them so that
+# Deepgram's bias goes to the terms that actually need it.
+#   * common English words (take, high, off...) are dropped: they are already
+#     recognised well, and boosting them hurts (e.g. "Tech" -> "Take")
+#   * rare terms / acronyms are placed first so they survive the size cap
+#   * case-insensitive dedupe, keeping the variant with more capitals
+# Tunable via env: STT_KEYTERM_COMMON_ZIPF (default 5.0, higher = keep more).
+# ============================================================
+try:
+    from wordfreq import zipf_frequency
+except ImportError:  # optional dependency: pip install wordfreq
+    zipf_frequency = None
+    print("[STT] wordfreq not installed — common-word filtering for keyterms is OFF")
+
+# Periodic "[STT][diag]" logging is OFF by default; enable with STT_DIAG=1 when debugging
+STT_DIAG = os.getenv("STT_DIAG", "0") == "1"
+
+# /ws/diarize used to write "multiple_speakers_detected" to MongoDB itself (without a
+# session id) while the frontend ALSO logged the same incident (addProctorLog, with
+# session id) -> each incident was stored twice and counted twice by analyze_behavior().
+# The frontend is now the single writer (it receives the exact reason in the
+# "audio_violation" message). Set DIARIZE_BACKEND_DB_LOG=1 to let the backend write as well;
+# it will then include the session_id sent in the init message.
+DIARIZE_BACKEND_DB_LOG = os.getenv("DIARIZE_BACKEND_DB_LOG", "0") == "1"
+KEYTERM_COMMON_ZIPF = float(os.getenv("STT_KEYTERM_COMMON_ZIPF", "5.0"))
+KEYTERM_MAX_NOVA3 = int(os.getenv("STT_KEYTERM_MAX_NOVA3", "50"))
+KEYWORDS_MAX_LEGACY = int(os.getenv("STT_KEYWORDS_MAX_LEGACY", "100"))
+
+
+def _term_rarity(term: str) -> float:
+    """Lower = rarer. For phrases the rarest word decides. Unknown -> 0 (rarest)."""
+    if zipf_frequency is None:
+        return 0.0
+    words = re.findall(r"[A-Za-z0-9]+", term.lower())
+    if not words:
+        return 0.0
+    return min(zipf_frequency(w, "en") for w in words)
+
+
+def sanitize_keyterms(raw_items, limit: int):
+    """Returns (cleaned_terms, dropped_common_terms)."""
+    best: dict = {}
+    for item in raw_items:
+        for kw in item.split(","):
+            term = " ".join(kw.strip().replace(":", " ").split())
+            if len(term) < 2 or term.isdigit():
+                continue
+            key = term.lower()
+            prev = best.get(key)
+            if prev is None or sum(c.isupper() for c in term) > sum(c.isupper() for c in prev):
+                best[key] = term
+
+    terms = list(best.values())
+    dropped = []
+    if zipf_frequency is not None:
+        kept = []
+        for t in terms:
+            (dropped if _term_rarity(t) >= KEYTERM_COMMON_ZIPF else kept).append(t)
+        terms = kept
+    terms.sort(key=_term_rarity)  # stable: rarest first
+    return terms[:limit], dropped
+
+
+# ============================================================
+# Audio decoding for speaker endpoints.
+# Browsers record with MediaRecorder -> webm/opus (Chrome/Firefox) or mp4/aac
+# (Safari). libsndfile (soundfile) cannot read those containers, which caused
+# "Format not recognised". We try, in order:
+#   1) soundfile  (wav / flac / ogg)            - fast path
+#   2) PyAV       (webm/opus, mp4/aac, ...)     - pip install av  (ships its own ffmpeg libs)
+#   3) ffmpeg CLI (if installed on the server)
+# Always returns float32 mono @ 16 kHz (resemblyzer requirement).
+# ============================================================
+SPEAKER_SAMPLE_RATE = 16000
+
+
+def _to_16k_mono(data: np.ndarray, sample_rate: int) -> np.ndarray:
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+    if sample_rate != SPEAKER_SAMPLE_RATE:
+        import librosa
+        data = librosa.resample(data, orig_sr=sample_rate, target_sr=SPEAKER_SAMPLE_RATE)
+    return np.ascontiguousarray(data, dtype=np.float32)
+
+
+def _decode_with_pyav(audio_bytes: bytes) -> np.ndarray:
+    import av  # optional dependency
+    parts = []
+    with av.open(io.BytesIO(audio_bytes)) as container:
+        stream = next((st for st in container.streams if st.type == "audio"), None)
+        if stream is None:
+            raise ValueError("no audio stream found")
+        resampler = av.AudioResampler(format="flt", layout="mono", rate=SPEAKER_SAMPLE_RATE)
+
+        def _collect(out):
+            for f in (out if isinstance(out, list) else [out]):
+                if f is not None:
+                    parts.append(f.to_ndarray().reshape(-1))
+
+        for frame in container.decode(stream):
+            _collect(resampler.resample(frame))
+        _collect(resampler.resample(None))  # flush
+    if not parts:
+        raise ValueError("decoded 0 samples")
+    return np.concatenate(parts).astype(np.float32)
+
+
+def _decode_with_ffmpeg_cli(audio_bytes: bytes) -> np.ndarray:
+    proc = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", "pipe:0", "-f", "f32le", "-ac", "1",
+         "-ar", str(SPEAKER_SAMPLE_RATE), "pipe:1"],
+        input=audio_bytes, capture_output=True, timeout=15,
+    )
+    if proc.returncode != 0 or not proc.stdout:
+        raise ValueError(proc.stderr.decode(errors="ignore").strip()[:200] or "ffmpeg produced no output")
+    return np.frombuffer(proc.stdout, dtype=np.float32).copy()
+
+
+def decode_audio_to_16k_mono(audio_bytes: bytes) -> np.ndarray:
+    errors = []
+    try:
+        data, sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+        return _to_16k_mono(data, sr)
+    except Exception as e:
+        errors.append(f"soundfile: {e}")
+    for name, fn in (("pyav", _decode_with_pyav), ("ffmpeg", _decode_with_ffmpeg_cli)):
+        try:
+            return fn(audio_bytes)
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    raise ValueError("Could not decode audio (" + " | ".join(errors) + ")")
 
 enrolled_speakers = {}
 voice_encoder = VoiceEncoder()
@@ -49,8 +183,8 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
         init_msg = await websocket.receive_text()
         data     = json.loads(init_msg)
         username = data.get("username", "unknown")
-        session_id = data.get("session_id") or websocket.query_params.get("session_id")
-        print(f"[HYBRID] Monitoring started for: {username} (Session: {session_id})")
+        session_id = data.get("session_id") or None
+        print(f"[HYBRID] Monitoring started for: {username} (session: {session_id})")
         print(f"[HYBRID] Turn-taking threshold: {TURN_DETECTION_THRESHOLD}s")
 
         vad_processor        = VADProcessor()
@@ -117,18 +251,17 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
                                     f"[HYBRID] ⚠️ SCENARIO 1 — SIMULTANEOUS OVERLAP "
                                     f"FOR {username}: {speaker_list}"
                                 )
-                                await log_proctoring_event(
-                                    username,
-                                    "multiple_speakers_detected",
-                                    f"Simultaneous: {speaker_list}",
-                                    session_id=session_id
-                                )
+                                reason = f"Simultaneous: {speaker_list}"
+                                if DIARIZE_BACKEND_DB_LOG:
+                                    await log_proctoring_event(
+                                        username, "multiple_speakers_detected", reason, session_id
+                                    )
                                 await websocket.send_json({
                                     "type":     "audio_violation",
                                     "level":    "high",
                                     "source":   "AI",
                                     "scenario": "simultaneous",
-                                    "detail":   f"Speakers {speaker_list} active",
+                                    "detail":   reason,
                                 })
 
                         # SCENARIO 2: Persistent speaker switch → turn-taking
@@ -148,18 +281,20 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
                                             f"FOR {username}: "
                                             f"{current_speaker_id} -> {new_speaker}"
                                         )
-                                        await log_proctoring_event(
-                                            username,
-                                            "multiple_speakers_detected",
-                                            f"Turn-taking: {current_speaker_id}->{new_speaker}",
-                                            session_id=session_id
+                                        reason = (
+                                            f"Turn-taking: {current_speaker_id}->{new_speaker} "
+                                            f"(changed in {time_gap:.1f}s)"
                                         )
+                                        if DIARIZE_BACKEND_DB_LOG:
+                                            await log_proctoring_event(
+                                                username, "multiple_speakers_detected", reason, session_id
+                                            )
                                         await websocket.send_json({
                                             "type":     "audio_violation",
                                             "level":    "high",
                                             "source":   "AI",
                                             "scenario": "turn_taking",
-                                            "detail":   f"Speaker changed in {time_gap:.1f}s",
+                                            "detail":   reason,
                                         })
                             current_speaker_id       = new_speaker
                             last_speaker_change_time = current_time
@@ -273,18 +408,17 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
                         f"[HYBRID] ⚠️ LOCAL VAD DETECTED OVERLAPPING SPEECH "
                         f"FOR {username}"
                     )
-                    await log_proctoring_event(
-                        username,
-                        "multiple_speakers_detected",
-                        "local VAD simultaneous",
-                        session_id=session_id
-                    )
+                    reason = "local VAD simultaneous"
+                    if DIARIZE_BACKEND_DB_LOG:
+                        await log_proctoring_event(
+                            username, "multiple_speakers_detected", reason, session_id
+                        )
                     await websocket.send_json({
                         "type":     "audio_violation",
                         "level":    "high",
                         "source":   "LOCAL",
                         "scenario": "simultaneous",
-                        "detail":   "Local metrics flagged concurrent speech",
+                        "detail":   reason,
                     })
 
     except Exception as e:
@@ -301,70 +435,18 @@ async def websocket_hybrid_diarize(websocket: WebSocket):
         except Exception:
             pass
 
-def _decode_audio_to_wav(audio_bytes: bytes) -> tuple:
-    """Safely decode browser audio (WebM/MP4/OGG/WAV) to float32 numpy array and sample rate.
-    Uses pydub if available, otherwise runs ffmpeg subprocess as a robust fallback."""
-    import subprocess
-    import tempfile
-    
-    # 1. Try pydub if installed
-    try:
-        from pydub import AudioSegment
-        temp_audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
-        wav_io = io.BytesIO()
-        temp_audio.export(wav_io, format="wav")
-        wav_io.seek(0)
-        return sf.read(wav_io, dtype='float32')
-    except Exception as e_pydub:
-        # 2. Robust fallback: use ffmpeg directly (pre-installed at /usr/bin/ffmpeg)
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as in_f:
-                in_f.write(audio_bytes)
-                in_path = in_f.name
-
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as out_f:
-                out_path = out_f.name
-
-            cmd = [
-                "ffmpeg", "-y", "-i", in_path,
-                "-vn", "-ar", "16000", "-ac", "1",
-                "-f", "wav", out_path
-            ]
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if res.returncode == 0:
-                audio_np, sample_rate = sf.read(out_path, dtype='float32')
-                try:
-                    os.remove(in_path)
-                    os.remove(out_path)
-                except Exception:
-                    pass
-                return audio_np, sample_rate
-            else:
-                try:
-                    os.remove(in_path)
-                    os.remove(out_path)
-                except Exception:
-                    pass
-                # Fallback to direct soundfile read
-                return sf.read(io.BytesIO(audio_bytes), dtype='float32')
-        except Exception:
-            return sf.read(io.BytesIO(audio_bytes), dtype='float32')
-
 @router.post("/speaker/enroll")
 async def speaker_enroll(username: str = Form(...), audio: UploadFile = File(...)):
     """Enroll a speaker's voiceprint for later verification (voice mismatch check)."""
     try:
         audio_bytes = await audio.read()
-        audio_np, sample_rate = _decode_audio_to_wav(audio_bytes)
+        # Decode any supported format (wav/flac/ogg, browser webm/opus, mp4/aac) -> 16kHz mono float32
+        loop = asyncio.get_running_loop()
+        audio_np = await loop.run_in_executor(None, decode_audio_to_16k_mono, audio_bytes)
+        sample_rate = SPEAKER_SAMPLE_RATE
 
         if len(audio_np) < sample_rate * 1.6:
             return {"success": False, "message": f"Audio too short ({len(audio_np)/sample_rate:.1f}s). Need at least 1.6s."}
-
-        if sample_rate != 16000:
-            # Resample to 16kHz (Resemblyzer expects it)
-            import librosa
-            audio_np = librosa.resample(audio_np, orig_sr=sample_rate, target_sr=16000)
-            sample_rate = 16000
 
         embedding = voice_encoder.embed_utterance(audio_np)
         enrolled_speakers[username] = embedding
@@ -405,19 +487,11 @@ async def verify_speaker(
             print(f"[Speaker] Mongo lookup error: {e_db}")
 
     try:
-        # Read and decode audio safely
+        # Read and decode audio (wav/flac/ogg, or browser webm/opus & mp4/aac) -> 16kHz mono float32
         audio_bytes = await audio.read()
-        audio_np, sample_rate = _decode_audio_to_wav(audio_bytes)
-        
-        # Convert stereo to mono if needed
-        if len(audio_np.shape) > 1:
-            audio_np = audio_np.mean(axis=1)
-            
-        # Resample to 16kHz (resemblyzer requirement)
-        if sample_rate != 16000:
-            import librosa
-            audio_np = librosa.resample(audio_np, orig_sr=sample_rate, target_sr=16000)
-            sample_rate = 16000
+        loop = asyncio.get_running_loop()
+        audio_np = await loop.run_in_executor(None, decode_audio_to_16k_mono, audio_bytes)
+        sample_rate = SPEAKER_SAMPLE_RATE
 
         # Auto-enroll if still not enrolled and chunk is long enough
         if username not in enrolled_speakers:
@@ -495,16 +569,18 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     smart_format = websocket.query_params.get("smart_format", "true")
     endpointing = websocket.query_params.get("endpointing", "150")
     utterance_end_ms = websocket.query_params.get("utterance_end_ms", "800")
-    raw_keywords = websocket.query_params.getlist("keywords")
-    keywords = []
-    for item in raw_keywords:
-        for kw in item.split(","):
-            cleaned = kw.strip()
-            if cleaned and cleaned not in keywords:
-                keywords.append(cleaned)
-    # Maximum 100 keywords to Deepgram to optimize recognition and avoid limits
-    keywords = keywords[:100]
     keyword_boost = websocket.query_params.get("keyword_boost", "6.0")
+
+    # Nova-3 does NOT support the legacy `keywords` param (HTTP 400).
+    # It uses `keyterm` instead (plain terms, no ":boost" suffix).
+    is_nova3 = dg_model.lower().startswith("nova-3")
+
+    raw_keywords = websocket.query_params.getlist("keywords")
+    keywords, dropped_common = sanitize_keyterms(
+        raw_keywords, KEYTERM_MAX_NOVA3 if is_nova3 else KEYWORDS_MAX_LEGACY
+    )
+    if dropped_common:
+        print(f"[STT] Skipped {len(dropped_common)} common-word keyterms: {dropped_common}")
 
     dg_params = {
         "model": dg_model,
@@ -524,26 +600,48 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
         "channels": "1",
     }
     if keywords:
-        dg_params["keywords"] = [f"{kw}:{keyword_boost}" for kw in keywords]
+        if is_nova3:
+            dg_params["keyterm"] = keywords
+        else:
+            dg_params["keywords"] = [f"{kw}:{keyword_boost}" for kw in keywords]
 
-    try:
-        dg_session = aiohttp.ClientSession()
-        dg_ws = await dg_session.ws_connect(
-            "wss://api.deepgram.com/v1/listen",
-            headers={"Authorization": f"Token {dg_key}"},
-            params=dg_params,
-        )
-    except Exception as e:
+    # Try with keywords/keyterm first; if Deepgram rejects the handshake
+    # (e.g. 400), retry once WITHOUT them so STT never breaks.
+    dg_session = aiohttp.ClientSession()
+    dg_ws = None
+    last_err = None
+    base_params = {k: v for k, v in dg_params.items() if k not in ("keyterm", "keywords")}
+    attempts = [dg_params, base_params] if keywords else [dg_params]
+
+    for i, attempt_params in enumerate(attempts):
+        try:
+            dg_ws = await dg_session.ws_connect(
+                "wss://api.deepgram.com/v1/listen",
+                headers={"Authorization": f"Token {dg_key}"},
+                params=attempt_params,
+            )
+            if i == 1:
+                print("[STT] ⚠️ Connected WITHOUT keywords (retry after handshake failure)")
+                keywords = []
+            break
+        except Exception as e:
+            last_err = e
+            err_headers = getattr(e, "headers", None)
+            dg_err = err_headers.get("dg-error") if err_headers else None
+            print(f"[STT] Deepgram connect attempt {i + 1} failed: {e} | dg-error: {dg_err}")
+
+    if dg_ws is None:
         print("\n" + "!" * 80)
-        print(f"❌ [DEEPGRAM STT CONNECTION FAILED] User: {username} | Error: {e}")
+        print(f"❌ [DEEPGRAM STT CONNECTION FAILED] User: {username} | Error: {last_err}")
         print(f"   Key length: {len(dg_key)} | First 6 chars: '{dg_key[:6]}...'")
         print("   Client will automatically fallback to browser webkitSpeechRecognition.")
         print("!" * 80 + "\n")
-        await websocket.send_json({"type": "fallback", "reason": f"deepgram_connect_failed: {str(e)}"})
+        await websocket.send_json({"type": "fallback", "reason": f"deepgram_connect_failed: {str(last_err)}"})
         try: await dg_session.close()
         except: pass
         await websocket.close()
         return
+
 
     print("\n" + "="*80)
     print(f"🎤 [DEEPGRAM STT CONNECTED] User: '{username}' | Session: '{session_id}'")
@@ -575,6 +673,21 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     MULTI_SPEAKER_COOLDOWN_SEC = 5.0
     last_multi_speaker_alert_time = 0.0
 
+    # Diagnostics: tells us whether audio reaches the backend / Deepgram answers
+    stt_stats = {"chunks": 0, "bytes": 0, "dg_msgs": 0}
+
+    async def stt_stats_logger():
+        try:
+            while True:
+                await asyncio.sleep(5)
+                print(
+                    f"[STT][diag] {username}: audio chunks from browser={stt_stats['chunks']} "
+                    f"({stt_stats['bytes'] // 1024} KB) | Deepgram msgs={stt_stats['dg_msgs']} "
+                    f"| dg_closed={dg_ws.closed}"
+                )
+        except asyncio.CancelledError:
+            pass
+
     async def client_to_deepgram():
         """Forward PCM & KeepAlive from browser → Deepgram without disconnecting."""
         try:
@@ -602,6 +715,10 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
 
                 bytes_data = message.get("bytes")
                 if bytes_data and dg_ws and not dg_ws.closed:
+                    if STT_DIAG and stt_stats["chunks"] == 0:
+                        print(f"[STT][diag] first audio chunk from browser: {len(bytes_data)} bytes")
+                    stt_stats["chunks"] += 1
+                    stt_stats["bytes"] += len(bytes_data)
                     await dg_ws.send_bytes(bytes_data)
         except WebSocketDisconnect:
             pass
@@ -618,6 +735,7 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
             async for msg in dg_ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     data = json.loads(msg.data)
+                    stt_stats["dg_msgs"] += 1
                     print(f"[STT] Deepgram message: {data.get('type')}")
 
                     if data.get("type") == "Results":
@@ -690,14 +808,19 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
                         # should close punctuation (add full stop, capitalize next).
                         await websocket.send_json({"type": "utterance_end"})
 
-                elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSING,
+                                  aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                    print(f"[STT] ❗ Deepgram socket ended: {msg.type.name} | "
+                          f"close_code={dg_ws.close_code} | detail={msg.data!r} | exc={dg_ws.exception()}")
                     break
+            print(f"[STT] deepgram_to_client loop exited | close_code={dg_ws.close_code}")
         except Exception as e:
             print(f"[STT] deepgram_to_client error: {e}")
 
     # Run both directions concurrently
     task1 = asyncio.create_task(client_to_deepgram())
     task2 = asyncio.create_task(deepgram_to_client())
+    task3 = asyncio.create_task(stt_stats_logger()) if STT_DIAG else None
 
     try:
         done, pending = await asyncio.wait({task1, task2}, return_when=asyncio.FIRST_COMPLETED)
@@ -708,6 +831,8 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     except Exception as e:
         print(f"[STT] stream error: {e}")
     finally:
+        if task3:
+            task3.cancel()
         try: await dg_ws.close()
         except: pass
         try: await dg_session.close()

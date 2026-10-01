@@ -571,7 +571,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.proctor.start(
       (warning: ProctorWarning) => this.onProctorWarning(warning),
       (info: any) => this.onProctorTerminate(info),
-      (event: ProctorEvent) => this.addProctorLog(event.event, event.detail || ''),
+      (event: ProctorEvent) => this.addProctorLog(event.event, event.detail, event.event_id),
       (msg: string) => this.updateFaceStatus(msg),
       (secs: number) => this.handleNoFaceCountdown(secs)
     );
@@ -1483,6 +1483,16 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  /**
+   * Exam is over (finished / terminated / logout / page left): fully close the
+   * STT socket and release the microphone. Per-question pauses must keep using
+   * stopSpeechRecognition(), which keeps the connection warm.
+   */
+  private shutdownSpeechEngine() {
+    this.stopSpeechRecognition();
+    this.speech.shutdown();
+  }
+
   startSessionTimer() {
     this.sessionTimerInterval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - this.sessionStartTime) / 1000);
@@ -1815,7 +1825,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     clearInterval(this.timerInterval);
     if (this.durationInterval) clearInterval(this.durationInterval);
-    this.stopSpeechRecognition();
+    this.shutdownSpeechEngine();
     this.gazeStatistics = this.eyeTracking.getGazeStatistics();
     this.diarization.stop();
     this.cleanupProctoringAudio();
@@ -2023,7 +2033,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   async onProctorTerminate(info: any) {
     this.terminationReason = info.reason;
     this.showTerminationModal = true;
-    this.stopSpeechRecognition();
+    this.shutdownSpeechEngine();
     if (this.timerInterval) clearInterval(this.timerInterval);
     if (this.durationInterval) clearInterval(this.durationInterval);
     await this.markExamEnded(false);
@@ -2058,13 +2068,12 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     } catch (err) { console.error('Termination call failed', err); }
   }
 
-  addProctorLog(event: string, detail: string = '') {
+  addProctorLog(event: string, detail: string = '', eventId: string = '') {
     // Drop irrelevant normal-state events completely
     const droppedEvents = ['tab_return', 'devtools_exit'];
     if (droppedEvents.includes(event)) return;
 
-    const logEntry = detail ? `${event}: ${detail}` : event;
-    this.proctorLogs.unshift(logEntry);
+    this.proctorLogs.unshift(event);
 
     // Define events that require immediate backend logging and storage
     const immediateBackendEvents = [
@@ -2091,9 +2100,10 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       fd.append('username', username);
       fd.append('event_type', event);
       fd.append('session_id', this.examSessionId);
-      fd.append('detail', detail);
+      fd.append('detail', detail);   // exact reason (e.g. "Turn-taking: 0->1", "Face missing") kept in DB
+      if (eventId) fd.append('event_id', eventId);   // lets the backend skip the later bulk duplicate
       this.http.post(`${environment.apiUrl}/proctoring/log-event`, fd).subscribe({
-        next: () => console.log(`[SYNC] Critical security event logged: ${event} (${detail})`),
+        next: () => console.log(`[SYNC] Critical security event logged: ${event}`),
         error: (err) => console.error('Proctor sync failed', err)
       });
     }
@@ -2140,7 +2150,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.cleanupProctoringAudio();
     this.proctor.stop();
     this.proctor.reset();
-    this.stopSpeechRecognition();
+    this.shutdownSpeechEngine();
     this.diarization.stop();
     this.fullCameraShutdown();
     if (this.voiceVerificationInterval) { 
@@ -2266,7 +2276,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     
     // ✅ STEP 2: Stop all services
     this.proctor.stop();
-    this.stopSpeechRecognition();
+    this.shutdownSpeechEngine();
     this.diarization.stop();
     this.cleanupProctoringAudio();
     
@@ -2302,7 +2312,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.terminationReason = detail;
     
     // ✅ STEP 1: Stop all services
-    this.stopSpeechRecognition();
+    this.shutdownSpeechEngine();
     this.proctor.stop();
     this.diarization.stop();
     this.cleanupProctoringAudio();

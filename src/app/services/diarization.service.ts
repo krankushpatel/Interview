@@ -53,11 +53,12 @@ export class DiarizationService {
   /**
    * Start diarization monitoring.
    *
-   * @param username   Student's username (sent to server as init msg)
-   * @param stream     The MediaStream containing the microphone audio track
-   * @param callback   Called with (type, detail) when a violation fires;
-   *                   type === 'multiple_speakers_detected' on a hit
-   * @param sessionId  Optional session ID to link proctoring events
+   * @param username  Student's username (sent to server as init msg)
+   * @param stream    The MediaStream containing the microphone audio track
+   * @param callback  Called with (type, detail) when a violation fires;
+   *                  type === 'multiple_speakers_detected' on a hit and
+   *                  detail is the server's exact reason (e.g. "Turn-taking: 0->1 (changed in 2.1s) [AI]")
+   * @param sessionId Exam session id (sent in the init message so the backend can tag its logs)
    */
   start(
     username: string,
@@ -85,7 +86,7 @@ export class DiarizationService {
 
       this.ws.onopen = () => {
         console.log('[Diarization] WS connected →', wsUrl);
-        // Send text init frame (username registration + session_id)
+        // Send text init frame (username registration)
         this.wsSendText({ type: 'init', username, session_id: sessionId });
         // Start keepalive ping every 10 s
         this.pingIntervalId = setInterval(() => {
@@ -113,7 +114,9 @@ export class DiarizationService {
 
             // ✅ Sirf confident overlaps hi pass karo
             console.warn('[Diarization] ✅ High-confidence violation:', msg.detail);
-            callback('multiple_speakers_detected', `source=${msg.source ?? 'server'}`);
+            // Preserve the server's exact reason (Turn-taking: 0->1, Simultaneous: [...], ...)
+            const source = msg.source ?? 'server';
+            callback('multiple_speakers_detected', msg.detail ? `${msg.detail} [${source}]` : `source=${source}`);
           }
         } catch {
           // Non-JSON frame — ignore

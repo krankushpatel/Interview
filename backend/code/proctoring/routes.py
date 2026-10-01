@@ -15,10 +15,11 @@ async def log_event_endpoint(
     username: str = Form(...),
     event_type: str = Form(...),
     session_id: str = Form(None),
-    detail: str = Form("")
+    detail: str = Form(""),
+    event_id: str = Form(None)
 ):
     """Frontend se aane wale individual events ko save karne ke liye"""
-    await log_proctoring_event(username, event_type, detail, session_id)
+    await log_proctoring_event(username, event_type, detail, session_id, event_id)
     return {"success": True}
 
 @router.post("/store-proctoring")
@@ -39,10 +40,10 @@ async def store_proctoring(
             elif isinstance(ev["timestamp"], (int, float)):
                 ev["timestamp"] = datetime.fromtimestamp(ev["timestamp"] / 1000.0).isoformat()
 
-        # Direct Bulk Insert in MongoDB
-        add_bulk_proctoring_events(username, events)
+        # Direct Bulk Insert in MongoDB (events already saved via /log-event are skipped by event_id)
+        inserted = add_bulk_proctoring_events(username, events)
         
-        return {"success": True, "count": len(events)}
+        return {"success": True, "count": len(events), "inserted": inserted}
     except Exception as e:
         print(f"[ROUTE ERROR] {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -60,15 +61,15 @@ async def clear_proctoring(
     return {"success": True}
 
 @router.get("/get-proctoring/{username}")
-async def get_proctoring_events_endpoint(username: str):
-    """Get proctoring events for a user"""
-    events = get_proctoring_events(username)
+async def get_proctoring_events_endpoint(username: str, session_id: Optional[str] = None):
+    """Get proctoring events for a user (pass ?session_id=... for a single exam session)"""
+    events = get_proctoring_events(username, session_id)
     return {"events": events}
 
 @router.get("/live-proctoring/{username}")
-async def get_live_proctoring_events(username: str, limit: int = 50):
-    """Get latest proctoring events (real-time monitoring)"""
-    events = get_proctoring_events(username)
+async def get_live_proctoring_events(username: str, limit: int = 50, session_id: Optional[str] = None):
+    """Get latest proctoring events (real-time monitoring); ?session_id=... limits to one session"""
+    events = get_proctoring_events(username, session_id)
     sorted_events = sorted(events, key=lambda x: x.get("timestamp", ""), reverse=True)[:limit]
     return {
         "username": username,

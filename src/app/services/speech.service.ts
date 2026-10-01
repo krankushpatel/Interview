@@ -27,6 +27,7 @@ export class SpeechService {
   private shouldKeepListening = false;
   private micActive = true;
   private reconnecting = false;
+  private reconnectTimer: any = null;
 
   // Deepgram state
   // private dgWebSocket: WebSocket | null = null;
@@ -192,6 +193,37 @@ export class SpeechService {
     return final;
   }
 
+  /**
+   * FULL teardown — call when the exam ends / the user leaves the page.
+   * stopListening() only mutes the mic and keeps the Deepgram socket warm for
+   * the next question; shutdown() closes the STT socket, releases the
+   * microphone and cancels any pending auto-reconnect. startListening() can
+   * still be used afterwards (e.g. next exam) and will open a fresh connection.
+   */
+  shutdown(): void {
+    this.shouldKeepListening = false;
+    this.isListening = false;
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnecting = false;
+
+    // Forget the session so no stale reconnect can restart Deepgram
+    this.lastUsername = '';
+    this.lastSessionId = '';
+    this.currentEngine = 'none';
+    this.engineSource.next('none');
+
+    this.stopWebkit();
+    this.stopDeepgram();
+
+    this.accumulatedTranscript = '';
+    this.capitalizeNextChunk = true;
+    console.log('[SPEECH] Shutdown complete — STT socket closed, microphone released');
+  }
+
   clearTranscript(capitalizeNext = true): void {
     this.accumulatedTranscript = '';
     this.capitalizeNextChunk = capitalizeNext;
@@ -291,8 +323,8 @@ export class SpeechService {
             type: 'Settings',
             model: opts.model ?? 'nova-2',
             tier: opts.tier ?? 'enhanced',
-            smart_format: opts.smart_format ?? false,
-            punctuate: opts.punctuate ?? true,
+            smart_format: opts.smart_format ?? true,
+            punctuate: opts.punctuate ?? false,
             keywords: allKeywords.slice(0, 100),
             keyword_boost: opts.keyword_boost ?? 6.0,
             endpointing: opts.endpointing ?? 150,
@@ -409,7 +441,8 @@ export class SpeechService {
             this.reconnecting = true;
             this.stopDeepgram();
             console.warn('[SPEECH] Deepgram WS closed unexpectedly, reconnecting...');
-            setTimeout(() => {
+            this.reconnectTimer = setTimeout(() => {
+              this.reconnectTimer = null;
               this.reconnecting = false;
               if (this.lastUsername && this.lastSessionId) {
                 this.startDeepgram(this.lastUsername, this.lastSessionId, this.currentKeywords);
@@ -487,7 +520,8 @@ export class SpeechService {
         this.dgWebSocket.onmessage = null;
         this.dgWebSocket.onerror = null;
         this.dgWebSocket.onclose = null;
-        if (this.dgWebSocket.readyState === WebSocket.OPEN) this.dgWebSocket.close();
+        if (this.dgWebSocket.readyState === WebSocket.OPEN ||
+            this.dgWebSocket.readyState === WebSocket.CONNECTING) this.dgWebSocket.close();
       } catch {}
       this.dgWebSocket = null;
     }

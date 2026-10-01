@@ -13,6 +13,7 @@ export interface ProctorEvent {
   event: string;
   timestamp: number;
   detail?: string;
+  event_id?: string;   // unique per event -> backend skips duplicates (immediate log vs end-of-exam bulk store)
 }
 
 @Injectable({ providedIn: 'root' })
@@ -413,9 +414,15 @@ export class ProctoringService {
     const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
     const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const s = String(elapsed % 60).padStart(2, '0');
-    const ev: ProctorEvent = { time: `${m}:${s}`, event: eventType, timestamp: Date.now(), detail };
+    const ev: ProctorEvent = { time: `${m}:${s}`, event: eventType, timestamp: Date.now(), detail, event_id: this.newEventId() };
     this.events.push(ev);
     if (this.onEventCallback) this.onEventCallback(ev);
+  }
+
+  private newEventId(): string {
+    const c: any = typeof crypto !== 'undefined' ? crypto : null;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private startSplitScreenDetection() {
