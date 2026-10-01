@@ -157,9 +157,9 @@ export class QuestionService {
   //   return lastValueFrom(this.http.get(`${environment.apiUrl}/results/${username}`));
   // }
   
-  async getResults(username: string): Promise<any> {
-    // ✅ URL updated from /results/ to /evaluation/result/
-    return lastValueFrom(this.http.get(`${environment.apiUrl}/evaluation/result/${username}`));
+  async getResults(username: string, sessionId?: string): Promise<any> {
+    const query = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+    return lastValueFrom(this.http.get(`${environment.apiUrl}/evaluation/result/${username}${query}`));
   }
   
   async clearProctoring(username: string): Promise<void> {

@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, NavController } from '@ionic/angular';
+import { ActivatedRoute } from '@angular/router';
 import { QuestionService } from '../../services/question.service';
 import { HexagonLayoutService } from '../../services/hexagon-layout.service';
 import { ScoreLegendComponent } from '../../services/score-legend.component';
@@ -63,7 +64,8 @@ export class ResultsPage implements OnInit {
     private qService: QuestionService,
     public navCtrl: NavController,
     private hexService: HexagonLayoutService,
-    private pdfGenerator: PdfGeneratorService
+    private pdfGenerator: PdfGeneratorService,
+    private route: ActivatedRoute
   ) {}
 
   async ngOnInit() {
@@ -72,8 +74,14 @@ export class ResultsPage implements OnInit {
       this.showError('No session found. Please log in first.');
       return;
     }
+
+    // Read session_id from URL query param (?session_id=...) or active/last session storage
+    const querySessionId = this.route.snapshot.queryParamMap.get('session_id');
+    const storedSessionId = sessionStorage.getItem('active_exam_session_id') || sessionStorage.getItem('last_exam_session_id');
+    const sessionId = (querySessionId || storedSessionId || '').trim();
+
     try {
-      const response = await this.qService.getResults(username);
+      const response = await this.qService.getResults(username, sessionId || undefined);
       this.result = response;
       if (this.result && Array.isArray(this.result.questions)) {
         const seen = new Set<string>();

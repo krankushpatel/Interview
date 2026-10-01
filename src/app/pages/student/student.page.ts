@@ -1866,7 +1866,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (evalResponse.success) { 
       this.pollEvaluationStatus(user); 
     } else { 
-      this.navCtrl.navigateRoot('/results'); 
+      this.navCtrl.navigateRoot(['/results'], { queryParams: { session_id: this.examSessionId } }); 
     }
   }
 
@@ -1916,9 +1916,10 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
               
               if (status.done) {
                   await stopPolling();
+                  sessionStorage.setItem('last_exam_session_id', this.examSessionId);
                   sessionStorage.removeItem('active_exam_session_id');
                   this.showToast('✅ Evaluation complete!', 'success');
-                  this.navCtrl.navigateRoot('/results');
+                  this.navCtrl.navigateRoot(['/results'], { queryParams: { session_id: this.examSessionId } });
                   return;
               }
 
