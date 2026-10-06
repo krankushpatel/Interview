@@ -371,7 +371,7 @@ export class AdminPage implements OnInit, OnDestroy {
       await this.loadSubmissions();
       this.loadedViews.submissions = true;
     } else if (view === 'students' && !this.loadedViews.students) {
-      await Promise.all([this.loadStudents(), this.loadBatches()]);
+      await Promise.all([this.loadStudents(), this.loadBatches(), this.loadAllClasses()]);
       this.loadedViews.students = true;
     } else if (view === 'questions' && !this.loadedViews.questions) {
       await Promise.all([this.loadQuestions(), this.loadAllCategories(), this.loadAllClasses()]);
@@ -418,7 +418,7 @@ export class AdminPage implements OnInit, OnDestroy {
       if (this.activeView === 'overview') {
         await this.loadDashboardStats();
       } else if (this.activeView === 'students') {
-        await Promise.all([this.loadStudents(), this.loadBatches()]);
+        await Promise.all([this.loadStudents(), this.loadBatches(), this.loadAllClasses()]);
       } else if (this.activeView === 'questions') {
         await Promise.all([this.loadQuestions(), this.loadAllCategories(), this.loadAllClasses()]);
       } else if (this.activeView === 'submissions') {
@@ -1218,7 +1218,13 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
-  openGroupSettings() {
+  async openGroupSettings() {
+    if (!this.allClasses || this.allClasses.length === 0) {
+      await this.loadAllClasses();
+    }
+    if (!this.questions || this.questions.length === 0) {
+      await this.loadQuestions();
+    }
     if (this.selectedGroup && this.selectedGroup.settings) {
       const savedSettings = this.selectedGroup.settings;
       this.groupSettings.allowTyping = savedSettings.allowTyping !== undefined ? savedSettings.allowTyping : true;
@@ -2007,6 +2013,12 @@ export class AdminPage implements OnInit, OnDestroy {
     this.activeGroupTab = tab;
     this.showGroupDetailModal = true;
     this.fetchGroupTimetable();
+    if (!this.allClasses || this.allClasses.length === 0) {
+      this.loadAllClasses();
+    }
+    if (!this.questions || this.questions.length === 0) {
+      this.loadQuestions();
+    }
   }
 
   async fetchGroupTimetable() {
