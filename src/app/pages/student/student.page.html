@@ -270,6 +270,11 @@
         <div class="rec-dot"></div> SCREEN RECORDING ACTIVE 🔴
       </div>
 
+      <!-- Fullscreen Warning Banner -->
+      <div class="fullscreen-warning-banner" *ngIf="isNotFullscreen" (click)="reEnterFullscreen()">
+        ⚠️ Fullscreen exited! Click here to return to Fullscreen mode
+      </div>
+
       <!-- Progress bar -->
       <div class="progress-strip">
         <div class="progress-fill" id="progress-fill" style="width:0%"></div>
@@ -507,7 +512,7 @@
         <p style="color: var(--ion-color-danger); font-size: 0.85rem;">
           {{ maxProctorWarnings - warningCount }} violation(s) remaining before termination.
         </p>
-        <ion-button expand="block" (click)="showWarningModal = false">I Understand</ion-button>
+        <ion-button expand="block" (click)="dismissWarningModal()">I Understand</ion-button>
       </ion-content>
     </ng-template>
   </ion-modal>

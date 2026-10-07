@@ -610,6 +610,8 @@ def _compute_behavior(events: Optional[list]) -> dict:
     last_counted_at: Dict[str, float] = {}
     for e in clean:
         etype = e["type"]
+        if etype == "fullscreen_exit_attempt":
+            etype = "fullscreen_exit"
         counts[etype] = counts.get(etype, 0) + 1
         ts = _event_timestamp(e)
         if ts is None:
@@ -628,12 +630,12 @@ def _compute_behavior(events: Optional[list]) -> dict:
         per_type_penalty[etype] = p
         penalty += p
 
-    total_v = sum(counts.values())
+    total_v = sum(debounced.values())
     penalty = total_v / 10.0
     return {
         "classification": "Malpractices" if total_v >= 2 else "fair",
         "events_count": total_v,
-        "violations": counts,
+        "violations": debounced,
         "penalty_percentage": penalty,
         "reasoning": f"Detected {total_v} critical violation(s)."
     }

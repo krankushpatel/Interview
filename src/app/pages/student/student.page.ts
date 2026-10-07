@@ -2031,6 +2031,19 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     setTimeout(() => this.showWarningModal = false, 4000);
   }
 
+  dismissWarningModal() {
+    this.showWarningModal = false;
+    this.proctor.requestFullscreen();
+  }
+
+  get isNotFullscreen(): boolean {
+    return this.step === 'exam' && !this.showEvaluation && !this.proctor.isFullScreenMode();
+  }
+
+  reEnterFullscreen() {
+    this.proctor.requestFullscreen();
+  }
+
   async onProctorTerminate(info: any) {
     this.terminationReason = info.reason;
     this.showTerminationModal = true;

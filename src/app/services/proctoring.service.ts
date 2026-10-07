@@ -64,6 +64,7 @@ export class ProctoringService {
     if (this.active) return;
     this.active = true;
     this.startTime = Date.now();
+    this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement);
     this.loadCountersFromStorage();
     this.onWarningCallback = onWarning;
     this.onTerminateCallback = onTerminate;
@@ -228,9 +229,9 @@ export class ProctoringService {
 
   private startFullscreenMonitor() {
     this.fullscreenRetryInterval = setInterval(() => {
-      if (this.active && !document.fullscreenElement && !this.isScreenShareDialogOpen) {
-        this.handleViolation('fullscreen_exit_attempt', 'Attempted to exit fullscreen');
-        this.requestFullscreen();
+      const isCurrentlyFull = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement);
+      if (this.active && !isCurrentlyFull && this.isFullscreen && !this.isScreenShareDialogOpen) {
+        this.onFullscreenChange();
       }
     }, 1000);
   }
@@ -269,7 +270,17 @@ export class ProctoringService {
   requestFullscreen() {
     const docEl = document.documentElement;
     const req = docEl.requestFullscreen || (docEl as any).webkitRequestFullscreen || (docEl as any).mozRequestFullScreen;
-    if (req) req.call(docEl).catch((err: any) => console.warn('[Proctor] Fullscreen request failed:', err));
+    if (req) {
+      req.call(docEl)
+        .then(() => {
+          this.isFullscreen = true;
+        })
+        .catch((err: any) => console.warn('[Proctor] Fullscreen request failed:', err));
+    }
+  }
+
+  isFullScreenMode(): boolean {
+    return !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement);
   }
 
   // private handleViolation(type: string, message: string) {
@@ -353,6 +364,7 @@ export class ProctoringService {
     // window.addEventListener('focus', this.onWindowFocus);
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     document.addEventListener('webkitfullscreenchange', this.onFullscreenChange);
+    document.addEventListener('mozfullscreenchange', this.onFullscreenChange);
     document.addEventListener('copy', this.onCopy);
     document.addEventListener('cut', this.onCut);
     document.addEventListener('paste', this.onPaste);
@@ -367,6 +379,7 @@ export class ProctoringService {
     // window.removeEventListener('focus', this.onWindowFocus);
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', this.onFullscreenChange);
+    document.removeEventListener('mozfullscreenchange', this.onFullscreenChange);
     document.removeEventListener('copy', this.onCopy);
     document.removeEventListener('cut', this.onCut);
     document.removeEventListener('paste', this.onPaste);
@@ -388,7 +401,7 @@ export class ProctoringService {
 
   // private onWindowFocus = (): void => this.logEvent('window_focus');
   private onFullscreenChange = (): void => {
-    const nowFull = !!document.fullscreenElement;
+    const nowFull = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement);
     if (!nowFull && this.isFullscreen && !this.isScreenShareDialogOpen) {
       this.handleViolation('fullscreen_exit', 'Exited fullscreen mode');
     }

@@ -220,8 +220,12 @@ def _normalize_event_type(e: dict) -> dict:
     """Raw session_proctoring_logs documents use 'event' as the field
     name (see admin/monitoring.py's identical UI-compatibility fix) -
     _compute_behavior expects 'type'. Normalized once, here."""
-    if isinstance(e, dict) and "type" not in e and "event" in e:
-        return {**e, "type": e["event"]}
+    if isinstance(e, dict):
+        raw = e.get("type") or e.get("event")
+        if raw == "fullscreen_exit_attempt":
+            return {**e, "type": "fullscreen_exit", "event": "fullscreen_exit"}
+        if "type" not in e and "event" in e:
+            return {**e, "type": e["event"]}
     return e
 
 

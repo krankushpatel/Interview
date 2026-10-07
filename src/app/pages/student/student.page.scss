@@ -949,6 +949,31 @@ ion-header {
   }
 }
 
+.fullscreen-warning-banner {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #dc2626;
+  color: #ffffff;
+  padding: 0.6rem 1.4rem;
+  border-radius: 30px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+  cursor: pointer;
+  animation: pulse 1.5s infinite;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateX(-50%) scale(1.03);
+  }
+}
+
 /* ==================== MULTI-STEP STYLES ==================== */
 .step-container {
   display: flex;

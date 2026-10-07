@@ -355,8 +355,34 @@ export class ResultsPage implements OnInit {
 
   groupEvents() {
     const v: Record<string, number> = this.result?.behavior_analysis?.violations || {};
-    this.groupedEvents = Object.entries(v)
-      .map(([display, count]) => ({ event: display, count, display }))
+    const merged: Record<string, number> = {};
+    for (const [key, count] of Object.entries(v)) {
+      const normalizedKey = key === 'fullscreen_exit_attempt' ? 'fullscreen_exit' : key;
+      merged[normalizedKey] = (merged[normalizedKey] || 0) + count;
+    }
+
+    const eventNameMap: Record<string, string> = {
+      'fullscreen_exit': 'Full-screen Exit detected',
+      'fullscreen_exit_attempt': 'Full-screen Exit detected',
+      'tab_switch': 'Tab Switch detected',
+      'multiple_faces_detected': 'Multiple Faces detected',
+      'multiple_speakers_detected': 'Multiple voice detected',
+      'no_face_detected': 'Face Missing from Screen',
+      'eye_contact_violation': 'Eye Contact Violation detected',
+      'devtools_attempt': 'DevTools Attempt detected',
+      'split_screen_detected': 'Split Screen detected',
+      'app_switcher_detected': 'App Switch detected',
+      'copy_attempt': 'Copy Attempt detected',
+      'cut_attempt': 'Cut Attempt detected',
+      'paste_detected': 'Paste Attempt detected',
+      'right_click': 'Right Click attempt detected'
+    };
+
+    this.groupedEvents = Object.entries(merged)
+      .map(([rawKey, count]) => {
+        const display = eventNameMap[rawKey] || rawKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return { event: rawKey, count, display };
+      })
       .sort((a, b) => b.count - a.count);
   }
 

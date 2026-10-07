@@ -413,6 +413,7 @@ export class PdfGeneratorService {
       'eye_contact_violation': 'Eye Contact Violation detected',
       'tab_switch': 'Tab Switch detected',
       'fullscreen_exit': 'Full-screen Exit detected',
+      'fullscreen_exit_attempt': 'Full-screen Exit detected',
       'devtools_attempt': 'DevTools Attempt detected',
       'split_screen_detected': 'Split Screen detected',
       'app_switcher_detected': 'App Switch detected',
