@@ -1159,8 +1159,14 @@ export class AdminPage implements OnInit, OnDestroy {
   }
 
   async fetchCategoriesForClasses() {
+    const savedCategories = this.groupSettings.selectedCategories || (this.selectedGroup?.topics || []);
+
     if (this.groupSettings.selectedClasses.length === 0) {
-      this.availableCategoriesForGroup = [];
+      if (savedCategories.length > 0) {
+        this.availableCategoriesForGroup = Array.from(new Set([...savedCategories, ...(this.allCategories || [])])).sort();
+      } else {
+        this.availableCategoriesForGroup = [...(this.allCategories || [])];
+      }
       return;
     }
 
@@ -1170,26 +1176,24 @@ export class AdminPage implements OnInit, OnDestroy {
       if (this.questions && this.questions.length > 0) {
         this.questions.forEach((q: any) => {
           const qClass = q.class_name || q.className || '';
-          if (q.category && this.groupSettings.selectedClasses.includes(qClass)) {
+          if (q.category && (this.groupSettings.selectedClasses.includes(qClass) || qClass.toLowerCase() === 'all')) {
             validCategories.add(q.category);
           }
         });
         
         this.availableCategoriesForGroup = Array.from(validCategories).sort();
       } else {
-        this.availableCategoriesForGroup = [...this.allCategories];
+        this.availableCategoriesForGroup = [...(this.allCategories || [])];
       }
 
       // 🟢 SAFE AUTO-CLEANUP: 
       // Hum sirf unhi categories ko hatayenge jo user ne select nahi ki hain.
       // Lekin jo categories pehle se group mein SAVED thin, unhe safe rakhenge taaki logout ke baad ude nahi!
-      const savedCategories = this.groupSettings.selectedCategories || [];
-      
       this.availableCategoriesForGroup = Array.from(new Set([...this.availableCategoriesForGroup, ...savedCategories])).sort();
 
     } catch (e) {
       console.error("Error filtering categories:", e);
-      this.availableCategoriesForGroup = [...this.allCategories];
+      this.availableCategoriesForGroup = Array.from(new Set([...(this.allCategories || []), ...savedCategories])).sort();
     }
   }
 
@@ -1218,20 +1222,30 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
-  async openGroupSettings() {
+  async initGroupSettingsForSelectedGroup() {
+    if (!this.selectedGroup) return;
+
+    const loaders: Promise<any>[] = [];
     if (!this.allClasses || this.allClasses.length === 0) {
-      await this.loadAllClasses();
+      loaders.push(this.loadAllClasses());
     }
     if (!this.questions || this.questions.length === 0) {
-      await this.loadQuestions();
+      loaders.push(this.loadQuestions());
     }
+    if (!this.allCategories || this.allCategories.length === 0) {
+      loaders.push(this.loadAllCategories());
+    }
+    if (loaders.length > 0) {
+      await Promise.all(loaders);
+    }
+
     if (this.selectedGroup && this.selectedGroup.settings) {
       const savedSettings = this.selectedGroup.settings;
       this.groupSettings.allowTyping = savedSettings.allowTyping !== undefined ? savedSettings.allowTyping : true;
       
-      // Load New Format
-      this.groupSettings.selectedClasses = savedSettings.selectedClasses || [];
-      this.groupSettings.selectedCategories = savedSettings.selectedCategories || [];
+      // Load Classes & Categories
+      this.groupSettings.selectedClasses = Array.isArray(savedSettings.selectedClasses) ? [...savedSettings.selectedClasses] : [];
+      this.groupSettings.selectedCategories = Array.isArray(savedSettings.selectedCategories) ? [...savedSettings.selectedCategories] : [];
       this.groupSettings.topicDistribution = [];
 
       if (savedSettings.topicDistribution && Array.isArray(savedSettings.topicDistribution)) {
@@ -1256,15 +1270,43 @@ export class AdminPage implements OnInit, OnDestroy {
         }
       }
     } else {
-      // Default empty state jab naya group banega
+      // Fallback: Agar settings document nahi hai to group.topics ya timetable topics se categories initialize karo
+      const fallbackTopics = (this.selectedGroup?.topics && this.selectedGroup.topics.length > 0)
+        ? this.selectedGroup.topics
+        : (this.selectedGroupTimetable?.topics || []);
+      
       this.groupSettings.allowTyping = true;
       this.groupSettings.selectedClasses = [];
-      this.groupSettings.selectedCategories = [];
-      this.groupSettings.topicDistribution = [];
+      this.groupSettings.selectedCategories = [...fallbackTopics];
+      this.groupSettings.topicDistribution = fallbackTopics.map((t: string) => ({
+        topic: t,
+        l1: 1,
+        l2: 1,
+        l3: 0
+      }));
     }
-    
+
+    // 🟢 SAFE RECOVERY: Agar categories select hain lekin classes empty reh gaya, to questions me se matching classes nikaal lo
+    if (this.groupSettings.selectedClasses.length === 0 && this.groupSettings.selectedCategories.length > 0 && this.questions?.length > 0) {
+      const autoClasses = new Set<string>();
+      this.questions.forEach((q: any) => {
+        const qCat = q.category || '';
+        const qCls = q.class_name || q.className || '';
+        if (this.groupSettings.selectedCategories.includes(qCat) && qCls && qCls.toLowerCase() !== 'all') {
+          autoClasses.add(qCls);
+        }
+      });
+      if (autoClasses.size > 0) {
+        this.groupSettings.selectedClasses = Array.from(autoClasses);
+      }
+    }
+
     this.pendingClassSelection = '';
-    this.fetchCategoriesForClasses();
+    await this.fetchCategoriesForClasses();
+  }
+
+  async openGroupSettings() {
+    await this.initGroupSettingsForSelectedGroup();
     this.showGroupSettingsModal = true;
   }
 
@@ -2007,28 +2049,62 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
-  openGroupDetail(group: any, tab: any = 'students') {
+  populateGroupScheduleInputsFromTimetable(sch: any) {
+    if (!sch) return;
+    if (sch.start_time) {
+      const d = new Date(sch.start_time);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        this.groupStartDateOnly = `${year}-${month}-${day}`;
+        let hours = d.getHours();
+        this.groupStartAmPm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        this.groupStartTimeOnly = `${String(hours).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      }
+    }
+    if (sch.end_time) {
+      const d = new Date(sch.end_time);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        this.groupEndDateOnly = `${year}-${month}-${day}`;
+        let hours = d.getHours();
+        this.groupEndAmPm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        this.groupEndTimeOnly = `${String(hours).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      }
+    }
+    if (sch.message) {
+      this.groupScheduleMessage = sch.message;
+    }
+  }
+
+  async openGroupDetail(group: any, tab: any = 'students') {
     this.selectedGroup = group;
     this.selectedBatch = group;
     this.activeGroupTab = tab;
     this.showGroupDetailModal = true;
-    this.fetchGroupTimetable();
-    if (!this.allClasses || this.allClasses.length === 0) {
-      this.loadAllClasses();
-    }
-    if (!this.questions || this.questions.length === 0) {
-      this.loadQuestions();
-    }
+    await this.fetchGroupTimetable();
+    await this.initGroupSettingsForSelectedGroup();
   }
 
   async fetchGroupTimetable() {
     if (!this.selectedGroup) return;
     try {
+      if (this.selectedGroup.schedule && this.selectedGroup.schedule.start_time) {
+        this.selectedGroupTimetable = this.selectedGroup.schedule;
+        this.populateGroupScheduleInputsFromTimetable(this.selectedGroup.schedule);
+        return;
+      }
       if (this.selectedGroup.students && this.selectedGroup.students.length > 0) {
         const firstStudent = this.selectedGroup.students[0];
         const tt = await this.adminService.getTimetable(firstStudent);
         if (tt && tt.schedule) {
           this.selectedGroupTimetable = tt.schedule;
+          this.populateGroupScheduleInputsFromTimetable(tt.schedule);
           return;
         }
       }

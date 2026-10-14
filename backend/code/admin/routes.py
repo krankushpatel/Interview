@@ -346,7 +346,7 @@ async def admin_add_question(
             raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
             kws = normalize_keywords(raw_list)
         else:
-            kws = extract_keywords_from_text(q_text, cat_name)
+            kws = []
 
         new_q = {
             "id": next_id,
@@ -391,7 +391,7 @@ async def admin_update_question(
         raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
         update_doc["keywords"] = normalize_keywords(raw_list)
     elif keywords is not None:
-        update_doc["keywords"] = extract_keywords_from_text(q_text, category.strip())
+        update_doc["keywords"] = []
 
     result = db.questions.update_one(
         {"id": id},
@@ -455,13 +455,13 @@ async def bulk_import_questions_endpoint(file: UploadFile = File(...)):
                     upsert=True
                 )
 
-            # Check if keywords provided in file, otherwise auto-extract from question & category
+            # Check if keywords provided in file, otherwise do not auto-extract
             raw_kw = str(row.get('keywords') or row.get('keyword') or '').strip()
             if raw_kw and raw_kw.lower() != 'nan':
                 split_kws = [k.strip() for k in re.split(r'[,;]+', raw_kw) if k.strip()]
                 extracted_kws = normalize_keywords(split_kws)
             else:
-                extracted_kws = extract_keywords_from_text(q_text, cat)
+                extracted_kws = []
 
             new_q = {
                 "id": next_id,

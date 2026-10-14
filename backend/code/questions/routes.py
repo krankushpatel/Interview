@@ -167,7 +167,7 @@ async def admin_add_question(
         raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
         kws = normalize_keywords(raw_list)
     else:
-        kws = extract_keywords_from_text(q_text, cat_clean)
+        kws = []
 
     # Fast ID calculation via MongoDB aggregation or fallback
     try:
@@ -235,7 +235,7 @@ async def admin_update_question(
                 raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
                 q["keywords"] = normalize_keywords(raw_list)
             elif "keywords" not in q or not q["keywords"]:
-                q["keywords"] = extract_keywords_from_text(q_text, category.strip())
+                q["keywords"] = []
             
             save_questions(questions)
             return {"success": True, "question": q}

@@ -217,20 +217,10 @@ def _extract_keywords_heuristic(text: str, category: Optional[str] = None, max_k
 
 def extract_keywords_from_text(text: str, category: Optional[str] = None, max_keywords: int = 15) -> List[str]:
     """
-    Primary keyword extractor entrypoint.
-    First attempts Gemini AI extraction using GEMINI_API_KEY and GEMINI_MODEL from .env.
-    Falls back gracefully to heuristic rule-based extraction if Gemini is unavailable or errors.
+    Auto keyword extraction disabled.
+    Returns empty list immediately to stop Gemini API calls and heuristic extraction.
     """
-    if not text or not isinstance(text, str):
-        return []
-
-    # 1. Attempt dynamic AI extraction via Gemini
-    ai_keywords = _extract_keywords_via_gemini(text, category, max_keywords=max_keywords)
-    if ai_keywords and len(ai_keywords) > 0:
-        return ai_keywords
-
-    # 2. Fallback to heuristic extraction
-    return _extract_keywords_heuristic(text, category, max_keywords=max_keywords)
+    return []
 
 
 def normalize_keywords(keywords: List[str], max_count: int = 100) -> List[str]:

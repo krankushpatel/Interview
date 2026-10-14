@@ -495,6 +495,19 @@ export class PdfGeneratorService {
     }
     y += 2; divider();
 
+    // ──────────────────────────────────────────────────────────────────────
+    // NOTE: Your Transcript is correct  (placed at the bottom of the first page)
+    // ──────────────────────────────────────────────────────────────────────
+    const noteText = 'Note : Your Transcript is correct';
+    doc.setFontSize(10);                     // slightly smaller than body text
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor('#555555');             // a neutral gray
+    // Center the note horizontally at the current vertical position (+10px for spacing)
+    doc.text(noteText, W / 2, y + 10, { align: 'center' });
+    // Advance the cursor so that any following content starts below the note
+    y += 20;                                 // adjust spacing as you like
+    // ──────────────────────────────────────────────────────────────────────
+
     // ── QUESTION BREAKDOWN ─────────────────────────────────────────────
     if (doc.getNumberOfPages() === 1) {
         doc.addPage();

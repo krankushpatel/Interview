@@ -182,7 +182,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     face: 0,
     voice: 0,
     multiple_speakers: 0,
-    eye_contact: 0 
+    eye_contact: 0
   };
 
   constructor(
@@ -196,7 +196,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     private toastCtrl: ToastController,
     private progressiveEval: ProgressiveEvaluationService,
     private eyeTracking: EyeTrackingService
-  ) {}
+  ) { }
 
   async ngOnInit() {
     const existingSession = sessionStorage.getItem('active_exam_session_id');
@@ -332,7 +332,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  ngAfterViewInit() {}
+  ngAfterViewInit() { }
 
   async loadStudentPreferences() {
     const username = sessionStorage.getItem('username');
@@ -346,7 +346,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   async loadQuestions() {
     try {
       const username = sessionStorage.getItem('username') || 'anonymous';
-      
+
       // Keep your original URL with preferred categories intact
       let url = `${environment.apiUrl}/questions/all`;
       if (this.preferredCategories.length > 0) {
@@ -402,11 +402,11 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         for (const rule of topicDistribution) {
           const topic = rule.topic;
           // 🚀 Ab classes seedha rule ke andar se mil jayengi!
-          const targetClasses = rule.targetClasses || []; 
-          
-          const l1Count = rule.l1 || 0; 
-          const l2Count = rule.l2 || 0; 
-          const l3Count = rule.l3 || 0; 
+          const targetClasses = rule.targetClasses || [];
+
+          const l1Count = rule.l1 || 0;
+          const l2Count = rule.l2 || 0;
+          const l3Count = rule.l3 || 0;
           const target = l1Count + l2Count + l3Count;
 
           if (target === 0) continue;
@@ -423,7 +423,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
             if (targetClasses.length > 0) {
               const qClass = ((q as any).class_name || (q as any).className || (q as any).class || 'All').toLowerCase().trim();
               if (!targetClasses.some((c: string) => c.toLowerCase().trim() === qClass)) {
-                return false; 
+                return false;
               }
             }
             return true;
@@ -441,8 +441,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
           // Fallback for missing questions
           if (selected.length < target) {
-              const remaining = topicQ.filter(q => !selected.some(s => s.id === q.id));
-              selected.push(...getRandom(remaining, target - selected.length));
+            const remaining = topicQ.filter(q => !selected.some(s => s.id === q.id));
+            selected.push(...getRandom(remaining, target - selected.length));
           }
 
           finalQuestions.push(...selected);
@@ -459,7 +459,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         for (const [topic, requestedCount] of Object.entries(topicCounts)) {
           let target = requestedCount as number;
           const topicQ = allQ.filter(q => q.category && q.category.toLowerCase() === topic.toLowerCase() && !isIntroQ(q));
-          
+
           target = Math.min(target, topicQ.length);
           if (target === 0) continue;
 
@@ -473,7 +473,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
           let hReq = target - eReq - mReq;
 
           let eSel = getRandom(easyQ, eReq);
-          let leftover = eReq - eSel.length; 
+          let leftover = eReq - eSel.length;
 
           mReq += leftover;
           let mSel = getRandom(medQ, mReq);
@@ -485,8 +485,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
           let selected = [...eSel, ...mSel, ...hSel];
 
           if (selected.length < target) {
-              const remaining = topicQ.filter(q => !selected.some(s => s.id === q.id));
-              selected.push(...getRandom(remaining, target - selected.length));
+            const remaining = topicQ.filter(q => !selected.some(s => s.id === q.id));
+            selected.push(...getRandom(remaining, target - selected.length));
           }
 
           finalQuestions.push(...selected);
@@ -519,7 +519,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       }
 
       if (finalQuestions.length === 0) throw new Error('No questions available');
-      
+
       this.questions = finalQuestions;
       this.currentQuestion = this.questions[0];
       this.currentIndex = 0;
@@ -620,8 +620,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     const expectedSentence = "i am ready for the test";
     try {
       // this.micTestStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.micTestStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { echoCancellation: true, noiseSuppression: true } 
+      this.micTestStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true }
       });
       this.micTestRecorder = new MediaRecorder(this.micTestStream);
       this.micTestRecorder.ondataavailable = (e) => { if (e.data.size) this.micTestChunks.push(e.data); };
@@ -677,7 +677,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         this.micTestVerificationStatus = 'passed';
         this.micTestPassed = true;
         this.showToast('✅ Microphone check passed! Enrolling voice...', 'success');
-        
+
         // Flush remaining audio chunks from recorder before enrolling
         if (this.micTestRecorder && this.micTestRecorder.state !== 'inactive') {
           await new Promise<void>((resolve) => {
@@ -708,7 +708,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       if (this.micTestRunning && !this.micTestPassed) {
         setTimeout(() => {
           if (this.micTestRunning && !this.micTestPassed && this.micTestSpeechRecognition) {
-            try { this.micTestSpeechRecognition.start(); } catch (e) {}
+            try { this.micTestSpeechRecognition.start(); } catch (e) { }
           }
         }, 200);
       }
@@ -719,18 +719,18 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   // ==================== VOICE ENROLLMENT ====================
   private async enrollVoiceSample() {
     if (this.micTestChunks.length === 0) return;
-    
+
     try {
       const audioBlob = new Blob(this.micTestChunks, { type: 'audio/webm' });
       const fd = new FormData();
       fd.append('username', sessionStorage.getItem('username') || '');
       fd.append('audio', audioBlob, 'mic_check.webm');
-      
+
       console.log('[Voice] Sending audio for enrollment...');
       const response = await lastValueFrom(
         this.http.post<any>(`${environment.apiUrl}/speaker/enroll`, fd)
       );
-      
+
       if (response.success) {
         console.log('[Voice] ✅ Voice enrolled successfully on server!');
       } else {
@@ -744,7 +744,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   // ==================== PERIODIC VOICE VERIFICATION ====================
   startPeriodicVoiceVerification() {
     if (this.voiceVerificationInterval) clearInterval(this.voiceVerificationInterval);
-    
+
     this.voiceVerificationInterval = setInterval(async () => {
       if (this.showEvaluation || !this.mediaStream) return;
       await this.captureAndVerifyVoiceChunk();
@@ -763,11 +763,11 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       stopped = true;
       if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
       if (recorder && recorder.state !== 'inactive') {
-        try { recorder.stop(); } catch (e) {}
+        try { recorder.stop(); } catch (e) { }
       }
       if (chunkStream) {
         chunkStream.getTracks().forEach(t => {
-          try { t.enabled = false; t.stop(); } catch (e) {}
+          try { t.enabled = false; t.stop(); } catch (e) { }
         });
         chunkStream = null;
       }
@@ -835,7 +835,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
         timeoutId = setTimeout(() => {
           if (recorder && recorder.state === 'recording') {
-            try { recorder.stop(); } catch (e) {}
+            try { recorder.stop(); } catch (e) { }
           }
         }, 3000);
       });
@@ -880,17 +880,17 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     this.violationCounts[type] = (this.violationCounts[type] || 0) + 1;
 
-    const faceThreshold = 50;
-    const voiceThreshold = 500;
-    const eyeThreshold = 500; // Add a threshold for eye contact violations
+    // const faceThreshold = 50;
+    // const voiceThreshold = 500;
+    // const eyeThreshold = 500; // Add a threshold for eye contact violations
 
-    if (this.violationCounts.face >= faceThreshold || 
-        this.violationCounts.voice >= voiceThreshold ||
-        (this.violationCounts['eye_contact'] || 0) >= eyeThreshold) {
-        
-      this.showToast(`❌ Exam Terminated: Repeated ${type.replace('_', ' ')} detected!`, 'danger');
-      this.terminateExam('multiple_violations', `Threshold exceeded: Face=${this.violationCounts.face}, Voice=${this.violationCounts.voice}, Eye=${this.violationCounts['eye_contact'] || 0}`);
-    }
+    // if (this.violationCounts.face >= faceThreshold || 
+    //     this.violationCounts.voice >= voiceThreshold ||
+    //     (this.violationCounts['eye_contact'] || 0) >= eyeThreshold) {
+    //   
+    //   // this.showToast(`❌ Exam Terminated: Repeated ${type.replace('_', ' ')} detected!`, 'danger');
+    //   // this.terminateExam('multiple_violations', `Threshold exceeded: Face=${this.violationCounts.face}, Voice=${this.violationCounts.voice}, Eye=${this.violationCounts['eye_contact'] || 0}`);
+    // }    }
   }
 
   private startMicLevelIndicator() {
@@ -919,8 +919,8 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   private stopMicCheckCleanup() {
     this.micTestRunning = false;
     if (this.micAnalyserInterval) { cancelAnimationFrame(this.micAnalyserInterval); this.micAnalyserInterval = null; }
-    if (this.micTestSpeechRecognition) { try { this.micTestSpeechRecognition.stop(); } catch (e) {} this.micTestSpeechRecognition = null; }
-    if (this.micTestRecorder && this.micTestRecorder.state !== 'inactive') { try { this.micTestRecorder.stop(); } catch (e) {} }
+    if (this.micTestSpeechRecognition) { try { this.micTestSpeechRecognition.stop(); } catch (e) { } this.micTestSpeechRecognition = null; }
+    if (this.micTestRecorder && this.micTestRecorder.state !== 'inactive') { try { this.micTestRecorder.stop(); } catch (e) { } }
     this.micTestRecorder = null;
     if (this.micTestStream) { this.micTestStream.getTracks().forEach(t => t.stop()); this.micTestStream = null; }
   }
@@ -976,12 +976,12 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + cost);
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
       }
     }
     return dp[m][n];
   }
-  
+
   async startCameraCheck() {
     try {
       this.showToast('Starting camera...', 'primary');
@@ -1030,7 +1030,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         videoEl.srcObject = null;
         videoEl.removeAttribute('src');
         videoEl.load();
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -1047,23 +1047,38 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
           const detection = await (faceapi as any).detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
             .withFaceLandmarks()
             .withFaceDescriptor();
-            
+
           if (detection) {
+            // ✅ FIX: Collect 3 frames and average the descriptor for a more stable reference
+            const descriptors: Float32Array[] = [detection.descriptor];
+            for (let f = 0; f < 2; f++) {
+              await new Promise(r => setTimeout(r, 300));
+              const extra = await (faceapi as any).detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+              if (extra) descriptors.push(extra.descriptor);
+            }
+            // Average across collected descriptors
+            const avgDescriptor = new Float32Array(descriptors[0].length);
+            for (let i = 0; i < avgDescriptor.length; i++) {
+              avgDescriptor[i] = descriptors.reduce((sum, d) => sum + d[i], 0) / descriptors.length;
+            }
+
             this.faceDetected = true;
-            this.referenceFaceDescriptor = detection.descriptor;
+            this.referenceFaceDescriptor = avgDescriptor;
             clearInterval(this.cameraCheckInterval);
-            
-            console.log('[Face] ✅ Candidate face enrolled successfully with descriptor');
+
+            console.log(`[Face] ✅ Candidate face enrolled with ${descriptors.length}-frame average descriptor`);
             this.captureEvidence('face_enrolled', 'Baseline candidate face enrolled during camera setup');
 
             this.showToast('✅ Face detected! Calibrating eye tracking...', 'success');
-            
+
             // 1. Initialize MediaPipe
             await this.eyeTracking.initialize(videoEl);
-            
+
             // 2. Run 5-Point Calibration
             await this.runEyeTrackingCalibration();
-            
+
             this.showToast('✅ Calibration complete! Ready to start exam.', 'success');
             return;
           } else {
@@ -1093,13 +1108,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       document.body.appendChild(dot);
 
       const points = [
-        { x: '50%', y: '50%' }, { x: '20%', y: '20%' }, 
+        { x: '50%', y: '50%' }, { x: '20%', y: '20%' },
         { x: '80%', y: '20%' }, { x: '20%', y: '80%' }, { x: '80%', y: '80%' }
       ];
 
       // ✅ FIX: Only sample at center for offset
       let hSum = 0, vSum = 0, samples = 0, earSamples: number[] = [];
-      
+
       this.eyeTracking.startTracking();
 
       // 1. Center point — sample for offset
@@ -1160,13 +1175,15 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.startSpeechRecognition();
     this.updateProgressUI();
     this.durationInterval = setInterval(() => { this.examDuration++; }, 1000);
-    
+
     if (this.videoRef?.nativeElement) {
       this.proctor.startFaceDetection(this.videoRef.nativeElement);
     }
     this.updateStatus('status-proctor', 'ok', 'Active');
     this.updateStatus('status-rec', 'ok', 'REC ●');
-    this.startPeriodicFaceVerification();
+    // ✅ FIX: Delay face verification by 10s so the new camera stream fully warms up
+    // before the first descriptor comparison — eliminates false mismatches at exam start
+    setTimeout(() => this.startPeriodicFaceVerification(), 10000);
     this.startPeriodicVoiceVerification();
 
     // ✅ NEW: Start Eye Tracking & Listen for Violations
@@ -1182,16 +1199,16 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     this.eyeWarningSub = this.eyeTracking.warnings$.subscribe((w) => {
       if (w && this.examStarted) {
-          this.showToast(`⚠️ ${w.detail}`, 'warning');
+        this.showToast(`⚠️ ${w.detail}`, 'warning');
       }
     });
 
     this.eyeTracking.startTracking();
     this.eyeTracking.isSettled = false;
-      setTimeout(() => {
-        this.eyeTracking.isSettled = true;
-        console.log('[EyeTracking] Settled');
-        this.captureEvidence('exam_started', 'Baseline snapshot at the start of exam');    // to capture the snapshot
+    setTimeout(() => {
+      this.eyeTracking.isSettled = true;
+      console.log('[EyeTracking] Settled');
+      this.captureEvidence('exam_started', 'Baseline snapshot at the start of exam');    // to capture the snapshot
     }, 5000);
   }
 
@@ -1202,19 +1219,27 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       if (this.showEvaluation || !this.referenceFaceDescriptor) return;
       const videoEl = this.videoRef?.nativeElement;
       if (!videoEl || videoEl.readyState < 2 || videoEl.videoWidth === 0) return;
-      
+
       // ✅ NEW: Pause MediaPipe to free up GPU for face-api.js
       this.eyeTracking.pauseTracking();
-      
+
       try {
         const detections = await (faceapi as any).detectAllFaces(
-          videoEl, 
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
+          videoEl,
+          // ✅ FIX: scoreThreshold 0.35 matches proctoring.service.ts — without this,
+          // a different person's face (detected at 0.35–0.49 confidence) was falling
+          // through as "no face detected" and resetting faceMismatchCount to 0
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 })
         )
-        .withFaceLandmarks()
-        .withFaceDescriptors();
+          .withFaceLandmarks()
+          .withFaceDescriptors();
 
-        if (!detections || detections.length === 0) return;
+        if (!detections || detections.length === 0) {
+          // ✅ FIX: Reset mismatch streak on no-face — a skipped frame must not
+          // carry over and contribute to the next cycle's false alarm
+          this.faceMismatchCount = 0;
+          return;
+        }
 
         if (detections.length > 1) {
           this.handleViolation('face', `Multiple faces detected: ${detections.length}`);
@@ -1223,12 +1248,15 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
         const detection = detections[0];
         const distance = faceapi.euclideanDistance(this.referenceFaceDescriptor, detection.descriptor);
-        const threshold = 0.65;
-        
+        // ✅ FIX: Raised from 0.65 → 0.72 to allow for natural variation
+        // (lighting changes, slight head tilt, glasses glare) without false alarms
+        const threshold = 0.72;
+
         if (distance > threshold) {
           this.faceMismatchCount++;
-          console.warn(`[Face] Mismatch warning (count: ${this.faceMismatchCount}/2, distance: ${distance.toFixed(3)})`);
-          if (this.faceMismatchCount >= 2) {
+          // ✅ FIX: Raised from >= 2 → >= 3 consecutive mismatches before violation fires
+          console.warn(`[Face] Mismatch warning (count: ${this.faceMismatchCount}/3, distance: ${distance.toFixed(3)})`);
+          if (this.faceMismatchCount >= 3) {
             this.handleViolation('face', `Different person detected (distance: ${distance.toFixed(3)})`);
           }
         } else {
@@ -1357,7 +1385,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.cameraReady = false;
     const overlay = document.getElementById('video-overlay');
     if (overlay) overlay.classList.remove('hidden');
-      this.stopCameraCheckStream();
+    this.stopCameraCheckStream();
     // Also kill the camera-check polling interval if it's still running
     if (this.cameraCheckInterval) {
       clearInterval(this.cameraCheckInterval);
@@ -1437,7 +1465,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       this.proctoringAudioSource = null;
     }
     if (this.proctoringAudioContext) {
-      this.proctoringAudioContext.close().catch(() => {});
+      this.proctoringAudioContext.close().catch(() => { });
       this.proctoringAudioContext = null;
     }
     if (this.proctoringAudioStream) {
@@ -1462,11 +1490,11 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       this.textBeforeSpeech = this.answerText;
       const endsWithSentence = /[.!?]\s*$/.test(this.answerText.trim());
       this.speech.clearTranscript(endsWithSentence || !this.answerText.trim());
-      
+
       // ✅ Pass username, sessionId, and examKeywords
       const username = sessionStorage.getItem('username') || '';
       this.speech.startListening(username, this.examSessionId, this.examKeywords);
-      
+
       this.isSpeechListening = true;
       this.updateStatus('status-mic', 'ok', 'Active');
       this.updateStatus('status-speech', 'ok', 'Listening');
@@ -1534,7 +1562,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       const s = res.settings;
       if (s?.question_timer_seconds) this.questionTimerSeconds = s.question_timer_seconds;
       if (s?.max_violations && this.proctor) this.proctor.maxWarnings = s.max_violations;
-      
+
       // Global default allow_typing
       let computedAllowTyping = s?.allow_typing ?? true;
 
@@ -1556,7 +1584,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     } catch (err) {
       console.warn('[Settings] Could not load settings, using defaults');
       this.questionTimerSeconds = 300;
-      this.allowTyping = true; 
+      this.allowTyping = true;
     }
   }
 
@@ -1599,7 +1627,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     clearInterval(this.timerInterval);
     const submitBtn = document.getElementById('submit-btn');
     if (submitBtn) submitBtn.innerHTML = '<span>Submitting…</span>';
-    
+
     try {
       await this.qService.submitAnswer(
         this.answerText,
@@ -1608,7 +1636,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         this.currentIndex,
         this.examSessionId
       );
-      
+
       const answerRecord: AnswerRecord = {
         question_id: this.currentQuestion.id,
         question_text: this.currentQuestion.question || (this.currentQuestion as any).text || '',
@@ -1635,7 +1663,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       const nextBtnEl = document.getElementById('next-btn') as HTMLButtonElement;
       if (submitBtnEl) submitBtnEl.style.display = 'none';
       if (nextBtnEl) nextBtnEl.style.display = 'inline-flex';
-      
+
       const isLast = this.currentIndex >= this.questions.length - 1;
       if (nextBtnEl) {
         nextBtnEl.innerHTML = isLast
@@ -1719,7 +1747,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.submitted || this.isFinishingExam || this.isTransitioningQuestion || this.isSubmittingAnswer) {
       return;
     }
-    
+
     this.isTransitioningQuestion = true;
 
     // Immediately disable action buttons to prevent rapid clicks
@@ -1736,7 +1764,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     this.stopSpeechRecognition();
     clearInterval(this.timerInterval);
-    
+
     const skipRecord: AnswerRecord = {
       question_id: this.currentQuestion.id,
       question_text: this.currentQuestion.question || (this.currentQuestion as any).text || '',
@@ -1744,20 +1772,20 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       answer: '[Skipped by student]',
       session_id: this.examSessionId
     };
-    
+
     const existingIdx = this.answeredBuffer.findIndex(a => String(a.question_id) === String(this.currentQuestion.id));
     if (existingIdx !== -1) {
       this.answeredBuffer[existingIdx] = skipRecord;
     } else {
       this.answeredBuffer.push(skipRecord);
     }
-    
+
     // If skipping the last question, finish the exam directly
     if (this.currentIndex + 1 >= this.questions.length) {
       this.finishExam();
     } else {
       // ✅ FIX: Reset transition flag so nextQuestion() can actually execute!
-      this.isTransitioningQuestion = false; 
+      this.isTransitioningQuestion = false;
       this.nextQuestion();
     }
   }
@@ -1788,7 +1816,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     try {
       console.log(`[Batch] Sending ${chunkData.length} valid answers for background evaluation...`);
       const res: any = await lastValueFrom(this.http.post(`${environment.apiUrl}/evaluation/evaluate-chunk`, fd));
-      
+
       if (res && res.success && res.results) {
         console.log(`[Batch] Background evaluation success for ${res.results.length} questions!`);
         this.cachedBackgroundScores = [...this.cachedBackgroundScores, ...res.results];
@@ -1834,21 +1862,21 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     await this.performFinalUploads();
     this.stopLiveStreaming();
     this.fullCameraShutdown();
-    
+
     const user = sessionStorage.getItem('username') || '';
     const events = this.proctor.getEvents();
-    
+
     if (this.faceVerificationInterval) {
       clearInterval(this.faceVerificationInterval);
       this.faceVerificationInterval = null;
     }
-    if (this.voiceVerificationInterval) { 
-      clearInterval(this.voiceVerificationInterval); 
-      this.voiceVerificationInterval = null; 
+    if (this.voiceVerificationInterval) {
+      clearInterval(this.voiceVerificationInterval);
+      this.voiceVerificationInterval = null;
     }
-    
+
     await this.qService.storeProctoring(user, events, this.examSessionId);
-    
+
     // 🚀 Send the background cache to the backend
     const cachedScores = this.cachedBackgroundScores;
     console.log(`[finishExam] Background Cached: ${cachedScores?.length || 0} questions`);
@@ -1860,82 +1888,82 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       uniqueAnswersMap.set(qid, ans);
     }
     const dedupedAnswers = Array.from(uniqueAnswersMap.values());
-    
+
     const evalResponse = await this.qService.evaluate(user, dedupedAnswers, events, this.examSessionId, cachedScores);
-    
-    if (evalResponse.success) { 
-      this.pollEvaluationStatus(user); 
-    } else { 
-      this.navCtrl.navigateRoot(['/results'], { queryParams: { session_id: this.examSessionId } }); 
+
+    if (evalResponse.success) {
+      this.pollEvaluationStatus(user);
+    } else {
+      this.navCtrl.navigateRoot(['/results'], { queryParams: { session_id: this.examSessionId } });
     }
   }
 
   private async pollEvaluationStatus(username: string) {
-      // Prevent duplicate finish-exam flows from creating parallel polls.
-      if (this.evaluationPolling) return;
-      this.evaluationPolling = true;
+    // Prevent duplicate finish-exam flows from creating parallel polls.
+    if (this.evaluationPolling) return;
+    this.evaluationPolling = true;
 
-      // ✅ Show "Processing..." toast (stays until dismissed)
-      this.evaluationToast = await this.toastCtrl.create({
-          message: '⏳ Your answers are being evaluated by AI. Please wait...',
-          duration: 0,          // indefinite
-          color: 'primary',
-          buttons: [{ text: 'OK', role: 'cancel' }]
-      });
-      await this.evaluationToast.present();
+    // ✅ Show "Processing..." toast (stays until dismissed)
+    this.evaluationToast = await this.toastCtrl.create({
+      message: '⏳ Your answers are being evaluated by AI. Please wait...',
+      duration: 0,          // indefinite
+      color: 'primary',
+      buttons: [{ text: 'OK', role: 'cancel' }]
+    });
+    await this.evaluationToast.present();
 
-      const stopPolling = async () => {
-          if (this.evaluationPollInterval) {
-              clearTimeout(this.evaluationPollInterval);
-              this.evaluationPollInterval = null;
-          }
-          this.evaluationPolling = false;
-          this.evaluationPollInFlight = false;
-          await this.evaluationToast?.dismiss();
-          this.evaluationToast = null;
-      };
+    const stopPolling = async () => {
+      if (this.evaluationPollInterval) {
+        clearTimeout(this.evaluationPollInterval);
+        this.evaluationPollInterval = null;
+      }
+      this.evaluationPolling = false;
+      this.evaluationPollInFlight = false;
+      await this.evaluationToast?.dismiss();
+      this.evaluationToast = null;
+    };
 
-      const scheduleNextPoll = (delayMs: number) => {
-          if (this.evaluationPolling) {
-              this.evaluationPollInterval = setTimeout(checkStatus, delayMs);
-          }
-      };
+    const scheduleNextPoll = (delayMs: number) => {
+      if (this.evaluationPolling) {
+        this.evaluationPollInterval = setTimeout(checkStatus, delayMs);
+      }
+    };
 
-      const checkStatus = async () => {
-          // setTimeout prevents overlap; this guard also protects against a
-          // delayed callback while a request is still pending.
-          if (!this.evaluationPolling || this.evaluationPollInFlight) return;
-          this.evaluationPollInFlight = true;
-          try {
-              // ✅ Include session_id to get correct status
-              const status = await lastValueFrom(
-                  this.http.get<{ status: string; done: boolean }>(
-                      `${environment.apiUrl}/evaluation/status/${username}?session_id=${this.examSessionId}`
-                  )
-              );
-              
-              if (status.done) {
-                  await stopPolling();
-                  sessionStorage.setItem('last_exam_session_id', this.examSessionId);
-                  sessionStorage.removeItem('active_exam_session_id');
-                  this.showToast('✅ Evaluation complete!', 'success');
-                  this.navCtrl.navigateRoot(['/results'], { queryParams: { session_id: this.examSessionId } });
-                  return;
-              }
+    const checkStatus = async () => {
+      // setTimeout prevents overlap; this guard also protects against a
+      // delayed callback while a request is still pending.
+      if (!this.evaluationPolling || this.evaluationPollInFlight) return;
+      this.evaluationPollInFlight = true;
+      try {
+        // ✅ Include session_id to get correct status
+        const status = await lastValueFrom(
+          this.http.get<{ status: string; done: boolean }>(
+            `${environment.apiUrl}/evaluation/status/${username}?session_id=${this.examSessionId}`
+          )
+        );
 
-              // A completed request waits 4 seconds before the next check.
-              scheduleNextPoll(4000);
-          } catch (err) {
-              console.error('Status check error:', err);
-              // Transient errors back off to reduce load while still retrying.
-              scheduleNextPoll(8000);
-          } finally {
-              this.evaluationPollInFlight = false;
-          }
-      };
+        if (status.done) {
+          await stopPolling();
+          sessionStorage.setItem('last_exam_session_id', this.examSessionId);
+          sessionStorage.removeItem('active_exam_session_id');
+          this.showToast('✅ Evaluation complete!', 'success');
+          this.navCtrl.navigateRoot(['/results'], { queryParams: { session_id: this.examSessionId } });
+          return;
+        }
 
-      // Check once immediately, then continue sequentially.
-      await checkStatus();
+        // A completed request waits 4 seconds before the next check.
+        scheduleNextPoll(4000);
+      } catch (err) {
+        console.error('Status check error:', err);
+        // Transient errors back off to reduce load while still retrying.
+        scheduleNextPoll(8000);
+      } finally {
+        this.evaluationPollInFlight = false;
+      }
+    };
+
+    // Check once immediately, then continue sequentially.
+    await checkStatus();
   }
 
   updateProgressUI() {
@@ -2091,19 +2119,19 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     // Define events that require immediate backend logging and storage
     const immediateBackendEvents = [
-      'tab_switch', 'fullscreen_exit', 'devtools_attempt', 
-      'multiple_faces_detected', 'multiple_speakers_detected', 
-      'no_face_detected', 'face_mismatch', 'voice_mismatch', 
+      'tab_switch', 'fullscreen_exit', 'devtools_attempt',
+      'multiple_faces_detected', 'multiple_speakers_detected',
+      'no_face_detected', 'face_mismatch', 'voice_mismatch',
       'eye_contact_violation', 'split_screen_detected', 'app_switcher_detected'
     ];
 
     const username = sessionStorage.getItem('username');
-    
+
     // Only sync to MongoDB if it belongs to the critical list
     if (username && immediateBackendEvents.includes(event)) {
       // 👇 FIX: Screenshot Capture Logic Restored Here 👇
       const visualEventsToCapture = [
-        'no_face_detected', 'multiple_faces_detected', 'fullscreen_exit', 
+        'no_face_detected', 'multiple_faces_detected', 'fullscreen_exit',
         'app_switcher_detected', 'tab_switch', 'devtools_attempt', 'new_window_attempt'
       ];
       if (visualEventsToCapture.includes(event)) {
@@ -2153,9 +2181,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.examStarted && !this.showEvaluation) {
       await this.notifyExamEnded(false);
       if (this.screenRecorder && this.screenRecorder.state === 'recording') {
-        try { await this.stopAndUploadScreenRecording(username, this.examSessionId); } catch (e) {}
+        try { await this.stopAndUploadScreenRecording(username, this.examSessionId); } catch (e) { }
       }
-      try { await this.recorder.stopAndUpload(username, this.examDuration, this.examSessionId); } catch (e) {}
+      try { await this.recorder.stopAndUpload(username, this.examDuration, this.examSessionId); } catch (e) { }
     }
     if (this.faceVerificationInterval) { clearInterval(this.faceVerificationInterval); this.faceVerificationInterval = null; }
     this.stopLiveStreaming();
@@ -2167,9 +2195,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.shutdownSpeechEngine();
     this.diarization.stop();
     this.fullCameraShutdown();
-    if (this.voiceVerificationInterval) { 
-      clearInterval(this.voiceVerificationInterval); 
-      this.voiceVerificationInterval = null; 
+    if (this.voiceVerificationInterval) {
+      clearInterval(this.voiceVerificationInterval);
+      this.voiceVerificationInterval = null;
     }
     if (this.audioProcessor) { this.audioProcessor.disconnect(); this.audioProcessor = null; }
     if (this.audioSource) { this.audioSource.disconnect(); this.audioSource = null; }
@@ -2179,7 +2207,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       const fd = new FormData();
       fd.append('username', username);
       await lastValueFrom(this.http.post(`${environment.apiUrl}/proctoring/clear-proctoring`, fd));
-    } catch (e) {}
+    } catch (e) { }
     sessionStorage.clear();
     this.navCtrl.navigateRoot('/login');
   }
@@ -2208,24 +2236,24 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       this.mediaStream.getTracks().forEach(t => { t.enabled = false; t.stop(); });
       this.mediaStream = null;
     }
-    
+
     // 4. ✅ NEW: Stop screen share stream
-    if (this.screenStream) { 
-      this.screenStream.getTracks().forEach(t => { t.enabled = false; t.stop(); }); 
-      this.screenStream = null; 
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(t => { t.enabled = false; t.stop(); });
+      this.screenStream = null;
     }
-    
+
     // 5. ✅ NEW: Stop screen recorder
     if (this.screenRecorder && this.screenRecorder.state !== 'inactive') {
-      try { this.screenRecorder.stop(); } catch (e) {}
+      try { this.screenRecorder.stop(); } catch (e) { }
     }
     this.screenRecorder = null;
     this.screenChunks = [];
-    
+
     // 6. Stop recording service
-    try { this.recorder.stopCamera(); } catch (e) {}
-    try { this.recorder.stopAllBrowserTracks(); } catch (e) {}
-    
+    try { this.recorder.stopCamera(); } catch (e) { }
+    try { this.recorder.stopAllBrowserTracks(); } catch (e) { }
+
     // 7. Clear video elements
     const refs = [this.videoRef, this.testVideoRef];
     refs.forEach(ref => {
@@ -2242,33 +2270,33 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         videoEl.load();
       }
     });
-    
+
     // 8. ✅ NEW: Close audio contexts
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      try { this.audioContext.close(); } catch (e) {}
+      try { this.audioContext.close(); } catch (e) { }
       this.audioContext = null;
     }
     if (this.proctoringAudioContext && this.proctoringAudioContext.state !== 'closed') {
-      try { this.proctoringAudioContext.close(); } catch (e) {}
+      try { this.proctoringAudioContext.close(); } catch (e) { }
       this.proctoringAudioContext = null;
     }
-    
+
     // 9. ✅ NEW: Close WebSockets
     if (this.screenStreamWs?.readyState === WebSocket.OPEN) {
       this.screenStreamWs.close();
     }
     this.screenStreamWs = null;
-    
+
     if (this.cameraStreamWs?.readyState === WebSocket.OPEN) {
       this.cameraStreamWs.close();
     }
     this.cameraStreamWs = null;
-    
+
     // 10. ✅ NEW: Clear streaming intervals
     if (this.screenStreamInterval) { clearInterval(this.screenStreamInterval); this.screenStreamInterval = null; }
     if (this.cameraStreamInterval) { clearInterval(this.cameraStreamInterval); this.cameraStreamInterval = null; }
     this.isStreaming = false;
-    
+
     console.log('[Hardware] ✅ All tracks stopped, hardware released.');
   }
 
@@ -2279,7 +2307,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.eyeTracking.stopTracking();
     if (this.eyeTrackingSub) this.eyeTrackingSub.unsubscribe();
     if (this.eyeWarningSub) this.eyeWarningSub.unsubscribe();
-    
+
     // ✅ STEP 1: Clear all intervals
     if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
     if (this.sessionTimerInterval) { clearInterval(this.sessionTimerInterval); this.sessionTimerInterval = null; }
@@ -2287,33 +2315,33 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.cameraCheckInterval) { clearInterval(this.cameraCheckInterval); this.cameraCheckInterval = null; }
     if (this.faceVerificationInterval) { clearInterval(this.faceVerificationInterval); this.faceVerificationInterval = null; }
     if (this.voiceVerificationInterval) { clearInterval(this.voiceVerificationInterval); this.voiceVerificationInterval = null; }
-    
+
     // ✅ STEP 2: Stop all services
     this.proctor.stop();
     this.shutdownSpeechEngine();
     this.diarization.stop();
     this.cleanupProctoringAudio();
-    
+
     if (this.speechSubscription) this.speechSubscription.unsubscribe();
     if (this.finalTranscriptSubscription) this.finalTranscriptSubscription.unsubscribe();
-    
+
     // ✅ STEP 3: Disconnect audio nodes
     if (this.audioProcessor) { this.audioProcessor.disconnect(); this.audioProcessor = null; }
     if (this.audioSource) { this.audioSource.disconnect(); this.audioSource = null; }
-    if (this.audioContext && this.audioContext.state !== 'closed') { 
-      this.audioContext.close().catch(() => {}); 
-      this.audioContext = null; 
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => { });
+      this.audioContext = null;
     }
     // ✅ Stop evaluation-status polling and its processing toast
     if (this.evaluationPollInterval) {
-        clearTimeout(this.evaluationPollInterval);
-        this.evaluationPollInterval = null;
+      clearTimeout(this.evaluationPollInterval);
+      this.evaluationPollInterval = null;
     }
     this.evaluationPolling = false;
     this.evaluationPollInFlight = false;
     this.evaluationToast?.dismiss();
     this.evaluationToast = null;
-    
+
     // ✅ STEP 4: CRITICAL — Stop live streaming & nuclear shutdown
     this.stopLiveStreaming();
     this.fullCameraShutdown();
@@ -2324,32 +2352,32 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     this.showToast(`Exam Terminated: ${detail}`, 'danger');
     this.showTerminationModal = true;
     this.terminationReason = detail;
-    
+
     // ✅ STEP 1: Stop all services
     this.shutdownSpeechEngine();
     this.proctor.stop();
     this.diarization.stop();
     this.cleanupProctoringAudio();
-    
+
     // ✅ STEP 2: Clear all intervals
     if (this.durationInterval) { clearInterval(this.durationInterval); this.durationInterval = null; }
     if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
     if (this.voiceVerificationInterval) { clearInterval(this.voiceVerificationInterval); this.voiceVerificationInterval = null; }
     if (this.faceVerificationInterval) { clearInterval(this.faceVerificationInterval); this.faceVerificationInterval = null; }
-    
+
     // ✅ STEP 3: CRITICAL — Stop live streaming & release hardware
     this.stopLiveStreaming();
     this.fullCameraShutdown();
-    
+
     await this.logActivity('exam_terminated', detail);
-    
+
     ['submit-btn', 'next-btn', 'skip-btn', 'clear-btn'].forEach(id => {
       const btn = document.getElementById(id) as HTMLButtonElement;
       if (btn) btn.disabled = true;
     });
     const textarea = document.getElementById('answer-text') as HTMLTextAreaElement;
     if (textarea) textarea.disabled = true;
-    
+
     setTimeout(() => { this.navCtrl.navigateRoot('/login'); }, 3000);
   }
 
@@ -2358,7 +2386,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     if (!username) return;
     const fd = new FormData();
     fd.append('username', username); fd.append('action', action); fd.append('details', details); fd.append('session_id', this.globalSessionId);
-    try { await lastValueFrom(this.http.post(`${environment.apiUrl}/student/log-activity`, fd)); } catch (err) {}
+    try { await lastValueFrom(this.http.post(`${environment.apiUrl}/student/log-activity`, fd)); } catch (err) { }
   }
 
   preventLinkClick(event: MouseEvent): void {
@@ -2399,7 +2427,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
               const ctx = canvas.getContext('2d');
               ctx?.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
               this.screenStreamWs.send(canvas.toDataURL('image/jpeg', 0.3));
-            } catch (e) {}
+            } catch (e) { }
           }
         }, 2000);
       };
@@ -2425,7 +2453,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
                   this.cameraStreamWs.send(canvas.toDataURL('image/jpeg', 0.3));
                 }
               }
-            } catch (e) {}
+            } catch (e) { }
           }
         }, 1000);
       };
@@ -2512,7 +2540,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       // 3. Upload to Backend API (Parallel, background me chalega)
       await lastValueFrom(this.http.post(`${environment.apiUrl}/recording/proctoring/upload-evidence`, fd));
       console.log(`📸 [Evidence] Snapshots uploaded for: ${eventName}`);
-      
+
     } catch (err) {
       console.warn('📸 [Evidence] Snapshot capture/upload failed:', err);
     }

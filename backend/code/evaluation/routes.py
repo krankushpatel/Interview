@@ -25,6 +25,7 @@ import pymongo
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException
 
 from code.core.helpers import is_empty_answer, is_skipped_answer
+from code.evaluation import ai_client
 from code.evaluation.ai_evaluation import (
     _call_batch_ai,
     _call_batch_ai_with_summary,
@@ -109,6 +110,7 @@ def _age_seconds(iso_ts) -> float:
 
 def _skipped_result(qid, q_text, answer, category) -> dict:
     return {"id": qid, "question": q_text, "answer": answer, "category": category,
+            "answer_original": answer, "answer_corrected": None,
             "scores": {"correctness": 0, "completeness": 0, "clarity": 0},
             "average_score": 0.0, "feedback": "Question was skipped or left empty.",
             "topic": None, "evidence": None, "expected_key_points": [],
@@ -125,7 +127,14 @@ def _missing_result(qid, q_text, answer, category) -> dict:
 
 
 def _to_report_entry(item: dict, res: dict) -> dict:
-    return {"id": item["id"], "question": item["question_text"], "answer": item["answer"],
+    # "answer" is what the report shows (and what was scored): the STT-corrected
+    # text when correction succeeded, else the original. Both are persisted.
+    answer_original = res.get("answer_original", item["answer"])
+    answer_corrected = res.get("answer_corrected")
+    return {"id": item["id"], "question": item["question_text"],
+            "answer": answer_corrected or answer_original,
+            "answer_original": answer_original,
+            "answer_corrected": answer_corrected,
             "category": item["category"],
             "scores": {"correctness": res.get("correctness", 0),
                        "completeness": res.get("completeness", 0),
@@ -187,6 +196,7 @@ async def _run_final_evaluation(username: str, answers: list, events: list, sess
     V1/V2 silent death (KeyError -> stuck "processing" forever) is gone."""
     db = _get_db()
     query = {"username": username, "session_id": session_id}
+    ai_client.set_usage_session(session_id, username)
     
     # Status Update: Started with granular status
     await _db(db.evaluations.update_one, query,
@@ -214,18 +224,17 @@ async def _run_final_evaluation(username: str, answers: list, events: list, sess
         # SAFETY: Ensure status is NEVER stuck in 'processing' or 'scoring_questions'
         await _db(db.evaluations.update_one, query,
                   {"$set": {"status": "failed", "done": False, "error": str(e)[:300]}})
+    finally:
+        # Per-interview total: LLM calls, tokens and estimated cost (all endpoints).
+        ai_client.log_interview_usage(session_id, note="final evaluation finished")
 
 
 def _normalize_event_type(e: dict) -> dict:
     """Raw session_proctoring_logs documents use 'event' as the field
     name (see admin/monitoring.py's identical UI-compatibility fix) -
     _compute_behavior expects 'type'. Normalized once, here."""
-    if isinstance(e, dict):
-        raw = e.get("type") or e.get("event")
-        if raw == "fullscreen_exit_attempt":
-            return {**e, "type": "fullscreen_exit", "event": "fullscreen_exit"}
-        if "type" not in e and "event" in e:
-            return {**e, "type": e["event"]}
+    if isinstance(e, dict) and "type" not in e and "event" in e:
+        return {**e, "type": e["event"]}
     return e
 
 
@@ -261,7 +270,10 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
         if (prior and prior.get("ai_used")
                 and prior.get("scoring_engine_version") == SCORING_ENGINE_VERSION):
             results_map[qid] = {**prior, "id": qid, "question": q_text,
-                                "answer": answer, "category": category}
+                                "answer": prior.get("answer_corrected") or answer,
+                                "answer_original": prior.get("answer_original", answer),
+                                "answer_corrected": prior.get("answer_corrected"),
+                                "category": category}
             continue
 
         item = {"id": qid, "question_text": q_text, "answer": answer, "category": category,
@@ -288,6 +300,8 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
             if res is None:
                 res = {"score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
                        "feedback": "Evaluation missing.", "topic": None, "ai_used": False,
+                        "answer_original": item["answer"], "answer_corrected": None,
+                       "terms_corrected": False,
                        "needs_human_review": True,
                        "review_reasons": ["result missing after batch evaluation"],
                        "scoring_engine_version": SCORING_ENGINE_VERSION}
@@ -435,6 +449,7 @@ async def evaluate_single(
     reference_answer: str = Form(default=None),
     question_data_json: str = Form(default=None),
 ):
+    ai_client.set_usage_session(session_id, username)
     resolved_q = (question or question_text or "").strip()
     question_data = None
     if question_data_json:
@@ -467,6 +482,7 @@ async def evaluate_chunk(
     session_id: str = Form(...),
     answers_json: str = Form(...),
 ):
+    ai_client.set_usage_session(session_id, username)
     try:
         chunk = json.loads(answers_json)
     except json.JSONDecodeError as e:
@@ -489,6 +505,8 @@ async def evaluate_chunk(
         res = results.get(str(item["id"])) or {
             "score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
             "feedback": "Evaluation missing.", "ai_used": False,
+            "answer_original": item["answer"], "answer_corrected": None,
+            "terms_corrected": False,
             "needs_human_review": True, "review_reasons": ["result missing after chunk evaluation"],
             "scoring_engine_version": SCORING_ENGINE_VERSION,
         }

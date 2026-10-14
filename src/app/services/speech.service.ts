@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-
 export type STTEngine = 'deepgram' | 'webkit' | 'none';
 
 @Injectable({ providedIn: 'root' })
@@ -316,7 +315,7 @@ export class SpeechService {
         this.dgWebSocket!.onopen = () => {
           console.log('[SPEECH] Deepgram WebSocket opened, initializing settings...');
           this.deepgramConnected = true;
-          if (!resolved) { resolved = true; resolve(true); }
+          // if (!resolved) { resolved = true; resolve(true); }
 
           // Send settings handshake
           const settings = {

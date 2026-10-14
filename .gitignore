@@ -118,3 +118,20 @@ temp_*
 backend/uploads/
 backend/static/uploads/
 backend/recordings/
+
+# Additional generated files and local caches
+**/.angular/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+
+# Local development and backup archives
+/backend.zip
+*.bak
+*.old
+
+# Local upload and evidence data
+/backend/uploads/**
+/backend/static/uploads/**
+/backend/recordings/**

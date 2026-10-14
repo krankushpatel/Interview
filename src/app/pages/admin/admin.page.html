@@ -473,7 +473,7 @@
                 </div>
 
                 <!-- Auto-Fetched Categories -->
-                <div *ngIf="groupSettings.selectedClasses.length > 0">
+                <div *ngIf="groupSettings.selectedClasses.length > 0 || availableCategoriesForGroup.length > 0 || groupSettings.selectedCategories.length > 0">
                   <label style="display: block; font-size: 12px; font-weight: 700; color: var(--dip-text-secondary); margin-bottom: 10px;">Select Subjects/Topics:</label>
                   <div style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 200px; overflow-y: auto; padding-bottom: 8px;">
                     <span *ngFor="let cat of availableCategoriesForGroup"
@@ -485,7 +485,7 @@
                       {{ groupSettings.selectedCategories.includes(cat) ? '☑' : '☐' }} {{ cat }}
                     </span>
                     <div *ngIf="availableCategoriesForGroup.length === 0" style="font-size: 13px; color: var(--dip-text-secondary); font-style: italic;">
-                      No subjects found for selected classes.
+                      No subjects found. Please select a class above or create questions with categories.
                     </div>
                   </div>
                 </div>

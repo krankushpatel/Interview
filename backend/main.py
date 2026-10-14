@@ -140,7 +140,7 @@ async def health():
     }
 
 @app.websocket("/ws/admin/live-exams")
-@app.websocket("/admin/ws/admin/live-exams")
+# @app.websocket("/admin/ws/admin/live-exams")
 async def websocket_live_exams(websocket: WebSocket, token: str = None):
     # Agar bina token ke koi connect kare, toh connection reject kar do
     if not token:

@@ -30,7 +30,7 @@ import math
 import re
 from typing import List, Optional, Tuple
 
-SCORING_ENGINE_VERSION = "v3.1-inbatch-summary"
+SCORING_ENGINE_VERSION = "v3.2-stt-correction"
 
 # ---------------------------------------------------------------------------
 # BARS-style rubric anchors (unchanged from V2)
@@ -258,32 +258,55 @@ def _summary_line(text, cap: int = 280) -> str:
     return line[:cap].rstrip() if len(line) <= cap else line[:cap].rstrip() + "..."
 
 
+_APOS = "['\u2019]"
+_CAND = "the candidate"
+# (pattern, replacement) applied in order, case-insensitively. A match that
+# starts with a capital gets a capitalised replacement ("They're" -> "The candidate is").
+_PRONOUN_RULES = [(re.compile(pat, re.IGNORECASE), repl) for pat, repl in (
+    # contractions and verb agreement first, so the verb still fits "the candidate"
+    (rf"\b(?:he|she){_APOS}s\b", f"{_CAND} is"),
+    (rf"\bthey{_APOS}re\b", f"{_CAND} is"),
+    (rf"\b(?:he|she|they){_APOS}ve\b", f"{_CAND} has"),
+    (rf"\b(?:he|she|they){_APOS}d\b", f"{_CAND} would"),
+    (rf"\b(?:he|she|they){_APOS}ll\b", f"{_CAND} will"),
+    (r"\bthey\s+are\b", f"{_CAND} is"),
+    (r"\bthey\s+were\b", f"{_CAND} was"),
+    (r"\bthey\s+have\b", f"{_CAND} has"),
+    (rf"\bthey\s+haven{_APOS}t\b", f"{_CAND} hasn't"),
+    (rf"\bthey\s+aren{_APOS}t\b", f"{_CAND} isn't"),
+    (rf"\bthey\s+weren{_APOS}t\b", f"{_CAND} wasn't"),
+    (rf"\bthey\s+don{_APOS}t\b", f"{_CAND} doesn't"),
+    (r"\bthey\s+do\b", f"{_CAND} does"),
+    # reflexives
+    (r"\b(?:himself|herself|themselves|themself)\b", _CAND),
+    # possessives
+    (r"\b(?:his|their)\b", f"{_CAND}'s"),
+    # "her": object when followed by punctuation / a function word, else possessive
+    (r"\bher\b(?=\s*(?:[.,;:!?)]|$)|\s+(?:and|or|but|to|in|on|at|for|with|about|from|that|because|so|as|when|while|if)\b)", _CAND),
+    (r"\bher\b", f"{_CAND}'s"),
+    # objects and subjects
+    (r"\b(?:him|them)\b", _CAND),
+    (r"\b(?:he|she|they)\b", _CAND),
+)]
+
+
 def sanitize_pronouns(text: str) -> str:
-    """Replace third-person pronouns (he, she, they, their, his, her, etc.) with
-    'the candidate' / 'the candidate\'s' to guarantee consistent objective tone."""
+    """Replace third-person pronouns (he, she, they, him, her, his, their, them,
+    himself, herself, themselves, and their contractions) with 'the candidate' /
+    'the candidate's' so the summary always keeps one objective voice. Safety net
+    only: it fixes the common auxiliary verbs (they are -> the candidate is) but
+    cannot re-conjugate every verb, so the AI prompt still asks for 'The candidate'."""
     if not text or not isinstance(text, str):
         return text or ""
-    replacements = [
-        (r'\bHe\b', 'The candidate'),
-        (r'\bShe\b', 'The candidate'),
-        (r'\bThey\b', 'The candidate'),
-        (r'\bhe\b', 'the candidate'),
-        (r'\bshe\b', 'the candidate'),
-        (r'\bthey\b', 'the candidate'),
-        (r'\bHis\b', "The candidate's"),
-        (r'\bHer\b', "The candidate's"),
-        (r'\bTheir\b', "The candidate's"),
-        (r'\bhis\b', "the candidate's"),
-        (r'\bher\b', "the candidate's"),
-        (r'\btheir\b', "the candidate's"),
-        (r'\bHim\b', 'the candidate'),
-        (r'\bThem\b', 'the candidate'),
-        (r'\bhim\b', 'the candidate'),
-        (r'\bthem\b', 'the candidate'),
-    ]
+
+    def _sub(repl):
+        def inner(m):
+            return (repl[0].upper() + repl[1:]) if m.group(0)[:1].isupper() else repl
+        return inner
+
     res = text
-    for pattern, repl in replacements:
-        res = re.sub(pattern, repl, res)
+    for pattern, repl in _PRONOUN_RULES:
+        res = pattern.sub(_sub(repl), res)
     return res
 
 
@@ -408,6 +431,13 @@ _KEY_POINT_COVERAGE_SCHEMA = {
 }
 
 _EVALUATION_FIELDS = {
+    "corrected_answer": {
+        "type": "string",
+        "description": "STEP 0 output, filled in BEFORE any grading: the candidate's raw "
+                       "speech-to-text answer with ONLY the mis-transcribed technical words "
+                       "replaced. Sentences must not be changed and factual mistakes must NOT "
+                       "be fixed. Every grade below is based on THIS text.",
+    },
     "expected_key_points": {
         "type": "array",
         "items": {"type": "string"},
@@ -446,7 +476,7 @@ _EVALUATION_FIELDS = {
     },
 }
 
-_REQUIRED_EVALUATION_FIELDS = ["expected_key_points", "key_point_coverage", "contradictions",
+_REQUIRED_EVALUATION_FIELDS = ["corrected_answer", "expected_key_points", "key_point_coverage", "contradictions",
                                "correctness", "completeness", "clarity", "topic", "feedback"]
 
 TECHNICAL_SINGLE_TOOL = {
@@ -511,3 +541,55 @@ SUMMARY_TOOL = {
         "required": ["overall_summary"],
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Hardcoded (deterministic) summary - used when the AI summary call fails.
+# Built only from the per-question scores/topics, always in the 4-line contract
+# (depth / strongest / weakest / recommendation) and always run through
+# sanitize_pronouns, so it reads exactly like an AI summary.
+# ---------------------------------------------------------------------------
+
+_FALLBACK_DEPTH_BY_GRADE = {
+    "Excellent": "The candidate showed strong and consistent technical depth across the answered questions",
+    "Good": "The candidate showed solid technical knowledge with some gaps in depth across the answered questions",
+    "Poor": "The candidate showed limited technical depth, with several answers missing key concepts",
+    "Very Poor": "The candidate showed very little technical depth, with most answers largely incorrect or incomplete",
+}
+
+
+def build_fallback_summary(items) -> Optional[str]:
+    """items: dicts with topic + correctness/completeness/clarity (the shape
+    ai_evaluation._to_summary_items produces). Returns the 4-line summary, or
+    None when there is no scored item to summarise."""
+    per_item = []
+    for it in items or []:
+        nums = [float(v) for v in (it.get("correctness"), it.get("completeness"), it.get("clarity"))
+                if isinstance(v, (int, float))]
+        if nums:
+            topic = " ".join(str(it.get("topic") or "General").split()) or "General"
+            per_item.append((topic, sum(nums) / len(nums)))
+    if not per_item:
+        return None
+
+    avg = sum(score for _, score in per_item) / len(per_item)
+    grade = derive_technical_performance_grade(avg)
+
+    by_topic: dict = {}
+    for topic, score in per_item:
+        by_topic.setdefault(topic, []).append(score)
+    ranked = sorted(((sum(v) / len(v), t) for t, v in by_topic.items()), key=lambda x: (-x[0], x[1]))
+    best_score, best_topic = ranked[0]
+    worst_score, worst_topic = ranked[-1]
+
+    line1 = f"{_FALLBACK_DEPTH_BY_GRADE[grade]} (average score {avg:.1f}/10)."
+    line2 = f"The candidate's strongest topic was {best_topic} (average {best_score:.1f}/10)."
+    if len(ranked) == 1 or worst_score == best_score:
+        line3 = "No single weaker topic stood out; scores were consistent across the topics assessed."
+    else:
+        line3 = (f"The candidate's weakest topic was {worst_topic} (average {worst_score:.1f}/10); "
+                 f"this is the gap to close first.")
+
+    summary = render_overall_summary(
+        {"overall_depth": line1, "strongest_topic": line2, "weakest_topic": line3}, avg)
+    return sanitize_pronouns(summary) if summary else None

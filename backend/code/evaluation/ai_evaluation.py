@@ -14,6 +14,7 @@ from code.evaluation.scoring_engine import (
     SUMMARY_TOOL,
     TECHNICAL_BATCH_TOOL,
     TECHNICAL_SINGLE_TOOL,
+    build_fallback_summary,
     check_evaluation_consistency,
     clamp_score,
     compute_average_score,
@@ -38,10 +39,16 @@ logger = logging.getLogger("evaluation.ai_evaluation")
 
 CHUNK_SIZE = 9
 MAX_CONCURRENT_LLM_CALLS = max(1, int(os.getenv("EVAL_MAX_CONCURRENT_LLM_CALLS", "3")))
-CHUNK_MAX_TOKENS = int(os.getenv("EVAL_CHUNK_MAX_TOKENS", "6000"))
-SINGLE_MAX_TOKENS = int(os.getenv("EVAL_SINGLE_MAX_TOKENS", "2000"))
+CHUNK_MAX_TOKENS = int(os.getenv("EVAL_CHUNK_MAX_TOKENS", "12000"))
+SINGLE_MAX_TOKENS = int(os.getenv("EVAL_SINGLE_MAX_TOKENS", "3500"))
 SUMMARY_MAX_TOKENS = int(os.getenv("EVAL_SUMMARY_MAX_TOKENS", "800"))
 FEEDBACK_MAX_CHARS = 600
+
+# Safety guard for the STT term-correction step: if the AI changed the text by
+# more than this, it rewrote instead of fixing terms -> keep the original.
+CORRECTION_MAX_DRIFT = 0.25      # 25% change in characters / words
+CORRECTION_MIN_ABS_CHARS = 15    # small absolute changes are always fine ("see plus plus" -> "C++")
+CORRECTION_MIN_ABS_WORDS = 3
 
 _LLM_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_LLM_CALLS)
 
@@ -50,6 +57,7 @@ _TECH_SYSTEM = ("You are an expert technical interviewer grading a candidate's a
                 "objectively and consistently against a fixed rubric.")
 _SUMMARY_SYSTEM = ("You are an expert technical interviewer writing a holistic summary of a "
                    "candidate's TECHNICAL performance only.")
+
 
 _SUMMARY_UNAVAILABLE = "Technical summary unavailable for this session."
 _SUMMARY_INCOMPLETE = ("Technical summary unavailable: too many answers failed automatic "
@@ -107,8 +115,55 @@ def _is_intro_question(question_text: str, category: str = "") -> bool:
 
 
 # ---------------------------------------------------------------------------
+# STT technical-term correction happens INSIDE the scoring call (Step 0 of the
+# scoring prompt -> corrected_answer, which the model then grades). There is no
+# separate correction call. This guard only decides what the REPORT may show:
+# if corrected_answer looks like a rewrite, the original answer is shown and
+# the question is flagged for human review (the scores were already given).
+# ---------------------------------------------------------------------------
+
+def _correction_is_safe(original: str, corrected) -> bool:
+    """Reject empty output or a rewrite (large change in length) - keep original instead."""
+    if not isinstance(corrected, str):
+        return False
+    original = (original or "").strip()
+    corrected = corrected.strip()
+    if not corrected or not original:
+        return False
+    if corrected == original:
+        return True
+
+    char_diff = abs(len(corrected) - len(original))
+    if char_diff > CORRECTION_MIN_ABS_CHARS and char_diff / len(original) > CORRECTION_MAX_DRIFT:
+        return False
+
+    o_words, c_words = len(original.split()), len(corrected.split())
+    word_diff = abs(c_words - o_words)
+    if word_diff > CORRECTION_MIN_ABS_WORDS and word_diff / max(o_words, 1) > CORRECTION_MAX_DRIFT:
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Fallbacks + deterministic finalize
 # ---------------------------------------------------------------------------
+
+# def _safe_fallback(question_text: str, answer: str, category: str,
+#                    error_msg: str, extra_reasons: Optional[List[str]] = None) -> dict:
+#     reasons = list(extra_reasons or [])
+#     reasons.append(f"Automatic evaluation failed: {str(error_msg)[:120]}")
+#     return {
+#         "score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
+#         "feedback": "Automatic evaluation failed for this answer. Please have it reviewed manually.",
+#         "topic": None,
+#         "evidence": {"expected_key_points": [], "key_point_coverage": [], "contradictions": []},
+#         "expected_key_points": [],
+#         "ai_used": False,
+#         "needs_human_review": True,
+#         "review_reasons": reasons,
+#         "clarity_explanation": "Evaluation failed",
+#         "scoring_engine_version": SCORING_ENGINE_VERSION,
+#     }
 
 def _safe_fallback(question_text: str, answer: str, category: str,
                    error_msg: str, extra_reasons: Optional[List[str]] = None) -> dict:
@@ -118,6 +173,9 @@ def _safe_fallback(question_text: str, answer: str, category: str,
         "score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
         "feedback": "Automatic evaluation failed for this answer. Please have it reviewed manually.",
         "topic": None,
+        "answer_original": answer,
+        "answer_corrected": None,
+        "terms_corrected": False,
         "evidence": {"expected_key_points": [], "key_point_coverage": [], "contradictions": []},
         "expected_key_points": [],
         "ai_used": False,
@@ -128,6 +186,22 @@ def _safe_fallback(question_text: str, answer: str, category: str,
     }
 
 
+# def _gibberish_kill_switch(answer: str) -> Optional[dict]:
+#     if not is_gibberish(answer):
+#         return None
+#     _, reason = get_gibberish_reason(answer)
+#     return {
+#         "score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
+#         "feedback": f"This answer does not appear to be a valid response ({reason}). No marks awarded.",
+#         "topic": None,
+#         "evidence": {"expected_key_points": [], "key_point_coverage": [], "contradictions": []},
+#         "expected_key_points": [],
+#         "ai_used": True,
+#         "needs_human_review": False,
+#         "review_reasons": [],
+#         "scoring_engine_version": SCORING_ENGINE_VERSION,
+#     }
+
 def _gibberish_kill_switch(answer: str) -> Optional[dict]:
     if not is_gibberish(answer):
         return None
@@ -136,6 +210,9 @@ def _gibberish_kill_switch(answer: str) -> Optional[dict]:
         "score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
         "feedback": f"This answer does not appear to be a valid response ({reason}). No marks awarded.",
         "topic": None,
+        "answer_original": answer,
+        "answer_corrected": None,
+        "terms_corrected": False,
         "evidence": {"expected_key_points": [], "key_point_coverage": [], "contradictions": []},
         "expected_key_points": [],
         "ai_used": True,
@@ -177,7 +254,8 @@ def _ensure_missing_points_in_feedback(feedback: str, raw: dict) -> str:
     return f"{feedback} Missing points: {', '.join(missing)}."
 
 
-def _finalize_evaluation(raw: dict, existing_key_points: Optional[List[str]]) -> dict:
+def _finalize_evaluation(raw: dict, existing_key_points: Optional[List[str]],
+                         original_answer: Optional[str] = None) -> dict:
     missing_fields = [k for k in ("correctness", "completeness", "clarity") if raw.get(k) is None]
     correctness = clamp_score(raw.get("correctness"))
     completeness = clamp_score(raw.get("completeness"))
@@ -206,11 +284,18 @@ def _finalize_evaluation(raw: dict, existing_key_points: Optional[List[str]]) ->
     if drift:
         review_reasons.append(drift)
 
-    expected_key_points = [str(p) for p in
-                           (raw.get("expected_key_points") or existing_key_points or [])
-                           if str(p).strip()]
+    answer_corrected: Optional[str] = None
+    if original_answer is not None:
+        candidate = raw.get("corrected_answer")
+        if isinstance(candidate, str) and candidate.strip():
+            if _correction_is_safe(original_answer, candidate):
+                answer_corrected = candidate.strip()
+            else:
+                review_reasons.append(
+                    "corrected_answer was rejected (looks rewritten, not just term-corrected); the "
+                    "original answer is shown, but the scores were based on the corrected text.")
 
-    return {
+    result = {
         "score": compute_average_score(correctness, completeness, clarity),
         "correctness": correctness,
         "completeness": completeness,
@@ -228,6 +313,11 @@ def _finalize_evaluation(raw: dict, existing_key_points: Optional[List[str]]) ->
         "review_reasons": review_reasons,
         "scoring_engine_version": SCORING_ENGINE_VERSION,
     }
+    if original_answer is not None:
+        result["answer_original"] = original_answer
+        result["answer_corrected"] = answer_corrected
+        result["terms_corrected"] = bool(answer_corrected and answer_corrected != original_answer.strip())
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -278,6 +368,9 @@ async def _evaluate_intro(question_text: str, answer: str, category: str) -> dic
         "clarity": clarity,
         "feedback": str(parsed.get("feedback") or "").strip()[:FEEDBACK_MAX_CHARS] or "Introduction evaluated.",
         "topic": "Self-Introduction",
+        "answer_original": answer,
+        "answer_corrected": None,
+        "terms_corrected": False,
         "evidence": {"expected_key_points": [], "key_point_coverage": [], "contradictions": []},
         "expected_key_points": [],
         "ai_used": True,
@@ -304,7 +397,7 @@ async def _evaluate_technical_single(
             system=_TECH_SYSTEM, user_prompt=prompt,
             tool=TECHNICAL_SINGLE_TOOL, max_tokens=SINGLE_MAX_TOKENS)
         _debug_log_response("Single question", raw)
-        return _finalize_evaluation(raw, existing_key_points)
+        return _finalize_evaluation(raw, existing_key_points, answer)
     except LLMProviderError as e:
         logger.error("[single] all providers failed: %s", e)
         return _safe_fallback(question_text, answer, category, "all LLM providers failed")
@@ -369,11 +462,15 @@ async def _generate_ai_summary(entries: List[dict]) -> str:
         fields = await ai_client.call_with_tool(
             system=_SUMMARY_SYSTEM, user_prompt=prompt,
             tool=SUMMARY_TOOL, max_tokens=SUMMARY_MAX_TOKENS)
-    except LLMProviderError as e:
-        logger.error("[summary] all providers failed: %s", e)
-        return _SUMMARY_UNAVAILABLE
-    summary = _render_session_summary(fields, items)
-    return summary or _SUMMARY_UNAVAILABLE
+        summary = _render_session_summary(fields, items)
+        if summary:
+            return summary
+        logger.warning("[summary] AI summary unusable - building hardcoded summary")
+    except Exception as e:  # noqa: BLE001 - any AI failure -> hardcoded summary
+        logger.error("[summary] AI summary failed (%s: %s) - building hardcoded summary",
+                     type(e).__name__, str(e)[:150])
+    # Hardcoded 4-line summary from the scores; pronouns are sanitized inside.
+    return build_fallback_summary(scored) or _SUMMARY_UNAVAILABLE
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +501,7 @@ async def _evaluate_chunk(chunk: List[dict]) -> Tuple[Dict[str, dict], List[dict
         if qid in scored:
             continue
         item = item_by_id[qid]
-        scored[qid] = _finalize_evaluation(ev, item.get("existing_key_points"))
+        scored[qid] = _finalize_evaluation(ev, item.get("existing_key_points"), item["answer"])
 
     missing = [item for item in chunk if str(item["id"]) not in scored]
     if missing:
@@ -434,7 +531,7 @@ async def _evaluate_chunk_with_summary(chunk: List[dict]) -> Tuple[Dict[str, dic
         if qid not in item_by_id or qid in scored:
             continue
         item = item_by_id[qid]
-        scored[qid] = _finalize_evaluation(ev, item.get("existing_key_points"))
+        scored[qid] = _finalize_evaluation(ev, item.get("existing_key_points"), item["answer"])
 
     missing = [item for item in chunk if str(item["id"]) not in scored]
     summary_fields = result.get("overall_summary")
@@ -610,8 +707,6 @@ def _compute_behavior(events: Optional[list]) -> dict:
     last_counted_at: Dict[str, float] = {}
     for e in clean:
         etype = e["type"]
-        if etype == "fullscreen_exit_attempt":
-            etype = "fullscreen_exit"
         counts[etype] = counts.get(etype, 0) + 1
         ts = _event_timestamp(e)
         if ts is None:
@@ -623,19 +718,19 @@ def _compute_behavior(events: Optional[list]) -> dict:
             last_counted_at[etype] = ts
 
     penalty = 0
-    per_type_penalty: Dict[str, int] = {}
-    for etype, n in debounced.items():
-        p = min(PENALTY_WEIGHTS.get(etype, 0) * n,
-                PER_TYPE_PENALTY_CAPS.get(etype, MAX_PENALTY_PERCENTAGE))
-        per_type_penalty[etype] = p
-        penalty += p
+    # per_type_penalty: Dict[str, int] = {}
+    # for etype, n in debounced.items():
+    #     p = min(PENALTY_WEIGHTS.get(etype, 0) * n,
+    #             PER_TYPE_PENALTY_CAPS.get(etype, MAX_PENALTY_PERCENTAGE))
+    #     per_type_penalty[etype] = p
+    #     penalty += p
 
-    total_v = sum(debounced.values())
+    total_v = sum(counts.values())
     penalty = total_v / 10.0
     return {
         "classification": "Malpractices" if total_v >= 2 else "fair",
         "events_count": total_v,
-        "violations": debounced,
+        "violations": counts,
         "penalty_percentage": penalty,
         "reasoning": f"Detected {total_v} critical violation(s)."
     }

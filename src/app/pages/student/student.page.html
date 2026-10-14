@@ -29,7 +29,7 @@
           <span class="row-value">{{ formatScheduleDateTime(examSchedule.end_time) }}</span>
         </div>
         <div class="schedule-row" *ngIf="examSchedule.time_remaining">
-          <span class="row-label">⏳ Time until start:</span>
+          <span class="row-label">⏳ Time until end:</span>
           <span class="row-value highlight">{{ examSchedule.time_remaining }}</span>
         </div>
         <div class="schedule-row">
@@ -46,68 +46,68 @@
   <!-- Normal Content -->
   <div *ngIf="isLoading || isEligible">
 
-  <!-- ══════════════════════════════════════════
+    <!-- ══════════════════════════════════════════
       STEP 1: INSTRUCTIONS (SINGLE UNIFIED BOX)
   ══════════════════════════════════════════ -->
-  <div class="step-container instruction-step-center" *ngIf="step === 'instructions'">
-    <div class="glass-panel instruction-panel">
-      <div class="panel-header">
-        <h2>📋 Exam Instructions</h2>
-        <p>Please review the rules carefully before starting your session.</p>
-      </div>
+    <div class="step-container instruction-step-center" *ngIf="step === 'instructions'">
+      <div class="glass-panel instruction-panel">
+        <div class="panel-header">
+          <h2>📋 Exam Instructions</h2>
+          <p>Please review the rules carefully before starting your session.</p>
+        </div>
 
-      <!-- Single unified card containing all numbered instructions -->
-      <div class="unified-instructions-box">
-        <div class="instruction-row-item">
-          <span class="inst-num">1</span>
-          <p>Ensure you are in a quiet, well-lit room</p>
+        <!-- Single unified card containing all numbered instructions -->
+        <div class="unified-instructions-box">
+          <div class="instruction-row-item">
+            <span class="inst-num">1</span>
+            <p>Ensure you are in a quiet, well-lit room</p>
+          </div>
+          <div class="instruction-row-item">
+            <span class="inst-num">2</span>
+            <p>Do not switch tabs or windows during the exam</p>
+          </div>
+          <div class="instruction-row-item">
+            <span class="inst-num">3</span>
+            <p>Your screen will be recorded throughout the exam</p>
+          </div>
+          <div class="instruction-row-item">
+            <span class="inst-num">4</span>
+            <p>Your camera will remain on for proctoring</p>
+          </div>
+          <div class="instruction-row-item">
+            <span class="inst-num">5</span>
+            <p>Do not use any external devices or applications</p>
+          </div>
+          <div class="instruction-row-item">
+            <span class="inst-num">6</span>
+            <p>Violations will be logged and may result in termination</p>
+          </div>
         </div>
-        <div class="instruction-row-item">
-          <span class="inst-num">2</span>
-          <p>Do not switch tabs or windows during the exam</p>
-        </div>
-        <div class="instruction-row-item">
-          <span class="inst-num">3</span>
-          <p>Your screen will be recorded throughout the exam</p>
-        </div>
-        <div class="instruction-row-item">
-          <span class="inst-num">4</span>
-          <p>Your camera will remain on for proctoring</p>
-        </div>
-        <div class="instruction-row-item">
-          <span class="inst-num">5</span>
-          <p>Do not use any external devices or applications</p>
-        </div>
-        <div class="instruction-row-item">
-          <span class="inst-num">6</span>
-          <p>Violations will be logged and may result in termination</p>
-        </div>
-      </div>
 
-      <!-- Permission notice left-aligned -->
-      <div class="permission-notice left-aligned-perm">
-        <div class="perm-icon">🎤📷</div>
-        <div class="perm-text">
-          <strong>Camera &amp; Microphone Required</strong><br>
-          Your browser will ask for camera and microphone access. Please click <em>Allow</em> when prompted.
+        <!-- Permission notice left-aligned -->
+        <div class="permission-notice left-aligned-perm">
+          <div class="perm-icon">🎤📷</div>
+          <div class="perm-text">
+            <strong>Camera &amp; Microphone Required</strong><br>
+            Your browser will ask for camera and microphone access. Please click <em>Allow</em> when prompted.
+          </div>
         </div>
-      </div>
 
-      <!-- Custom interactive acceptance box -->
-      <div class="acceptance-box" (click)="instructionsAccepted = !instructionsAccepted">
-        <ion-checkbox [(ngModel)]="instructionsAccepted" (click)="$event.stopPropagation()"></ion-checkbox>
-        <div class="acceptance-text">
-          <strong>I have read and understood the instructions</strong>
-          <span>I agree to follow all exam rules and permit recording.</span>
+        <!-- Custom interactive acceptance box -->
+        <div class="acceptance-box" (click)="instructionsAccepted = !instructionsAccepted">
+          <ion-checkbox [(ngModel)]="instructionsAccepted" (click)="$event.stopPropagation()"></ion-checkbox>
+          <div class="acceptance-text">
+            <strong>I have read and understood the instructions</strong>
+            <span>I agree to follow all exam rules and permit recording.</span>
+          </div>
         </div>
-      </div>
 
-      <!-- Styled Proceed Button -->
-      <button class="btn btn-success proceed-btn" (click)="nextStep()" [disabled]="!instructionsAccepted">
-        <span>Proceed to Mic Check</span> <span>→</span>
-      </button>
+        <!-- Styled Proceed Button -->
+        <button class="btn btn-success proceed-btn" (click)="nextStep()" [disabled]="!instructionsAccepted">
+          <span>Proceed to Mic Check</span> <span>→</span>
+        </button>
+      </div>
     </div>
-  </div>
 
     <!-- ══════════════════════════════════════════
          STEP 2: MIC CHECK  (FIX S1 S2 S7 S8)
@@ -136,7 +136,8 @@
             </div>
 
             <!-- FIX S7: Tips to improve recognition -->
-            <div class="mic-tips" *ngIf="micTestVerificationStatus === 'idle' || micTestVerificationStatus === 'failed'">
+            <div class="mic-tips"
+              *ngIf="micTestVerificationStatus === 'idle' || micTestVerificationStatus === 'failed'">
               <p>💡 Tips for better recognition:</p>
               <ul>
                 <li>Speak at a normal pace — not too fast</li>
@@ -146,18 +147,15 @@
             </div>
 
             <!-- Status messages -->
-            <div *ngIf="micTestVerificationStatus === 'pending' && micTestRunning"
-                 class="verification-status pending">
+            <div *ngIf="micTestVerificationStatus === 'pending' && micTestRunning" class="verification-status pending">
               🎙️ Listening… Please speak the sentence now
             </div>
 
-            <div *ngIf="micTestVerificationStatus === 'passed'"
-                 class="verification-status passed">
+            <div *ngIf="micTestVerificationStatus === 'passed'" class="verification-status passed">
               ✅ Microphone check passed!
             </div>
 
-            <div *ngIf="micTestVerificationStatus === 'failed'"
-                 class="verification-status failed">
+            <div *ngIf="micTestVerificationStatus === 'failed'" class="verification-status failed">
               ❌ What we heard: "<em>{{ micTestTranscript || 'nothing' }}</em>"
               <br>
               <small>Please try again — speak slowly and clearly</small>
@@ -166,32 +164,24 @@
             <!-- Buttons row -->
             <div class="mic-buttons">
               <!-- Start button — only when idle -->
-              <ion-button
-                *ngIf="micTestVerificationStatus === 'idle'"
-                (click)="startMicCheck()"
+              <ion-button *ngIf="micTestVerificationStatus === 'idle'" (click)="startMicCheck()"
                 [disabled]="micTestRunning">
                 🎙️ Start Recording
               </ion-button>
 
               <!-- Stop button — while running -->
-              <ion-button
-                color="medium"
-                *ngIf="micTestRunning"
-                (click)="stopMicCheck()">
+              <ion-button color="medium" *ngIf="micTestRunning" (click)="stopMicCheck()">
                 ⏹ Stop
               </ion-button>
 
               <!-- FIX S8: Retry button shown after failure -->
-              <ion-button
-                color="warning"
-                *ngIf="micTestVerificationStatus === 'failed' && !micTestRunning"
+              <ion-button color="warning" *ngIf="micTestVerificationStatus === 'failed' && !micTestRunning"
                 (click)="retryMicCheck()">
                 🔄 Try Again
               </ion-button>
 
               <!-- FIX S8: Start again button when idle after a stop -->
-              <ion-button
-                *ngIf="micTestVerificationStatus === 'idle' && micTestRetryCount > 0"
+              <ion-button *ngIf="micTestVerificationStatus === 'idle' && micTestRetryCount > 0"
                 (click)="startMicCheck()">
                 🎙️ Start Recording
               </ion-button>
@@ -199,10 +189,7 @@
           </div>
 
           <!-- Proceed button -->
-          <ion-button
-            expand="block"
-            (click)="nextStep()"
-            [disabled]="!micTestPassed"
+          <ion-button expand="block" (click)="nextStep()" [disabled]="!micTestPassed"
             [color]="micTestPassed ? 'success' : 'medium'">
             {{ micTestPassed ? '✅ Proceed to Camera Check →' : 'Complete mic check to proceed' }}
           </ion-button>
@@ -231,10 +218,7 @@
             </div>
           </div>
 
-          <ion-button
-            expand="block"
-            (click)="nextStep()"
-            [disabled]="!faceDetected"
+          <ion-button expand="block" (click)="nextStep()" [disabled]="!faceDetected"
             [color]="faceDetected ? 'success' : 'medium'">
             {{ faceDetected ? 'Start Exam →' : 'Waiting for face detection…' }}
           </ion-button>
@@ -284,11 +268,8 @@
       <div class="q-counter-row">
         <span id="q-counter-label">Loading questions…</span>
         <div class="q-counter-dots" id="q-dots">
-          <div
-            *ngFor="let q of questions; let i = index"
-            class="q-dot"
-            [ngClass]="{'done': i < currentIndex, 'current': i === currentIndex}"
-            [id]="'qdot-'+i">
+          <div *ngFor="let q of questions; let i = index" class="q-dot"
+            [ngClass]="{'done': i < currentIndex, 'current': i === currentIndex}" [id]="'qdot-'+i">
           </div>
         </div>
       </div>
@@ -315,14 +296,9 @@
           <div class="answer-area">
             <div class="section-label">Your Answer</div>
             <div class="textarea-wrapper">
-              <textarea
-                class="answer-textarea"
-                id="answer-text"
-                [(ngModel)]="answerText"
-                (input)="onAnswerInput()"
+              <textarea class="answer-textarea" id="answer-text" [(ngModel)]="answerText" (input)="onAnswerInput()"
                 [placeholder]="allowTyping ? 'Type your answer here, or click the 🎤 mic button below to speak…' : 'Typing is disabled. Tap the 🎤 mic button below to speak your answer.'"
-                [disabled]="!allowTyping"
-                [class.disabled-style]="!allowTyping">
+                [disabled]="!allowTyping" [class.disabled-style]="!allowTyping">
               </textarea>
               <span class="char-count" [class.limit-reached]="wordCount >= MAX_WORDS">
                 <span id="word-count">{{ wordCount }}</span>/{{ MAX_WORDS }} words
@@ -331,19 +307,16 @@
 
             <!-- ─── Mic bar ─────────────────────────────────────────────────────── -->
             <div class="mic-bar">
-            
+
               <!-- Mic button + "Voice Input" label stacked below it -->
               <div class="mic-btn-wrapper">
-                <button
-                  class="mic-btn"
-                  [class.listening]="isSpeechListening"
-                  (click)="toggleMic()"
+                <button class="mic-btn" [class.listening]="isSpeechListening" (click)="toggleMic()"
                   aria-label="Toggle voice to text">
                   🎤
                 </button>
                 <span class="mic-btn-label">Voice Input</span>
               </div>
-            
+
               <!-- Status area: only shows text while actively listening -->
               <div class="mic-status-box" [class.listening]="isSpeechListening">
                 <span class="mic-status-text">
@@ -351,7 +324,7 @@
                 </span>
               </div>
 
-            
+
               <!-- Animated waveform (visible only while listening) -->
               <div class="waveform" [class.active]="isSpeechListening">
                 <div class="wave-bar"></div>
@@ -360,38 +333,30 @@
                 <div class="wave-bar"></div>
                 <div class="wave-bar"></div>
               </div>
-            
+
             </div>
             <!-- ─── end mic bar ──────────────────────────────────────────────────── -->
           </div>
 
+          <!-- NOTE: Your Transcript is correct -->
+          <div class="note" style="margin-top:8px; color:#555;">
+            Note : Your Transcript is correct
+          </div>
+
           <!-- Action buttons -->
           <div class="action-row">
-            <button
-              class="btn btn-success"
-              id="submit-btn"
-              (click)="submitAnswer()"
+            <button class="btn btn-success" id="submit-btn" (click)="submitAnswer()"
               [disabled]="submitted || !answerText || isSubmittingAnswer || isTransitioningQuestion || isFinishingExam">
               <span>Submit Answer</span> <span>→</span>
             </button>
-            <button
-              class="btn btn-next"
-              id="next-btn"
-              style="display:none"
-              [disabled]="isFinishingExam || isTransitioningQuestion"
-              (click)="nextQuestion()">
+            <button class="btn btn-next" id="next-btn" style="display:none"
+              [disabled]="isFinishingExam || isTransitioningQuestion" (click)="nextQuestion()">
               <span>Next Question</span> <span>→</span>
             </button>
-            <button
-              class="btn btn-ghost"
-              id="skip-btn"
-              (click)="skipQuestion()"
+            <button class="btn btn-ghost" id="skip-btn" (click)="skipQuestion()"
               [disabled]="submitted || isFinishingExam || isTransitioningQuestion || isSubmittingAnswer">⏩ Skip
             </button>
-            <button
-              class="btn btn-ghost"
-              id="clear-btn"
-              (click)="clearAnswer()"
+            <button class="btn btn-ghost" id="clear-btn" (click)="clearAnswer()"
               [disabled]="submitted || isFinishingExam || isTransitioningQuestion || isSubmittingAnswer">🗑 Clear
             </button>
           </div>
