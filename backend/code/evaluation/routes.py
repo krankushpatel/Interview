@@ -15,15 +15,20 @@
 #     nothing else depends on it.
 
 import asyncio
+import base64
 import json
 import logging
+import mimetypes
 import os
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
+from typing import Optional
 
 import pymongo
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException
 
+from code.config.settings import UPLOADS_DIR
 from code.core.helpers import is_empty_answer, is_skipped_answer
 from code.evaluation import ai_client
 from code.evaluation.ai_evaluation import (
@@ -46,6 +51,7 @@ MONGO_URL = os.getenv("MONGO_URL") or os.getenv("MONGO_URI", "")
 EVAL_TOTAL_TIMEOUT_S = int(os.getenv("EVAL_TOTAL_TIMEOUT_S", "420"))
 DECISION_THRESHOLD = 65
 
+
 router = APIRouter()
 _mongo_client: pymongo.MongoClient = None
 
@@ -58,6 +64,31 @@ def _get_db():
         _mongo_client = pymongo.MongoClient(MONGO_URL)  # created ONCE, reused, thread-safe
     db_name = os.getenv("MONGO_DB_NAME", "interview_platform")
     return _mongo_client[db_name]
+
+def _load_question_image_b64(filename: str) -> Optional[str]:
+    """Load a question image from disk and return as base64 data URL.
+    Returns None if file not found or read fails.
+    """
+    if not filename:
+        return None
+    try:
+        img_path = Path(UPLOADS_DIR) / "questions" / filename
+        if not img_path.exists() or not img_path.is_file():
+            logger.warning("[image] Question image not found: %s", img_path)
+            return None
+        
+        # Detect MIME type
+        mime, _ = mimetypes.guess_type(str(img_path))
+        mime = mime or "image/jpeg"
+        
+        with open(img_path, "rb") as f:
+            raw = f.read()
+        
+        b64 = base64.b64encode(raw).decode("ascii")
+        return f"data:{mime};base64,{b64}"
+    except Exception as e:
+        logger.warning("[image] Failed to load question image %s: %s", filename, e)
+        return None
 
 
 async def _db(fn, *args, **kwargs):
@@ -132,6 +163,7 @@ def _to_report_entry(item: dict, res: dict) -> dict:
     answer_original = res.get("answer_original", item["answer"])
     answer_corrected = res.get("answer_corrected")
     return {"id": item["id"], "question": item["question_text"],
+            "question_image": item.get("question_image"),
             "answer": answer_corrected or answer_original,
             "answer_original": answer_original,
             "answer_corrected": answer_corrected,
@@ -276,7 +308,24 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
                                 "category": category}
             continue
 
+        # ✅ Fetch question doc (image + send_text_only_to_ai)
+        q_doc = await _db(db.questions.find_one, {"id": qid}, 
+                          {"image": 1, "send_text_only_to_ai": 1, "_id": 0})
+        question_image = (q_doc or {}).get("image")
+        send_text_only = bool((q_doc or {}).get("send_text_only_to_ai"))
+
+        # ✅ NEW: Load image b64 for AI (Task A + Task B logic)
+        question_image_b64 = None
+        if send_text_only:
+            # Task B: skip image for AI
+            question_image_b64 = None
+        elif question_image:
+            # Task A: load image for AI
+            question_image_b64 = _load_question_image_b64(question_image)
+
         item = {"id": qid, "question_text": q_text, "answer": answer, "category": category,
+                "question_image": question_image,
+                "image_b64": question_image_b64,           # ✅ NEW
                 "reference_answer": ans.get("reference_answer"),
                 "question_data": ans.get("question_data"),
                 "existing_key_points": (prior or {}).get("expected_key_points")}
@@ -289,7 +338,8 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
     for item in intro_items:
         res = await _call_single_ai(item["question_text"], item["answer"], item["category"],
                                     reference_answer=item["reference_answer"],
-                                    question_data=item["question_data"])
+                                    question_data=item["question_data"],
+                                    image_b64=item.get("image_b64"))       # ✅ NEW
         results_map[item["id"]] = _to_report_entry(item, res)
 
     ai_summary = None
@@ -464,9 +514,20 @@ async def evaluate_single(
     if is_empty_answer(safe_answer) or is_skipped_answer(safe_answer):
         entry = _skipped_result(question_id, resolved_q, safe_answer, category)
     else:
+        # ✅ NEW: Fetch image from DB
+        q_doc = await _db(db.questions.find_one, {"id": question_id}, 
+                          {"image": 1, "send_text_only_to_ai": 1, "_id": 0})
+        q_image = (q_doc or {}).get("image")
+        q_send_text_only = bool((q_doc or {}).get("send_text_only_to_ai"))
+        
+        img_b64 = None
+        if not q_send_text_only and q_image:
+            img_b64 = _load_question_image_b64(q_image)
+        
         res = await _call_single_ai(resolved_q, safe_answer, category,
                                     reference_answer=reference_answer,
-                                    question_data=question_data)
+                                    question_data=question_data,
+                                    image_b64=img_b64)      # ✅ NEW
         entry = _to_report_entry(item, res)
 
     return entry
@@ -497,6 +558,15 @@ async def evaluate_chunk(
               "reference_answer": it.get("reference_answer"),
               "question_data": it.get("question_data")}
              for i, it in enumerate(chunk)]
+
+    # ✅ NEW: Attach image_b64 to each item
+    for item in items:
+        q_doc = await _db(db.questions.find_one, {"id": item["id"]}, 
+                          {"image": 1, "send_text_only_to_ai": 1, "_id": 0})
+        q_img = (q_doc or {}).get("image")
+        q_send_only = bool((q_doc or {}).get("send_text_only_to_ai"))
+        if not q_send_only and q_img:
+            item["image_b64"] = _load_question_image_b64(q_img)
 
     results = await _call_batch_ai(items)
 

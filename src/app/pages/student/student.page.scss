@@ -2059,3 +2059,119 @@ ion-header {
     }
   }
 }
+
+/* ============================================================
+   QUESTION IMAGE — Student View
+   ============================================================ */
+
+.question-image-wrap {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid rgba(24, 47, 72, 0.15);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+
+  .question-image {
+    max-width: 100%;
+    max-height: 340px;
+    object-fit: contain;
+    border-radius: 6px;
+    display: block;
+    cursor: zoom-in;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: scale(1.01);
+      box-shadow: 0 6px 20px rgba(24, 47, 72, 0.15);
+    }
+  }
+
+  .image-hint {
+    font-size: 0.72rem;
+    color: #426388;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
+  }
+}
+
+@media (max-width: 768px) {
+  .question-image-wrap {
+    padding: 0.5rem;
+    .question-image { max-height: 260px; }
+  }
+}
+
+/* ============================================================
+   QUESTION IMAGE LIGHTBOX (Full-size preview)
+   ============================================================ */
+
+.student-image-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(6px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.18s ease both;
+}
+
+.student-image-modal-content {
+  position: relative;
+  max-width: 92vw;
+  max-height: 88vh;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: scaleInModal 0.2s ease both;
+
+  img {
+    max-width: 100%;
+    max-height: calc(88vh - 24px);
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+  }
+}
+
+.student-image-modal-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #ef4444;
+    color: #ffffff;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes scaleInModal {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}

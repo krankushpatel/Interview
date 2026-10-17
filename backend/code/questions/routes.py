@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, HTTPException, Form, UploadFile, File
 from typing import Optional, List
 import random
 import re
 from code.core.data_manager import load_questions, save_questions, load_categories, save_categories, db
 from code.questions.keyword_extractor import extract_keywords_from_text, normalize_keywords
+from code.utils.image_handler import validate_image_file, save_image_file, delete_image_file
 
 router = APIRouter()
 
@@ -145,7 +146,10 @@ async def admin_add_question(
     text: Optional[str] = Form(default=None),
     category: str = Form(default="General"),
     difficulty: str = Form(default="Medium"),
-    keywords: Optional[str] = Form(default=None)
+    keywords: Optional[str] = Form(default=None),
+    image: Optional[UploadFile] = File(None),
+    hide_from_student: Optional[str] = Form(default=None),        # ✅ NEW
+    send_text_only_to_ai: Optional[str] = Form(default=None) 
 ):
     """Add new question with auto or manual keywords and update categories fast"""
     q_text = (question or text or "").strip()
@@ -176,6 +180,16 @@ async def admin_add_question(
     except Exception:
         questions = load_questions()
         next_id = max((q["id"] for q in questions), default=0) + 1
+    # Handle image upload
+    image_filename = None
+    if image is not None:
+        # Validate the image
+        is_valid, error_msg, ext = validate_image_file(image)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f'Invalid image: {error_msg}')
+        # Save the image and get filename
+        image.file.seek(0)  # reset after validation read
+        image_filename = save_image_file(image, next_id)
 
     new_q = {
         "id": next_id,
@@ -184,12 +198,30 @@ async def admin_add_question(
         "question": q_text,
         "keywords": kws
     }
-    
+    if image_filename:
+        new_q["image"] = image_filename
+
+    # ✅ NEW: Optional fields (only add if truthy)
+    if hide_from_student and hide_from_student.strip().lower() in ('true', 'yes', '1'):
+        # Validation: Hide requires image
+        if not image_filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot hide text without image. Student will see nothing."
+            )
+        new_q["hide_from_student"] = True
+
+    if send_text_only_to_ai and send_text_only_to_ai.strip().lower() in ('true', 'yes', '1'):
+        new_q["send_text_only_to_ai"] = True
+
     # Direct fast insert
     try:
         db.questions.insert_one(new_q.copy())
     except Exception as e:
         print(f"[WARN] Error inserting single question: {e}")
+        # If we saved an image, delete it to avoid orphan file
+        if image_filename:
+            delete_image_file(image_filename)
         questions = load_questions()
         questions.append(new_q)
         save_questions(questions)
@@ -199,15 +231,25 @@ async def admin_add_question(
 
 @router.delete("/{qid}")
 async def admin_delete_question(qid: int):
-    """Delete question by ID"""
-    questions = load_questions()
-    updated = [q for q in questions if q["id"] != qid]
-    
-    if len(updated) == len(questions):
+    """Delete question by ID — direct MongoDB delete (fix for upsert-only save_questions)"""
+    # Pehle question fetch karo (image delete ke liye)
+    existing = db.questions.find_one({"id": qid})
+    if not existing:
         raise HTTPException(status_code=404, detail=f"Question {qid} not found")
-    
-    save_questions(updated)
-    return {"success": True, "total": len(updated)}
+
+    # Associated image delete karo agar exist karti hai
+    image_filename = existing.get("image")
+    if image_filename:
+        delete_image_file(image_filename)
+
+    # ✅ DIRECT MONGODB DELETE — ye guaranteed delete karta hai
+    result = db.questions.delete_one({"id": qid})
+
+    if result.deleted_count > 0:
+        total_count = db.questions.count_documents({})
+        return {"success": True, "deleted_id": qid, "total": total_count}
+
+    raise HTTPException(status_code=404, detail=f"Question {qid} not found")
 
 @router.post("/update")
 async def admin_update_question(
@@ -216,7 +258,10 @@ async def admin_update_question(
     text: Optional[str] = Form(default=None),
     category: str = Form(...),
     difficulty: str = Form(...),
-    keywords: Optional[str] = Form(default=None)
+    keywords: Optional[str] = Form(default=None),
+    image: Optional[UploadFile] = File(None),
+    hide_from_student: Optional[str] = Form(default=None),        # ✅ NEW
+    send_text_only_to_ai: Optional[str] = Form(default=None) 
 ):
     """Update existing question including its keywords"""
     questions = load_questions()
@@ -237,7 +282,50 @@ async def admin_update_question(
             elif "keywords" not in q or not q["keywords"]:
                 q["keywords"] = []
             
-            save_questions(questions)
+            # Handle image update
+            new_image_filename = None
+            if image is not None:
+                # Validate the image
+                is_valid, error_msg, ext = validate_image_file(image)
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=f'Invalid image: {error_msg}')
+                # Save the new image
+                image.file.seek(0)  # reset after validation read
+                new_image_filename = save_image_file(image, id)
+                # Delete old image if exists
+                old_image = q.get("image")
+                if old_image:
+                    delete_image_file(old_image)
+                # Update the question's image field
+                q["image"] = new_image_filename
+
+            # ✅ NEW: Update hide_from_student
+            if hide_from_student is not None:
+                if hide_from_student.strip().lower() in ('true', 'yes', '1'):
+                    # Validation: Hide requires image (either existing or new)
+                    if not q.get("image"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Cannot hide text without image. Student will see nothing."
+                        )
+                    q["hide_from_student"] = True
+                else:
+                    q.pop("hide_from_student", None)
+
+            # ✅ NEW: Update send_text_only_to_ai
+            if send_text_only_to_ai is not None:
+                if send_text_only_to_ai.strip().lower() in ('true', 'yes', '1'):
+                    q["send_text_only_to_ai"] = True
+                else:
+                    q.pop("send_text_only_to_ai", None)
+
+            try:
+                save_questions(questions)
+            except Exception as e:
+                # If we saved a new image during this update, delete it to avoid orphan file
+                if new_image_filename is not None:
+                    delete_image_file(new_image_filename)
+                raise e
             return {"success": True, "question": q}
     
     raise HTTPException(404, f"Question {id} not found")

@@ -2,12 +2,16 @@ import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Question } from '../../../services/admin.service';
+import { environment } from '../../../../environments/environment';   // ✅ NEW
 
 export interface AddQuestionData {
   question: string;
   category: string;
   difficulty: string;
   keywords?: string;
+  image?: File;
+  hideFromStudent?: boolean;          // ✅ NEW
+  sendTextOnlyToAi?: boolean;         // ✅ NEW
 }
 
 @Component({
@@ -46,6 +50,7 @@ export interface AddQuestionData {
           Add New Question
         </div>
         <div class="aq-form">
+          <!-- ✅ Question Text field (YE ZAROORI HAI) -->
           <div class="aq-field aq-field-full">
             <label class="field-label">Question Text *</label>
             <textarea
@@ -54,6 +59,34 @@ export interface AddQuestionData {
               rows="3"
               placeholder="Enter your interview question..."
             ></textarea>
+          </div>
+          <div class="aq-field aq-field-full">
+            <label class="field-label">Question Image (Square, 16:9 ratio, max 5 MB)</label>
+            <input
+              type="file"
+              class="field-input"
+              (change)="onImageSelected($event)"
+              accept=".jpg, .jpeg, .png"
+            />
+
+           <!-- ✅ Error message -->
+           <div *ngIf="imageError" class="image-error-msg">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+               <circle cx="12" cy="12" r="10"/>
+               <line x1="12" y1="8" x2="12" y2="12"/>
+               <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ imageError }}
+            </div>
+
+            <!-- ✅ Success preview -->
+            <div *ngIf="selectedImage && !imageError" class="image-success-preview">
+              <img [src]="imagePreviewUrl" alt="Preview" />
+              <div class="image-info">
+                <span class="image-name">{{ selectedImage.name }}</span>
+                <span class="image-size">{{ (selectedImage.size / 1024).toFixed(1) }} KB</span>
+              </div>
+            </div>
           </div>
           <div class="aq-field">
             <label class="field-label">Category</label>
@@ -114,6 +147,71 @@ export interface AddQuestionData {
               placeholder="e.g. PMOS, NMOS, CMOS, MOSFET, inverter"
             />
           </div>
+
+           <!-- ✅ NEW: Hide from student checkbox -->
+           <div class="aq-field aq-field-full">
+             <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 12px; background: var(--bg-surface-2, #f9fafb); border: 1px solid var(--border, #e5e7eb); border-radius: 8px;">
+               <input
+                 type="checkbox"
+                 [(ngModel)]="newQuestionHideFromStudent"
+                 style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px;"
+               />
+               <div style="flex: 1;">
+                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                   <div style="font-weight: 600; font-size: 14px; color: var(--text-primary, #111827);">Hide question text from student</div>
+                   <!-- ✅ NEW: Info icon -->
+                   <button
+                     type="button"
+                     class="info-icon-btn"
+                     (click)="$event.preventDefault(); $event.stopPropagation(); openCheckboxGuide();"
+                     title="See how these checkboxes work"
+                   >
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <circle cx="12" cy="12" r="10"/>
+                       <line x1="12" y1="16" x2="12" y2="12"/>
+                       <line x1="12" y1="8" x2="12.01" y2="8"/>
+                     </svg>
+                   </button>
+                 </div>
+                 <div style="font-size: 12px; color: var(--text-tertiary, #6b7280); margin-top: 3px;">
+                   Students will only see the image. Text is used for AI evaluation only. <strong>Requires an image.</strong>
+                 </div>
+               </div>
+             </label>
+           </div>
+
+           <!-- ✅ NEW: Send only text to AI checkbox -->
+           <div class="aq-field aq-field-full">
+             <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 12px; background: var(--bg-surface-2, #f9fafb); border: 1px solid var(--border, #e5e7eb); border-radius: 8px;">
+               <input
+                 type="checkbox"
+                 [(ngModel)]="newQuestionSendTextOnly"
+                 style="width: 18px; height: 18px; cursor: pointer; margin-top: 2px;"
+               />
+               <div style="flex: 1;">
+                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                   <div style="font-weight: 600; font-size: 14px; color: var(--text-primary, #111827);">Send only text to AI (skip image)</div>
+                   <!-- ✅ NEW: Info icon -->
+                   <button
+                     type="button"
+                     class="info-icon-btn"
+                     (click)="$event.preventDefault(); $event.stopPropagation(); openCheckboxGuide();"
+                     title="See how these checkboxes work"
+                   >
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <circle cx="12" cy="12" r="10"/>
+                       <line x1="12" y1="16" x2="12" y2="12"/>
+                       <line x1="12" y1="8" x2="12.01" y2="8"/>
+                     </svg>
+                   </button>
+                 </div>
+                 <div style="font-size: 12px; color: var(--text-tertiary, #6b7280); margin-top: 3px;">
+                   Saves tokens. Use when question text is already inside the image.
+                 </div>
+               </div>
+             </label>
+           </div>
+
           <div class="aq-actions">
             <button class="btn btn-primary" (click)="onAddQuestion()">Add Question</button>
             <span class="aq-feedback success" *ngIf="addFeedback && addFeedbackType === 'success'">✓ {{ addFeedback }}</span>
@@ -187,6 +285,23 @@ export interface AddQuestionData {
             </div>
           </div>
           <div class="q-text">{{ q.question }}</div>
+
+          <!-- ✅ NEW: Sirf ek chhota Image button — thumbnail nahi -->
+          <div *ngIf="q.image" style="margin-top: 10px;">
+            <button
+              class="image-btn"
+              (click)="openImagePreview(q.image)"
+              title="View attached image"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              Image
+            </button>
+          </div>
+
           <div *ngIf="q.keywords && q.keywords.length > 0" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;">
             <span *ngFor="let kw of q.keywords" style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(20, 122, 131, 0.1); color: var(--dip-brand-1, #147A83); border: 1px solid rgba(20, 122, 131, 0.25); font-weight: 500;">
               {{ kw }}
@@ -229,6 +344,83 @@ export interface AddQuestionData {
         </div>
       </div>
     </div>
+
+    <!-- ✅ NEW: Image Preview Modal (Lightbox) -->
+    <div class="image-modal-backdrop" *ngIf="previewImageUrl" (click)="closeImagePreview()">
+      <div class="image-modal-content" (click)="$event.stopPropagation()">
+        <button class="image-modal-close" (click)="closeImagePreview()" title="Close">✕</button>
+        <img [src]="previewImageUrl" alt="Question Image" />
+      </div>
+    </div>
+
+    <!-- ✅ NEW: Checkbox Guide Popup -->
+    <div class="guide-modal-backdrop" *ngIf="showCheckboxGuide" (click)="closeCheckboxGuide()">
+      <div class="guide-modal" (click)="$event.stopPropagation()">
+        
+        <!-- Header -->
+        <div class="guide-header">
+          <h3>📘 Checkbox Guide</h3>
+          <button class="guide-close" (click)="closeCheckboxGuide()" title="Close">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div class="guide-body">
+          
+          <p class="guide-intro">
+            These two checkboxes control how the question appears to students and what gets sent to the AI for evaluation.
+          </p>
+
+          <!-- Table: 4 Cases -->
+          <table class="guide-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Hide Text</th>
+                <th>Send Only Text</th>
+                <th>Student Sees</th>
+                <th>AI Gets</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>☐</td>
+                <td>☐</td>
+                <td>Text + Image</td>
+                <td>Text + Image</td>
+              </tr>
+              <tr class="highlight-row">
+                <td>2</td>
+                <td>☑</td>
+                <td>☐</td>
+                <td><strong>Image Only</strong></td>
+                <td>Text + Image</td>
+              </tr>
+              <tr class="highlight-row">
+                <td>3</td>
+                <td>☐</td>
+                <td>☑</td>
+                <td>Text + Image</td>
+                <td><strong>Text Only</strong></td>
+              </tr>
+              <tr class="highlight-row primary">
+                <td>4</td>
+                <td>☑</td>
+                <td>☑</td>
+                <td><strong>Image Only</strong></td>
+                <td><strong>Text Only</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Quick Tip -->
+          <div class="guide-tip">
+             <strong>💡 Tip:</strong> Whether an image is sent to the AI is controlled ONLY by the <code>Send Only Text</code> checkbox. <code>Hide from Student</code> only affects the student display.
+          </div>
+
+        </div>
+      </div>
+    </div>
   `
 })
 export class AdminQuestionsComponent implements OnInit, OnChanges {
@@ -242,6 +434,18 @@ export class AdminQuestionsComponent implements OnInit, OnChanges {
       this.showCategoryDropdown = false;
     }
   }
+
+  // ✅ NEW: ESC key to close image modal
+  @HostListener('document:keydown.escape')
+  onEscKey() {
+    if (this.previewImageUrl) {
+      this.closeImagePreview();
+    }
+    if (this.showCheckboxGuide) {
+      this.closeCheckboxGuide();
+    }
+  }
+
   @Input() totalQuestions: number = 0;
   @Input() paginatedQuestions: Question[] = [];
   @Input() uniqueCategories: string[] = [];
@@ -267,10 +471,21 @@ export class AdminQuestionsComponent implements OnInit, OnChanges {
 
   newQuestionText: string = '';
   newQuestionKeywords: string = '';
+  selectedImage: File | null = null;
+  imageError: string = '';
+  imagePreviewUrl: string = '';
+  newQuestionHideFromStudent: boolean = false;       // ✅ NEW
+  newQuestionSendTextOnly: boolean = false;          // ✅ NEW
   categorySearchText: string = '';
   newQuestionDifficulty: string = 'Medium';
   showCategoryDropdown: boolean = false;
   filteredCategories: string[] = [];
+
+  // ✅ NEW: Image preview state
+  previewImageUrl: string | null = null;
+
+  // ✅ NEW: Checkbox guide popup state
+  showCheckboxGuide: boolean = false;
 
   ngOnInit() {
     this.filterCategories();
@@ -306,6 +521,79 @@ export class AdminQuestionsComponent implements OnInit, OnChanges {
     this.filteredCategories = q ? list.filter(c => c.toLowerCase().includes(q)) : list;
   }
 
+  
+
+  // onImageSelected(event: any) {
+  //   const file = event.target.files[0];
+  //   if (file) {
+  //     this.selectedImage = file;
+  //   } else {
+  //     this.selectedImage = null;
+  //   }
+  // }
+
+  // ✅ UPDATED: Frontend validation (type, size, ratio)
+  onImageSelected(event: any) {
+    const file = event.target.files[0];
+    this.imageError = '';
+    this.imagePreviewUrl = '';
+
+    if (!file) {
+      this.selectedImage = null;
+      return;
+    }
+
+    // 1️⃣ File type check
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      this.imageError = 'Only JPG and PNG images are allowed.';
+      this.selectedImage = null;
+      event.target.value = '';
+      return;
+    }
+
+    // 2️⃣ File size check (5 MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      this.imageError = `File size exceeds 5 MB limit (yours: ${(file.size / (1024 * 1024)).toFixed(2)} MB).`;
+      this.selectedImage = null;
+      event.target.value = '';
+      return;
+    }
+
+    // 3️⃣ Image ratio check (1:1 square with 10% tolerance — same as backend)
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      const img = new Image();
+      img.onload = () => {
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+        const ratio = width / height;
+        const targetRatio = 16 / 9;         // 1:1 (square)
+        const tolerance = 0.1;             // 10% — backend ke saath match karo
+
+        if (Math.abs(ratio - targetRatio) > tolerance) {
+          this.imageError = `Image ratio must be approximately 16:9. Yours is ${width}×${height} (${ratio.toFixed(2)}:1).`;
+          this.selectedImage = null;
+          this.imagePreviewUrl = '';
+          event.target.value = '';
+        } else {
+          // ✅ Valid image
+          this.selectedImage = file;
+          this.imagePreviewUrl = e.target.result;
+          this.imageError = '';
+        }
+      };
+      img.onerror = () => {
+        this.imageError = 'Invalid image file. Please try another.';
+        this.selectedImage = null;
+        event.target.value = '';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
   selectCategory(cat: string) {
     this.categorySearchText = cat;
     this.showCategoryDropdown = false;
@@ -324,15 +612,32 @@ export class AdminQuestionsComponent implements OnInit, OnChanges {
 
   onAddQuestion() {
     if (!this.newQuestionText.trim()) return;
+
+    // ✅ Validation: Hide requires image
+    if (this.newQuestionHideFromStudent && !this.selectedImage) {
+      this.imageError = 'Cannot hide text without image. Please select an image first.';
+      return;
+    }
+
     const trimmed = this.newQuestionText.trim();
     this.addQuestion.emit({
       question: trimmed,
       category: this.categorySearchText.trim(),
       difficulty: this.newQuestionDifficulty,
-      keywords: this.newQuestionKeywords.trim()
+      keywords: this.newQuestionKeywords.trim(),
+      image: this.selectedImage || undefined,
+      hideFromStudent: this.newQuestionHideFromStudent,        // ✅ NEW
+      sendTextOnlyToAi: this.newQuestionSendTextOnly           // ✅ NEW
     });
     this.newQuestionText = '';
     this.newQuestionKeywords = '';
+    this.selectedImage = null;
+    this.imageError = '';
+    this.imagePreviewUrl = '';
+    this.newQuestionHideFromStudent = false;                   // ✅ NEW
+    this.newQuestionSendTextOnly = false;                      // ✅ NEW
+    const fileInput = this.elementRef.nativeElement.querySelector('input[type="file"]');
+    if (fileInput) fileInput.value = '';
   }
 
   onFilterChange() {
@@ -350,5 +655,32 @@ export class AdminQuestionsComponent implements OnInit, OnChanges {
 
   onPageSizeChange(size: string | number) {
     this.changePageSize.emit(Number(size));
+  }
+
+  // ✅ Image URL builder
+  getImageUrl(filename: string): string {
+    if (!filename) return '';
+    return `${environment.apiUrl}/uploads/questions/${filename}`;
+  }
+
+  // ✅ NEW: Open image preview
+  openImagePreview(filename: string) {
+    if (!filename) return;
+    this.previewImageUrl = this.getImageUrl(filename);
+  }
+
+  // ✅ NEW: Close image preview
+  closeImagePreview() {
+    this.previewImageUrl = null;
+  }
+
+    // ✅ NEW: Open checkbox guide popup
+  openCheckboxGuide(): void {
+    this.showCheckboxGuide = true;
+  }
+
+  // ✅ NEW: Close checkbox guide popup
+  closeCheckboxGuide(): void {
+    this.showCheckboxGuide = false;
   }
 }

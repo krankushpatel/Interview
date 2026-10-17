@@ -965,3 +965,124 @@ ion-content {
   }
   .agg-subtitle { font-size: .55rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ NEW: QUESTION IMAGE DISPLAY (Result Page)
+   ═══════════════════════════════════════════════════════════════ */
+
+.q-res-image-wrap {
+  margin: .75rem 0 1rem 0;
+  padding: .75rem;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+}
+
+.q-res-image {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
+  cursor: zoom-in;
+  transition: transform .2s ease, box-shadow .2s ease;
+
+  &:hover {
+    transform: scale(1.01);
+    box-shadow: 0 6px 20px rgba(0, 212, 255, .18);
+  }
+}
+
+.q-res-image-hint {
+  font-size: .7rem;
+  color: var(--text3);
+  font-weight: 600;
+  letter-spacing: .02em;
+  opacity: .85;
+}
+
+/* Mobile — smaller image */
+@media (max-width: 768px) {
+  .q-res-image-wrap {
+    padding: .5rem;
+  }
+  .q-res-image {
+    max-height: 240px;
+  }
+}
+
+/* Lightbox backdrop */
+.result-image-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 11, 16, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: resultFadeIn .18s ease both;
+}
+
+.result-image-content {
+  position: relative;
+  max-width: 92vw;
+  max-height: 88vh;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 24px 60px rgba(0, 212, 255, .25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: resultScaleIn .2s ease both;
+
+  img {
+    max-width: 100%;
+    max-height: calc(88vh - 24px);
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+  }
+}
+
+.result-image-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: all .15s ease;
+
+  &:hover {
+    background: var(--red);
+    color: #ffffff;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes resultFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes resultScaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}

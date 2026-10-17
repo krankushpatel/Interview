@@ -60,6 +60,7 @@ from code.batches.routes import router as batches_router
 from code.settings_route.routes import router as settings_router
 from code.services.dipstick_auto_sync import auto_sync_dipstick_questions
 from code.classes.routes import router as classes_router
+from code.admin.images_routes import router as admin_images_router
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 from code.admin.ws_manager import admin_ws_manager
@@ -74,10 +75,18 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ✅ NEW: Ensure static files (/uploads/*) get CORS headers for canvas export
+@app.middleware("http")
+async def static_cors_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/uploads") or request.url.path.startswith("/static"):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 @app.on_event("startup")
 async def startup_event():
@@ -116,6 +125,13 @@ app.include_router(audio_router, tags=["Audio"])
 app.include_router(batches_router, prefix="/admin/batches", tags=["Batches"], dependencies=[Depends(get_current_admin)])
 app.include_router(settings_router, prefix="/exam-settings", tags=["Settings"])
 app.include_router(classes_router, prefix="/classes", tags=["Classes"])
+# ✅ Admin Image Manager (JWT protected)
+app.include_router(
+    admin_images_router,
+    prefix="/admin",
+    tags=["Admin Images"],
+    dependencies=[Depends(get_current_admin)]
+)
 
 # 🔐 PROTECTED: All admin routes require valid JWT token
 app.include_router(

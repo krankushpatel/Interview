@@ -459,9 +459,13 @@ def log_interview_usage(session_id=None, note: str = "") -> Optional[dict]:
 # Provider call implementations
 # ---------------------------------------------------------------------------
 
-async def _gemini_call_with_tool(model: str, system: str, user_prompt: str, tool: dict, max_tokens: int) -> dict:
+async def _gemini_call_with_tool(
+    model: str, system: str, user_prompt: str, tool: dict, max_tokens: int,
+    image_b64_list: Optional[List[str]] = None,     # ✅ NEW
+) -> dict:
     client = _get_gemini_client()
     from google.genai import types as genai_types
+    import base64                                    # ✅ NEW
     declaration = genai_types.FunctionDeclaration(
         name=tool["name"],
         description=tool["description"],
@@ -479,8 +483,34 @@ async def _gemini_call_with_tool(model: str, system: str, user_prompt: str, tool
             )
         ),
     )
+
+    # ✅ NEW: Build multimodal contents — text + optional images
+    contents: list = [user_prompt]
+    if image_b64_list:
+        for img_b64 in image_b64_list:
+            if not img_b64:
+                continue
+            try:
+                # image_b64 may come as data URL ("data:image/png;base64,...") or raw base64
+                raw_b64 = img_b64.split(",", 1)[1] if "," in img_b64[:120] else img_b64
+                # Detect MIME type
+                mime = "image/jpeg"
+                head = img_b64[:80]
+                if "data:image/png" in head:
+                    mime = "image/png"
+                elif "data:image/jpg" in head or "data:image/jpeg" in head:
+                    mime = "image/jpeg"
+                contents.append(
+                    genai_types.Part.from_bytes(
+                        data=base64.b64decode(raw_b64),
+                        mime_type=mime,
+                    )
+                )
+            except Exception as e:
+                logger.warning("[gemini] Failed to attach image, sending text-only: %s", e)
+
     resp = await asyncio.wait_for(
-        client.aio.models.generate_content(model=model, contents=user_prompt, config=config),
+        client.aio.models.generate_content(model=model, contents=contents, config=config),
         timeout=REQUEST_TIMEOUT_S,
     )
     usage = _log_usage(f"gemini:{model}", resp)
@@ -643,17 +673,24 @@ async def _run_provider_chain(entries: List[Tuple[str, Callable[[], Awaitable[An
     raise LLMProviderError("All LLM providers failed: " + " | ".join(errors))
 
 
-async def call_with_tool(system: str, user_prompt: str, tool: dict, max_tokens: int = 4000) -> dict:
+async def call_with_tool(
+    system: str, 
+    user_prompt: str, 
+    tool: dict, 
+    max_tokens: int = 4000,
+    image_b64_list: Optional[List[str]] = None,     # ✅ NEW
+) -> dict:
     _call_label.set(tool.get("name") or "tool_call")
     entries: List[Tuple[str, Callable[[], Awaitable[Any]]]] = []
     for model in _gemini_models():
         entries.append((f"gemini:{model}",
                         partial(_gemini_call_with_tool, model=model, system=system,
-                                user_prompt=user_prompt, tool=tool, max_tokens=max_tokens)))
+                                user_prompt=user_prompt, tool=tool, max_tokens=max_tokens,
+                                image_b64_list=image_b64_list)))     # ✅ Gemini me images
     for model in _openrouter_models():
         entries.append((f"openrouter:{model}",
                         partial(_openrouter_call_with_tool, model=model, system=system,
-                                user_prompt=user_prompt, tool=tool, max_tokens=max_tokens)))
+                                user_prompt=user_prompt, tool=tool, max_tokens=max_tokens)))     # ✅ OpenRouter me images NAHI (Q3: B)
     return await _run_provider_chain(entries)
 
 

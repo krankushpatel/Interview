@@ -17,6 +17,7 @@ import {
   AdminSubmissionsComponent,
   AdminStudentsComponent,
   AdminQuestionsComponent,
+  AdminImagesComponent,
   AdminRecordingsComponent,
   AdminSessionLogsComponent,
   AdminBulkImportComponent,
@@ -44,6 +45,7 @@ import {
     AdminSubmissionsComponent,
     AdminStudentsComponent,
     AdminQuestionsComponent,
+    AdminImagesComponent,
     AdminRecordingsComponent,
     AdminSessionLogsComponent,
     AdminBulkImportComponent,
@@ -77,7 +79,7 @@ export class AdminPage implements OnInit, OnDestroy {
   filterStudent = '';
   filterCategory = '';
 
-  activeView: 'overview' | 'submissions' | 'students' | 'questions' | 'examvids' | 'screenvids' | 'sessionlogs' | 'bulkimport' | 'live' | 'settings' = 'overview';
+  activeView: 'overview' | 'submissions' | 'students' | 'questions' | 'images' | 'examvids' | 'screenvids' | 'sessionlogs' | 'bulkimport' | 'live' | 'settings' = 'overview';
   newQuestionText = '';
   newQuestionCategory = '';
   newQuestionDifficulty = 'Medium';
@@ -152,6 +154,9 @@ export class AdminPage implements OnInit, OnDestroy {
   editQuestionCategory = '';
   editQuestionDifficulty = 'Medium';
   editQuestionKeywords = '';
+  editQuestionImage: string | null = null;
+  editQuestionHideFromStudent: boolean = false;       
+  editQuestionSendTextOnly: boolean = false;       
   newQuestionKeywords = '';
 
   // Filter properties
@@ -376,6 +381,8 @@ export class AdminPage implements OnInit, OnDestroy {
     } else if (view === 'questions' && !this.loadedViews.questions) {
       await Promise.all([this.loadQuestions(), this.loadAllCategories(), this.loadAllClasses()]);
       this.loadedViews.questions = true;
+    } else if (view === 'images') {
+      // Image Manager component self-loads on init — no action needed
     } else if (view === 'examvids' && !this.loadedViews.examvids) {
       await this.loadRecordings();
       this.loadedViews.examvids = true;
@@ -616,8 +623,18 @@ export class AdminPage implements OnInit, OnDestroy {
     this.filterStudents();
   }
 
+  // async loadQuestions() {
+  //   this.questions = await this.adminService.getQuestions();
+  //   this.filteredQuestions = [...this.questions];
+  //   this.loadUniqueCategories();
+  //   this.applyQuestionsFilters();
+  //   this.refreshCategoryOptions();
+  // }
+
   async loadQuestions() {
-    this.questions = await this.adminService.getQuestions();
+    const qs = await this.adminService.getQuestions();
+    // ✅ Sort by id ascending (latest last me)
+    this.questions = qs.sort((a, b) => (a.id || 0) - (b.id || 0));
     this.filteredQuestions = [...this.questions];
     this.loadUniqueCategories();
     this.applyQuestionsFilters();
@@ -643,6 +660,7 @@ export class AdminPage implements OnInit, OnDestroy {
       submissions: 'All Submissions',
       students: 'Students',
       questions: 'Question Bank',
+      images: 'Image Manager',              // ✅ NEW
       examvids: 'Exam Recordings',
       screenvids: 'Screen Recordings',
       sessionlogs: 'Session Logs',
@@ -659,6 +677,7 @@ export class AdminPage implements OnInit, OnDestroy {
       submissions: 'Every student answer in one place',
       students: 'Registered student accounts',
       questions: 'Loaded from questions.json',
+      images: 'Upload question images for Excel bulk import',   // ✅ NEW
       examvids: 'Full session videos from each student',
       screenvids: 'Full screen recordings of student desktop activity',
       sessionlogs: 'Student login, logout, and exam activity',
@@ -707,6 +726,9 @@ export class AdminPage implements OnInit, OnDestroy {
     this.editQuestionCategory = question.category || 'General';
     this.editQuestionDifficulty = question.difficulty || 'Medium';
     this.editQuestionKeywords = Array.isArray(question.keywords) ? question.keywords.join(', ') : (question.keywords || '');
+    this.editQuestionImage = question.image || null;
+    this.editQuestionHideFromStudent = !!question.hide_from_student;         // ✅ NEW
+    this.editQuestionSendTextOnly = !!question.send_text_only_to_ai;         // ✅ NEW
     this.showEditModal = true;
   }
 
@@ -717,6 +739,9 @@ export class AdminPage implements OnInit, OnDestroy {
     this.editQuestionCategory = '';
     this.editQuestionDifficulty = 'Medium';
     this.editQuestionKeywords = '';
+    this.editQuestionImage = null;
+    this.editQuestionHideFromStudent = false;         // ✅ NEW
+    this.editQuestionSendTextOnly = false;            // ✅ NEW
   }
 
   loadUniqueCategories() {
@@ -797,6 +822,40 @@ export class AdminPage implements OnInit, OnDestroy {
     }
   }
 
+  // async saveEditQuestion() {
+  //   if (!this.editQuestionId || !this.editQuestionText) return;
+  //   const id = this.editQuestionId;
+  //   const text = this.editQuestionText;
+  //   const cat = this.editQuestionCategory;
+  //   const diff = this.editQuestionDifficulty;
+  //   const kws = this.editQuestionKeywords;
+
+  //   try {
+  //     await this.adminService.updateQuestion(id, text, cat, diff, kws);
+  //     this.showToast('Question updated successfully!', 'success');
+  //     this.closeEditModal();
+
+  //     // 🟢 Local instant update
+  //     const idx = this.questions.findIndex(q => q.id === id);
+  //     if (idx !== -1) {
+  //       this.questions[idx] = {
+  //         ...this.questions[idx],
+  //         question: text,
+  //         category: cat,
+  //         difficulty: diff,
+  //         keywords: kws ? kws.split(',').map(s => s.trim()).filter(Boolean) : []
+  //       };
+  //     }
+  //     if (cat && !this.allCategories.includes(cat)) {
+  //       this.allCategories.push(cat);
+  //       this.allCategories.sort();
+  //     }
+  //     this.applyQuestionsFilters();
+  //   } catch (err) {
+  //     this.showToast('Failed to update question', 'danger');
+  //   }
+  // }
+
   async saveEditQuestion() {
     if (!this.editQuestionId || !this.editQuestionText) return;
     const id = this.editQuestionId;
@@ -810,7 +869,6 @@ export class AdminPage implements OnInit, OnDestroy {
       this.showToast('Question updated successfully!', 'success');
       this.closeEditModal();
 
-      // 🟢 Local instant update
       const idx = this.questions.findIndex(q => q.id === id);
       if (idx !== -1) {
         this.questions[idx] = {
@@ -837,6 +895,57 @@ export class AdminPage implements OnInit, OnDestroy {
 
   getStudentVideoCount(username: string): number {
     return this.submissions.filter(s => s.username === username && s.has_video).length;
+  }
+
+  async addQuestionWithImage(
+    image: File | null,
+    hideFromStudent: boolean = false,        // ✅ NEW
+    sendTextOnlyToAi: boolean = false        // ✅ NEW
+  ) {
+    if (!this.newQuestionText.trim()) {
+      this.showFeedback('Question text is required', 'error');
+      return;
+    }
+    const cat = this.newQuestionCategory.trim() || 'General';
+    const text = this.newQuestionText.trim();
+    const diff = this.newQuestionDifficulty;
+    const kws = this.newQuestionKeywords.trim();
+
+    try {
+      // ✅ image + 2 naye flags ke sath call karo
+      const res = await this.adminService.addQuestion(
+        text, cat, diff, kws, image,
+        hideFromStudent,        // ✅ NEW
+        sendTextOnlyToAi        // ✅ NEW
+      );
+      this.showFeedback('Question added successfully!', 'success');
+      this.newQuestionText = '';
+      this.newQuestionCategory = '';
+      this.newQuestionDifficulty = 'Medium';
+      this.newQuestionKeywords = '';
+
+      const addedQ: Question = res?.question || {
+        id: Date.now(),
+        question: text,
+        category: cat,
+        difficulty: diff,
+        keywords: kws ? kws.split(',').map(s => s.trim()).filter(Boolean) : []
+      };
+
+      this.questions.push(addedQ);
+      this.questions.sort((a, b) => (a.id || 0) - (b.id || 0));
+
+      if (cat && !this.allCategories.includes(cat)) {
+        this.allCategories.push(cat);
+        this.allCategories.sort();
+      }
+
+      this.uniqueCategories = [...this.allCategories];
+      this.refreshCategoryOptions();
+      this.applyQuestionsFilters();
+    } catch (err) {
+      this.showFeedback('Failed to add question', 'error');
+    }
   }
 
   async addQuestion() {
@@ -867,7 +976,12 @@ export class AdminPage implements OnInit, OnDestroy {
       };
 
       // 1. Add question locally at the top
-      this.questions.unshift(addedQ);
+      // this.questions.unshift(addedQ);
+
+
+      // 1. Add question locally at the bottom + sort
+      this.questions.push(addedQ);
+      this.questions.sort((a, b) => (a.id || 0) - (b.id || 0));
 
       // 2. Add category locally if new
       if (cat && !this.allCategories.includes(cat)) {
@@ -2222,12 +2336,34 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
-  async onAddQuestionFromComponent(data: { question: string; category: string; difficulty: string; keywords?: string }) {
+  // async onAddQuestionFromComponent(data: { question: string; category: string; difficulty: string; keywords?: string }) {
+  //   this.newQuestionText = data.question;
+  //   this.newQuestionCategory = data.category;
+  //   this.newQuestionDifficulty = data.difficulty;
+  //   this.newQuestionKeywords = data.keywords || '';
+  //   await this.addQuestion();
+  // }
+
+  async onAddQuestionFromComponent(data: {
+    question: string;
+    category: string;
+    difficulty: string;
+    keywords?: string;
+    image?: File;
+    hideFromStudent?: boolean;            // ✅ NEW
+    sendTextOnlyToAi?: boolean;           // ✅ NEW
+  }) {
     this.newQuestionText = data.question;
     this.newQuestionCategory = data.category;
     this.newQuestionDifficulty = data.difficulty;
     this.newQuestionKeywords = data.keywords || '';
-    await this.addQuestion();
+
+    // ✅ NEW: image + new flags ke sath add karo
+    await this.addQuestionWithImage(
+      data.image || null,
+      data.hideFromStudent || false,      // ✅ NEW
+      data.sendTextOnlyToAi || false      // ✅ NEW
+    );
   }
 
   onQuestionFilterChange(filters: { category: string; difficulty: string }) {
@@ -2236,12 +2372,82 @@ export class AdminPage implements OnInit, OnDestroy {
     this.applyQuestionsFilters();
   }
 
-  async onSaveEditQuestionFromModal(payload: { question: string; category: string; difficulty: string; keywords?: string }) {
-    this.editQuestionText = payload.question;
-    this.editQuestionCategory = payload.category;
-    this.editQuestionDifficulty = payload.difficulty;
-    this.editQuestionKeywords = payload.keywords || '';
-    await this.saveEditQuestion();
+  // async onSaveEditQuestionFromModal(payload: { question: string; category: string; difficulty: string; keywords?: string }) {
+  //   this.editQuestionText = payload.question;
+  //   this.editQuestionCategory = payload.category;
+  //   this.editQuestionDifficulty = payload.difficulty;
+  //   this.editQuestionKeywords = payload.keywords || '';
+  //   await this.saveEditQuestion();
+  // }
+
+  async onSaveEditQuestionFromModal(payload: {
+    question: string;
+    category: string;
+    difficulty: string;
+    keywords?: string;
+    image?: File | null;
+    removeImage?: boolean;
+    hideFromStudent?: boolean;            // ✅ NEW
+    sendTextOnlyToAi?: boolean;           // ✅ NEW
+  }) {
+    if (!this.editQuestionId || !payload.question) return;
+    const id = this.editQuestionId;
+    const text = payload.question;
+    const cat = payload.category;
+    const diff = payload.difficulty;
+    const kws = payload.keywords || '';
+
+    try {
+      const res = await this.adminService.updateQuestion(
+        id, text, cat, diff, kws,
+        payload.image || null,
+        payload.removeImage || false,
+        payload.hideFromStudent || false,     // ✅ NEW
+        payload.sendTextOnlyToAi || false     // ✅ NEW
+      );
+
+      this.showToast('Question updated successfully!', 'success');
+      this.closeEditModal();
+
+      const idx = this.questions.findIndex(q => q.id === id);
+      if (idx !== -1) {
+        const updated: any = {
+          ...this.questions[idx],
+          question: text,
+          category: cat,
+          difficulty: diff,
+          keywords: kws ? kws.split(',').map(s => s.trim()).filter(Boolean) : []
+        };
+
+        if (res?.question?.image) {
+          updated.image = res.question.image;
+        } else if (payload.removeImage) {
+          delete updated.image;
+        }
+
+        // ✅ NEW: Update local flags
+        if (payload.hideFromStudent) {
+          updated.hide_from_student = true;
+        } else {
+          delete updated.hide_from_student;
+        }
+        if (payload.sendTextOnlyToAi) {
+          updated.send_text_only_to_ai = true;
+        } else {
+          delete updated.send_text_only_to_ai;
+        }
+
+        this.questions[idx] = updated;
+      }
+
+      if (cat && !this.allCategories.includes(cat)) {
+        this.allCategories.push(cat);
+        this.allCategories.sort();
+      }
+      this.applyQuestionsFilters();
+    } catch (err) {
+      this.showToast('Failed to update question', 'danger');
+    }
   }
 
   async onSendBulkEmailFromModal(payload: { emailType: string; emailSubject: string; emailMessage: string }) {

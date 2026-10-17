@@ -243,6 +243,18 @@
         </div>
         
         <div class="q-res-question">{{ q.question }}</div>
+
+        <!-- ✅ NEW: Question image (agar hai) -->
+        <div *ngIf="q.question_image" class="q-res-image-wrap">
+          <img
+            [src]="getQuestionImageUrl(q.question_image)"
+            alt="Question diagram"
+            class="q-res-image"
+            (click)="openImagePreview(q.question_image)"
+            title="Click to view full size"
+          />
+          <div class="q-res-image-hint">🔍 Click to view larger</div>
+        </div>
         
         <!-- ✅ Flex row: answer on left, hexagons on right (2+1 layout) -->
         <div class="answer-hex-row">
@@ -304,6 +316,23 @@
     <div class="actions-row">
       <ion-button fill="outline" (click)="logout()">← Log Out</ion-button>
       <ion-button (click)="printReport()">📄 Download PDF Report</ion-button>
+    </div>
+
+  </div>
+
+  <!-- ✅ NEW: Question Image Lightbox -->
+  <div
+    class="result-image-backdrop"
+    *ngIf="previewImageUrl"
+    (click)="closeImagePreview()"
+  >
+    <div class="result-image-content" (click)="$event.stopPropagation()">
+      <button
+        class="result-image-close"
+        (click)="closeImagePreview()"
+        title="Close"
+      >✕</button>
+      <img [src]="previewImageUrl" alt="Question image (full size)" />
     </div>
 
   </div>

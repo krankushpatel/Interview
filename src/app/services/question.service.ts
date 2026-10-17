@@ -11,6 +11,9 @@ export interface Question {
   difficulty: string;
   keywords?: string[];
   class_name?: string;
+  image?: string;
+  hide_from_student?: boolean;        // ✅ NEW
+  send_text_only_to_ai?: boolean;     // ✅ NEW
 }
 
 export interface AnswerRecord {

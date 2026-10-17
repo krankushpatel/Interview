@@ -123,6 +123,7 @@ def _build_technical_single_prompt(
     category: str = "General",
     reference_answer: Optional[str] = None,
     existing_key_points: Optional[List[str]] = None,
+    has_image: bool = False,                 # ✅ NEW
 ) -> str:
     reference_block = ""
     key_point_source = "your own subject-matter expertise"
@@ -136,8 +137,13 @@ def _build_technical_single_prompt(
     else:
         step_1 = f"1. List 3-6 short expected_key_points a strong answer would cover, based on {key_point_source}."
 
-    return f"""{_EVALUATOR_PREAMBLE}
+    # ✅ NEW: Image marker
+    image_marker = ""
+    if has_image:
+        image_marker = "\n[IMAGE ATTACHED: An image is attached below. Refer to the image when evaluating the candidate's answer if relevant.]\n"
 
+    return f"""{_EVALUATOR_PREAMBLE}
+{image_marker}
 You are grading ONE technical interview answer from an engineering candidate.
 
 QUESTION ({category}): {question_text}
@@ -178,7 +184,12 @@ Score each dimension according to its own definition. A technically incorrect an
 
 Call the submit_evaluation tool with your structured result. Do not include any text outside the tool call."""
 
-def _build_technical_batch_prompt(batch_items: list, include_summary: bool = False) -> str:
+def _build_technical_batch_prompt(
+    batch_items: list, 
+    include_summary: bool = False,
+    has_images: bool = False,                  # ✅ NEW
+    image_questions: Optional[list] = None,    # ✅ NEW (list of qids with images)
+) -> str:
     """batch_items: {"id", "question_text", "answer", "category",
     "reference_answer"?, "existing_key_points"?}.
 
@@ -186,10 +197,19 @@ def _build_technical_batch_prompt(batch_items: list, include_summary: bool = Fal
     in one chunk (<=9 questions): evaluations + the 4-part summary are
     requested in the same tool call. Multi-chunk sessions call this with
     include_summary=False and summarize separately afterwards."""
+    
+    image_questions = image_questions or []
     blocks = []
     for item in batch_items:
+        # ✅ NEW: Add [HAS IMAGE] marker if this question has one
+        has_img = str(item["id"]) in [str(x) for x in image_questions]
+        header = f"--- Question id={item['id']} ({item.get('category', 'General')})"
+        if has_img:
+            header += " [HAS IMAGE BELOW]"
+        header += " ---"
+        
         lines = [
-            f"--- Question id={item['id']} ({item.get('category', 'General')}) ---",
+            header,
             f"QUESTION: {item['question_text']}",
             f"CANDIDATE ANSWER (raw speech-to-text transcript): {item['answer']}",
         ]
@@ -202,6 +222,15 @@ def _build_technical_batch_prompt(batch_items: list, include_summary: bool = Fal
             lines.append(_frozen_rubric_block(frozen).strip())
         blocks.append("\n".join(lines))
     items_block = "\n\n".join(blocks)
+
+    # ✅ NEW: Global image instruction
+    image_instruction = ""
+    if has_images:
+        image_instruction = (
+            "\n[IMAGES ATTACHED: This batch contains images attached below in the same order "
+            "as the [HAS IMAGE BELOW] questions appear. Refer to the corresponding image when "
+            "evaluating each marked question.]\n"
+        )
 
 
     if include_summary:
@@ -240,9 +269,8 @@ STYLE REQUIREMENTS:
                    f"{len(batch_items)} questions. Do not include any text outside the tool call.")
 
     return f"""{_EVALUATOR_PREAMBLE}
-
+{image_instruction}
 You are grading {len(batch_items)} technical interview answers from ONE engineering candidate, as part of a single interview session.
-
 {items_block}
 
 For EACH question above, independently:

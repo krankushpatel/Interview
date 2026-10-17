@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, NavController, ToastController } from '@ionic/angular';
@@ -16,6 +16,7 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { EyeTrackingService } from '../../services/eye-tracking.service';
 import { EyeViolationEvent } from '../../models/eye-tracking.models'; // You already have this, just ensure it's imported
+
 
 @Component({
   selector: 'app-student',
@@ -1967,14 +1968,23 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   updateProgressUI() {
-    const questionTextEl = document.getElementById('question-text');
-    if (questionTextEl) questionTextEl.textContent = this.currentQuestion.question || (this.currentQuestion as any).text || '';
+    // ✅ NEW: Text update only if not hidden
+    if (!this.currentQuestion?.hide_from_student) {
+      const questionTextEl = document.getElementById('question-text');
+      if (questionTextEl) {
+        questionTextEl.textContent = this.currentQuestion.question || (this.currentQuestion as any).text || '';
+      }
+    }
+
     const badgeEl = document.getElementById('question-badge');
     if (badgeEl) badgeEl.innerHTML = `💡 ${this.currentQuestion.category} · <span style="color:var(--text2);font-size:.65rem">${this.currentQuestion.difficulty || 'Medium'}</span>`;
+    
     const counterEl = document.getElementById('q-counter-label');
     if (counterEl) counterEl.textContent = `Question ${this.currentIndex + 1} of ${this.questions.length}`;
+    
     const fillEl = document.getElementById('progress-fill');
     if (fillEl) fillEl.style.width = `${(this.currentIndex / this.questions.length) * 100}%`;
+    
     for (let i = 0; i < this.questions.length; i++) {
       const dot = document.getElementById(`qdot-${i}`);
       if (dot) dot.className = i < this.currentIndex ? 'q-dot done' : i === this.currentIndex ? 'q-dot current' : 'q-dot';
@@ -2545,4 +2555,30 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       console.warn('📸 [Evidence] Snapshot capture/upload failed:', err);
     }
   }
+
+  // ✅ NEW: Question image properties + methods
+  previewQuestionImageUrl: string | null = null;
+
+  getQuestionImageUrl(filename: string | null | undefined): string {
+    if (!filename) return '';
+    return `${environment.apiUrl}/uploads/questions/${filename}`;
+  }
+
+  openQuestionImagePreview(): void {
+    if (this.currentQuestion?.image) {
+      this.previewQuestionImageUrl = this.getQuestionImageUrl(this.currentQuestion.image);
+    }
+  }
+
+  closeQuestionImagePreview(): void {
+    this.previewQuestionImageUrl = null;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscKey(): void {
+    if (this.previewQuestionImageUrl) {
+      this.closeQuestionImagePreview();
+    }
+  }
+
 }

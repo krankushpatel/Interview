@@ -34,6 +34,9 @@ from code.admin.monitoring import get_live_exams
 from code.core.data_manager import db, get_db
 from code.questions.keyword_extractor import extract_keywords_from_text, normalize_keywords
 
+# ✅ NEW: Image handling imports
+from code.utils.image_handler import validate_image_file, save_image_file, delete_image_file
+
 router = APIRouter()
 
 def generate_unique_username(db, name: str) -> str:
@@ -269,6 +272,7 @@ async def admin_delete_student(username: str):
     except Exception as e:
         print(f"[DELETE STUDENT ERROR] {e}")
         raise HTTPException(400, str(e))
+
 # ==========================================
 # 2. STUDENT SPECIFIC ACTIONS (STATIC)
 # ==========================================
@@ -314,8 +318,80 @@ async def get_admin_student_full_profile(username: str):
 
 
 # ==========================================
-# 3. QUESTIONS MANAGEMENT (PURE MONGODB)
+# 3. QUESTIONS MANAGEMENT (PURE MONGODB) — WITH IMAGE SUPPORT
 # ==========================================
+
+# @router.post("/questions/add")
+# async def admin_add_question(
+#     question: Optional[str] = Form(default=None),
+#     text: Optional[str] = Form(default=None),
+#     category: str = Form(default="General"),
+#     difficulty: str = Form(default="Medium"),
+#     keywords: Optional[str] = Form(default=None),
+#     image: Optional[UploadFile] = File(None)          # ✅ NEW
+# ):
+#     """Add new question with optional image upload"""
+#     image_filename = None
+#     try:
+#         q_text = (question or text or "").strip()
+#         if not q_text:
+#             raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+#         cat_name = category.strip()
+#         if cat_name:
+#             db.categories.update_one(
+#                 {"name": {"$regex": f"^{re.escape(cat_name)}$", "$options": "i"}},
+#                 {"$setOnInsert": {"name": cat_name}},
+#                 upsert=True
+#             )
+
+#         max_q = db.questions.find_one(sort=[("id", -1)])
+#         next_id = (max_q["id"] + 1) if (max_q and "id" in max_q) else 1
+
+#         # Process speech recognition keywords
+#         if keywords and keywords.strip():
+#             raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
+#             kws = normalize_keywords(raw_list)
+#         else:
+#             kws = []
+
+#         # ✅ NEW: Handle image upload
+#         if image is not None:
+#             is_valid, error_msg, ext = validate_image_file(image)
+#             if not is_valid:
+#                 raise HTTPException(status_code=400, detail=f"Invalid image: {error_msg}")
+#             image.file.seek(0)                            # reset pointer after validation
+#             image_filename = save_image_file(image, next_id)
+
+#         new_q = {
+#             "id": next_id,
+#             "category": cat_name,
+#             "difficulty": difficulty.strip(),
+#             "question": q_text,
+#             "text": q_text,
+#             "class_name": "All",
+#             "keywords": kws
+#         }
+#         if image_filename:
+#             new_q["image"] = image_filename               # ✅ NEW
+
+#         db.questions.insert_one(new_q)
+
+#         # Remove MongoDB _id for JSON response
+#         if "_id" in new_q:
+#             del new_q["_id"]
+
+#         return {"success": True, "question": new_q}
+#     except HTTPException:
+#         # Agar image save ho gayi thi aur validation ya insert fail ho gaya, toh cleanup
+#         if image_filename:
+#             delete_image_file(image_filename)
+#         raise
+#     except Exception as e:
+#         # Cleanup orphan image if DB insert failed
+#         if image_filename:
+#             delete_image_file(image_filename)
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/questions/add")
 async def admin_add_question(
@@ -323,8 +399,13 @@ async def admin_add_question(
     text: Optional[str] = Form(default=None),
     category: str = Form(default="General"),
     difficulty: str = Form(default="Medium"),
-    keywords: Optional[str] = Form(default=None)
+    keywords: Optional[str] = Form(default=None),
+    image: Optional[UploadFile] = File(None),
+    hide_from_student: Optional[str] = Form(default=None),        # ✅ NEW
+    send_text_only_to_ai: Optional[str] = Form(default=None)      # ✅ NEW
 ):
+    """Add new question with optional image upload + hide/AI options"""
+    image_filename = None
     try:
         q_text = (question or text or "").strip()
         if not q_text:
@@ -348,6 +429,14 @@ async def admin_add_question(
         else:
             kws = []
 
+        # Handle image upload
+        if image is not None:
+            is_valid, error_msg, ext = validate_image_file(image)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=f"Invalid image: {error_msg}")
+            image.file.seek(0)
+            image_filename = save_image_file(image, next_id)
+
         new_q = {
             "id": next_id,
             "category": cat_name,
@@ -357,17 +446,37 @@ async def admin_add_question(
             "class_name": "All",
             "keywords": kws
         }
+        if image_filename:
+            new_q["image"] = image_filename
+
+        # ✅ NEW: Optional fields
+        if hide_from_student and hide_from_student.strip().lower() in ('true', 'yes', '1'):
+            if not image_filename:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot hide text without image. Student will see nothing."
+                )
+            new_q["hide_from_student"] = True
+
+        if send_text_only_to_ai and send_text_only_to_ai.strip().lower() in ('true', 'yes', '1'):
+            new_q["send_text_only_to_ai"] = True
+
         db.questions.insert_one(new_q)
-        
-        # UI fix ke liye string id return karna zaroori hai (agar DB ObjectId maange)
-        if "_id" in new_q: del new_q["_id"]
-        
+
+        if "_id" in new_q:
+            del new_q["_id"]
+
         return {"success": True, "question": new_q}
     except HTTPException:
+        if image_filename:
+            delete_image_file(image_filename)
         raise
     except Exception as e:
+        if image_filename:
+            delete_image_file(image_filename)
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.post("/questions/update")
 async def admin_update_question(
     id: int = Form(...),
@@ -375,34 +484,117 @@ async def admin_update_question(
     text: Optional[str] = Form(default=None),
     category: str = Form(...),
     difficulty: str = Form(...),
-    keywords: Optional[str] = Form(default=None)
+    keywords: Optional[str] = Form(default=None),
+    image: Optional[UploadFile] = File(None),
+    remove_image: Optional[str] = Form(default=None),
+    hide_from_student: Optional[str] = Form(default=None),        # ✅ NEW
+    send_text_only_to_ai: Optional[str] = Form(default=None)      # ✅ NEW
 ):
-    q_text = (question or text or "").strip()
-    if not q_text:
-        raise HTTPException(status_code=400, detail="Question text cannot be empty")
+    """Update question with optional image replace or removal"""
+    new_image_filename = None
+    try:
+        q_text = (question or text or "").strip()
+        if not q_text:
+            raise HTTPException(status_code=400, detail="Question text cannot be empty")
 
-    update_doc = {
-        "question": q_text,
-        "text": q_text,
-        "category": category.strip(),
-        "difficulty": difficulty.strip()
-    }
-    if keywords is not None and keywords.strip():
-        raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
-        update_doc["keywords"] = normalize_keywords(raw_list)
-    elif keywords is not None:
-        update_doc["keywords"] = []
+        # Pehle existing question fetch karo (image filename nikalne ke liye)
+        existing = db.questions.find_one({"id": id})
+        if not existing:
+            raise HTTPException(404, "Question not found")
 
-    result = db.questions.update_one(
-        {"id": id},
-        {"$set": update_doc}
-    )
-    if result.modified_count > 0 or result.matched_count > 0:
-        return {"success": True}
-    raise HTTPException(404, "Question not found")
+        old_image_filename = existing.get("image")
+
+        # Build update doc
+        update_doc = {
+            "question": q_text,
+            "text": q_text,
+            "category": category.strip(),
+            "difficulty": difficulty.strip()
+        }
+        if keywords is not None and keywords.strip():
+            raw_list = [k.strip() for k in re.split(r'[,;\n]+', keywords) if k.strip()]
+            update_doc["keywords"] = normalize_keywords(raw_list)
+        elif keywords is not None:
+            update_doc["keywords"] = []
+
+        # ✅ Case 1: Naya image upload kiya
+        if image is not None:
+            is_valid, error_msg, ext = validate_image_file(image)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=f"Invalid image: {error_msg}")
+            image.file.seek(0)
+            new_image_filename = save_image_file(image, id)
+            update_doc["image"] = new_image_filename
+
+        # ✅ Case 2: Existing image hatani hai
+        unset_field = {}
+        if image is None and remove_image and remove_image.lower() == "true":
+            unset_field["image"] = ""
+
+        # ✅ NEW: Handle hide_from_student
+        if hide_from_student is not None:
+            if hide_from_student.strip().lower() in ('true', 'yes', '1'):
+                # Validation: Hide requires image (existing or new)
+                final_image = new_image_filename or old_image_filename
+                if not final_image:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot hide text without image. Student will see nothing."
+                    )
+                update_doc["hide_from_student"] = True
+            else:
+                unset_field["hide_from_student"] = ""
+
+        # ✅ NEW: Handle send_text_only_to_ai
+        if send_text_only_to_ai is not None:
+            if send_text_only_to_ai.strip().lower() in ('true', 'yes', '1'):
+                update_doc["send_text_only_to_ai"] = True
+            else:
+                unset_field["send_text_only_to_ai"] = ""
+
+        # Build mongo operation
+        mongo_op = {"$set": update_doc}
+        if unset_field:
+            mongo_op["$unset"] = unset_field
+
+        result = db.questions.update_one({"id": id}, mongo_op)
+
+        # ✅ Purani image delete karo (agar replace ya remove hua)
+        if old_image_filename and (new_image_filename or "image" in unset_field):
+            delete_image_file(old_image_filename)
+
+        if result.modified_count > 0 or result.matched_count > 0:
+            # Frontend ko updated question (with new image filename) bhejo
+            updated_q = db.questions.find_one({"id": id}, {"_id": 0})
+            return {"success": True, "question": updated_q}
+
+        raise HTTPException(404, "Question not found")
+
+    except HTTPException:
+        # Rollback new image if DB update failed
+        if new_image_filename:
+            delete_image_file(new_image_filename)
+        raise
+    except Exception as e:
+        # Rollback new image on any error
+        if new_image_filename:
+            delete_image_file(new_image_filename)
+        raise HTTPException(500, str(e))
+
 
 @router.delete("/questions/{question_id}")
 async def admin_delete_question(question_id: int):
+    """Delete question along with its associated image file"""
+    # Pehle question fetch karo image filename nikalne ke liye
+    existing = db.questions.find_one({"id": question_id})
+    if not existing:
+        raise HTTPException(404, "Question not found")
+
+    # ✅ Associated image file delete karo
+    image_filename = existing.get("image")
+    if image_filename:
+        delete_image_file(image_filename)
+
     result = db.questions.delete_one({"id": question_id})
     if result.deleted_count > 0:
         return {"success": True}

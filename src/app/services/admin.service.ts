@@ -36,6 +36,9 @@ export interface Question {
   difficulty: string;
   keywords?: string[];
   class_name?: string;
+  image?: string;
+  hide_from_student?: boolean;        // ✅ NEW
+  send_text_only_to_ai?: boolean;     // ✅ NEW
 }
 
 export interface ExamRecording {
@@ -109,6 +112,22 @@ export class AdminService {
     }));
   }
 
+  // async getQuestions(): Promise<Question[]> {
+  //   const res = await lastValueFrom(this.http.get<{ questions: any[] }>(`${environment.apiUrl}/questions/all`));
+  //   return (res.questions || []).map(q => {
+  //     const qText = q.question || q.text || 'Blank Question';
+  //     return {
+  //       id: q.id,
+  //       question: qText,
+  //       category: q.category || 'General',
+  //       difficulty: q.difficulty || 'Medium',
+  //       keywords: q.keywords,
+  //       class_name: q.class_name,
+  //       image: q.image
+  //     };
+  //   });
+  // }
+
   async getQuestions(): Promise<Question[]> {
     const res = await lastValueFrom(this.http.get<{ questions: any[] }>(`${environment.apiUrl}/questions/all`));
     return (res.questions || []).map(q => {
@@ -119,7 +138,10 @@ export class AdminService {
         category: q.category || 'General',
         difficulty: q.difficulty || 'Medium',
         keywords: q.keywords,
-        class_name: q.class_name
+        class_name: q.class_name,
+        image: q.image,
+        hide_from_student: q.hide_from_student,          // ✅ NEW
+        send_text_only_to_ai: q.send_text_only_to_ai     // ✅ NEW
       };
     });
   }
@@ -143,13 +165,40 @@ export class AdminService {
     }
   }
 
-  async addQuestion(text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
+  // async addQuestion(text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
+  //   const fd = new FormData();
+  //   fd.append('question', text);
+  //   fd.append('category', category);
+  //   fd.append('difficulty', difficulty);
+  //   if (keywords) {
+  //     fd.append('keywords', keywords);
+  //   }
+  //   return lastValueFrom(this.http.post(`${environment.apiUrl}/admin/questions/add`, fd));
+  // }
+  async addQuestion(
+    text: string,
+    category: string,
+    difficulty: string,
+    keywords?: string,
+    image?: File | null,
+    hideFromStudent?: boolean,           // ✅ NEW
+    sendTextOnlyToAi?: boolean           // ✅ NEW
+  ): Promise<any> {
     const fd = new FormData();
     fd.append('question', text);
     fd.append('category', category);
     fd.append('difficulty', difficulty);
     if (keywords) {
       fd.append('keywords', keywords);
+    }
+    if (image) {
+      fd.append('image', image);
+    }
+    if (hideFromStudent) {                              // ✅ NEW
+      fd.append('hide_from_student', 'true');
+    }
+    if (sendTextOnlyToAi) {                             // ✅ NEW
+      fd.append('send_text_only_to_ai', 'true');
     }
     return lastValueFrom(this.http.post(`${environment.apiUrl}/admin/questions/add`, fd));
   }
@@ -309,8 +358,30 @@ export class AdminService {
   }
 
   // Update/Edit Question
-  async updateQuestion(id: number, text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
-    console.log('✅ downloadupdate question Template called with fetch');
+  // async updateQuestion(id: number, text: string, category: string, difficulty: string, keywords?: string): Promise<any> {
+  //   console.log('✅ downloadupdate question Template called with fetch');
+  //   const fd = new FormData();
+  //   fd.append('id', id.toString());
+  //   fd.append('question', text);
+  //   fd.append('category', category);
+  //   fd.append('difficulty', difficulty);
+  //   if (keywords) {
+  //     fd.append('keywords', keywords);
+  //   }
+  //   return lastValueFrom(this.http.post(`${environment.apiUrl}/admin/questions/update`, fd));
+  // }
+
+  async updateQuestion(
+    id: number,
+    text: string,
+    category: string,
+    difficulty: string,
+    keywords?: string,
+    image?: File | null,
+    removeImage?: boolean,
+    hideFromStudent?: boolean,           // ✅ NEW
+    sendTextOnlyToAi?: boolean           // ✅ NEW
+  ): Promise<any> {
     const fd = new FormData();
     fd.append('id', id.toString());
     fd.append('question', text);
@@ -318,6 +389,18 @@ export class AdminService {
     fd.append('difficulty', difficulty);
     if (keywords) {
       fd.append('keywords', keywords);
+    }
+    if (image) {
+      fd.append('image', image);
+    }
+    if (removeImage) {
+      fd.append('remove_image', 'true');
+    }
+    if (hideFromStudent !== undefined) {                // ✅ NEW
+      fd.append('hide_from_student', hideFromStudent ? 'true' : 'false');
+    }
+    if (sendTextOnlyToAi !== undefined) {               // ✅ NEW
+      fd.append('send_text_only_to_ai', sendTextOnlyToAi ? 'true' : 'false');
     }
     return lastValueFrom(this.http.post(`${environment.apiUrl}/admin/questions/update`, fd));
   }
@@ -559,6 +642,39 @@ export class AdminService {
       console.error('Failed to fetch classes for topic', e);
       return ['All'];
     }
+  }
+
+  // ============================================
+  // ✅ IMAGE MANAGER API (NEW)
+  // ============================================
+
+  async getAdminImages(): Promise<{ count: number; images: any[] }> {
+    return lastValueFrom(
+      this.http.get<{ count: number; images: any[] }>(
+        `${environment.apiUrl}/admin/images/list`
+      )
+    );
+  }
+
+  async uploadAdminImages(files: File[]): Promise<any> {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    return lastValueFrom(
+      this.http.post(`${environment.apiUrl}/admin/images/upload`, fd)
+    );
+  }
+
+  async deleteAdminImage(filename: string): Promise<any> {
+    return lastValueFrom(
+      this.http.delete(
+        `${environment.apiUrl}/admin/images/${encodeURIComponent(filename)}`
+      )
+    );
+  }
+
+  getAdminImageUrl(filename: string): string {
+    if (!filename) return '';
+    return `${environment.apiUrl}/uploads/questions/${filename}`;
   }
 
 }

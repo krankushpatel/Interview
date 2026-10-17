@@ -331,14 +331,17 @@ async def _call_single_ai(
     reference_answer: Optional[str] = None,
     question_data: Optional[dict] = None,
     existing_key_points: Optional[List[str]] = None,
+    image_b64: Optional[str] = None,                 # ✅ NEW
 ) -> dict:
     kill = _gibberish_kill_switch(answer)
     if kill:
         return kill
     if _is_intro_question(question_text, category):
+        # Intro question me image nahi bhejni
         return await _evaluate_intro(question_text, answer, category)
     return await _evaluate_technical_single(
-        question_text, answer, category, reference_answer, question_data, existing_key_points)
+        question_text, answer, category, reference_answer, question_data, 
+        existing_key_points, image_b64)              # ✅ pass image
 
 
 async def _evaluate_intro(question_text: str, answer: str, category: str) -> dict:
@@ -387,15 +390,22 @@ async def _evaluate_technical_single(
     reference_answer: Optional[str],
     question_data: Optional[dict],
     existing_key_points: Optional[List[str]],
+    image_b64: Optional[str] = None,                 # ✅ NEW
 ) -> dict:
     resolved_reference = derive_reference_answer(reference_answer, question_data)
     prompt = _build_technical_single_prompt(
-        question_text, answer, category, resolved_reference, existing_key_points)
+        question_text, answer, category, resolved_reference, existing_key_points,
+        has_image=bool(image_b64))                   # ✅ pass flag
     _debug_log_prompt(f"Single question (id-less, q={question_text[:60]!r})", prompt)
+
+    # ✅ NEW: Build image list
+    image_b64_list = [image_b64] if image_b64 else None
+
     try:
         raw = await ai_client.call_with_tool(
             system=_TECH_SYSTEM, user_prompt=prompt,
-            tool=TECHNICAL_SINGLE_TOOL, max_tokens=SINGLE_MAX_TOKENS)
+            tool=TECHNICAL_SINGLE_TOOL, max_tokens=SINGLE_MAX_TOKENS,
+            image_b64_list=image_b64_list)           # ✅ pass images
         _debug_log_response("Single question", raw)
         return _finalize_evaluation(raw, existing_key_points, answer)
     except LLMProviderError as e:
@@ -478,11 +488,25 @@ async def _generate_ai_summary(entries: List[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 async def _evaluate_chunk(chunk: List[dict]) -> Tuple[Dict[str, dict], List[dict]]:
-    prompt = _build_technical_batch_prompt(chunk, include_summary=False)
+    # ✅ NEW: Collect all images in order (Q1 img, Q2 img, ...) — same order as chunk
+    image_b64_list = []
+    for item in chunk:
+        img = item.get("image_b64")
+        if img:
+            image_b64_list.append(img)
+    
+    # ✅ NEW: Tell prompt which questions have images
+    has_images = bool(image_b64_list)
+    image_questions = [str(item["id"]) for item in chunk if item.get("image_b64")]
+    
+    prompt = _build_technical_batch_prompt(
+        chunk, include_summary=False,
+        has_images=has_images, image_questions=image_questions)   # ✅ NEW
     _debug_log_prompt(f"Batch of {len(chunk)} (no summary)", prompt)
     result = await ai_client.call_with_tool(
         system=_TECH_SYSTEM, user_prompt=prompt,
-        tool=TECHNICAL_BATCH_TOOL, max_tokens=CHUNK_MAX_TOKENS)
+        tool=TECHNICAL_BATCH_TOOL, max_tokens=CHUNK_MAX_TOKENS,
+        image_b64_list=image_b64_list or None)     # ✅ pass all images
     _debug_log_response(f"Batch of {len(chunk)} (no summary)", result)
 
     evaluations = result.get("evaluations")
@@ -511,11 +535,24 @@ async def _evaluate_chunk(chunk: List[dict]) -> Tuple[Dict[str, dict], List[dict
 
 
 async def _evaluate_chunk_with_summary(chunk: List[dict]) -> Tuple[Dict[str, dict], List[dict], Optional[dict]]:
-    prompt = _build_technical_batch_prompt(chunk, include_summary=True)
+    # ✅ NEW: Collect all images in order
+    image_b64_list = []
+    for item in chunk:
+        img = item.get("image_b64")
+        if img:
+            image_b64_list.append(img)
+    
+    has_images = bool(image_b64_list)
+    image_questions = [str(item["id"]) for item in chunk if item.get("image_b64")]
+    
+    prompt = _build_technical_batch_prompt(
+        chunk, include_summary=True,
+        has_images=has_images, image_questions=image_questions)   # ✅ NEW
     _debug_log_prompt(f"Batch of {len(chunk)} (with summary)", prompt)
     result = await ai_client.call_with_tool(
         system=_TECH_SYSTEM, user_prompt=prompt,
-        tool=BATCH_TOOL_WITH_SUMMARY, max_tokens=CHUNK_MAX_TOKENS)
+        tool=BATCH_TOOL_WITH_SUMMARY, max_tokens=CHUNK_MAX_TOKENS,
+        image_b64_list=image_b64_list or None)     # ✅ pass all images
     _debug_log_response(f"Batch of {len(chunk)} (with summary)", result)
 
     evaluations = result.get("evaluations")
@@ -548,6 +585,7 @@ async def _fanout_single(item: dict) -> dict:
             reference_answer=item.get("reference_answer"),
             question_data=item.get("question_data"),
             existing_key_points=item.get("existing_key_points"),
+            image_b64=item.get("image_b64"),         # ✅ NEW
         )
 
 

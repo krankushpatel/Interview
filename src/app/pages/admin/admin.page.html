@@ -49,6 +49,14 @@
           <span class="nav-label">Question Bank</span>
         </button>
 
+        <!-- ✅ NEW: Image Manager Tab -->
+        <button class="nav-item" [class.active]="activeView === 'images'" (click)="setView('images')">
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </span>
+          <span class="nav-label">Image Manager</span>
+        </button>
+
         <div class="nav-section-label">Monitoring</div>
 
         <button class="nav-item nav-item-live" [class.active]="activeView === 'live'" (click)="setView('live')">
@@ -214,6 +222,11 @@
           (changePageSize)="changePageSize($event)">
         </app-admin-questions>
 
+        <!-- ✅ NEW: Image Manager -->
+        <app-admin-images
+          *ngIf="activeView === 'images'">
+        </app-admin-images>
+
         <!-- ── Exam & Screen Recordings ── -->
         <app-admin-recordings
           *ngIf="activeView === 'examvids' || activeView === 'screenvids'"
@@ -287,6 +300,9 @@
     [difficulty]="editQuestionDifficulty"
     [keywords]="editQuestionKeywords"
     [allCategories]="allCategories"
+    [existingImage]="editQuestionImage"
+    [hideFromStudent]="editQuestionHideFromStudent"          
+    [sendTextOnlyToAi]="editQuestionSendTextOnly"          
     (dismiss)="closeEditModal()"
     (save)="onSaveEditQuestionFromModal($event)">
   </app-edit-question-modal>

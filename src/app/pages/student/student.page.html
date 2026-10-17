@@ -285,7 +285,25 @@
             <div class="section-label">Interview Question</div>
             <div class="question-card">
               <div class="question-badge" id="question-badge">💡 Loading…</div>
-              <div class="question-text" id="question-text">{{ currentQuestion.question || 'Loading...' }}</div>
+
+              <!-- ✅ NEW: Show text only if NOT hidden -->
+              <div
+                *ngIf="!currentQuestion?.hide_from_student"
+                class="question-text"
+                id="question-text"
+              >{{ currentQuestion.question || 'Loading...' }}</div>
+
+              <!-- ✅ NEW: Question image (agar available hai) -->
+              <div *ngIf="currentQuestion?.image" class="question-image-wrap">
+                <img
+                  [src]="getQuestionImageUrl(currentQuestion.image)"
+                  alt="Question diagram"
+                  class="question-image"
+                  (click)="openQuestionImagePreview()"
+                  title="Click to view full size"
+                />
+                <div class="image-hint">🔍 Click image to view larger</div>
+              </div>
             </div>
             <div class="submitted-banner" id="submitted-banner">
               ✅ Answer submitted — click Next Question to continue
@@ -503,5 +521,21 @@
       </ion-content>
     </ng-template>
   </ion-modal>
+
+  <!-- ✅ NEW: Question Image Lightbox -->
+  <div
+    class="student-image-modal-backdrop"
+    *ngIf="previewQuestionImageUrl"
+    (click)="closeQuestionImagePreview()"
+  >
+    <div class="student-image-modal-content" (click)="$event.stopPropagation()">
+      <button
+        class="student-image-modal-close"
+        (click)="closeQuestionImagePreview()"
+        title="Close"
+      >✕</button>
+      <img [src]="previewQuestionImageUrl" alt="Question image (full size)" />
+    </div>
+  </div>
 
 </ion-content>

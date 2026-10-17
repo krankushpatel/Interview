@@ -253,7 +253,9 @@ def get_question_template() -> bytes:
         ],
         "category": ["OOP", "JavaScript", "Python"],
         "difficulty": ["Medium", "Medium", "Easy"],
-        "class name": ["susandhi", "All", "All"]  # optional column
+        "class name": ["susandhi", "All", "All"],
+        "keywords": ["polymorphism,oop,class", "closure,javascript,scope", "list,comprehension,python"],
+        "image": ["", "", ""]  # ✅ NEW: Image filename column (optional)
     })
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:

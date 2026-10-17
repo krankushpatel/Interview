@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, NavController } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { QuestionService } from '../../services/question.service';
 import { HexagonLayoutService } from '../../services/hexagon-layout.service';
 import { ScoreLegendComponent } from '../../services/score-legend.component';
@@ -476,5 +477,33 @@ export class ResultsPage implements OnInit {
       this.groupedEvents,
       ''
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ NEW: Question Image Display (result page)
+  // ═══════════════════════════════════════════════════════════════
+
+  previewImageUrl: string | null = null;
+
+  getQuestionImageUrl(filename: string | null | undefined): string {
+    if (!filename) return '';
+    return `${environment.apiUrl}/uploads/questions/${filename}`;
+  }
+
+  openImagePreview(filename: string | null | undefined): void {
+    if (filename) {
+      this.previewImageUrl = this.getQuestionImageUrl(filename);
+    }
+  }
+
+  closeImagePreview(): void {
+    this.previewImageUrl = null;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscKey(): void {
+    if (this.previewImageUrl) {
+      this.closeImagePreview();
+    }
   }
 }

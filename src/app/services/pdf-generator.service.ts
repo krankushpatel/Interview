@@ -47,6 +47,52 @@ export class PdfGeneratorService {
     }
   }
 
+  // ✅ NEW: Load question image from backend URL (with CORS support)
+  // ✅ FIXED: Load question image via <img> + canvas (avoids CORS preflight)
+  // Uses the SAME loading mechanism as the on-page <img> tag (which works),
+  // so it bypasses the fetch-based CORS preflight that was blocking the request.
+  private async loadQuestionImageAsBase64(filename: string): Promise<string | null> {
+    if (!filename) return null;
+    try {
+      const url = `${environment.apiUrl}/uploads/questions/${filename}?v=${Date.now()}`;
+
+      return await new Promise<string | null>((resolve) => {
+        const img = new Image();
+        // ✅ FIX: MUST set crossOrigin='anonymous' to avoid "Tainted Canvas" error.
+        // Requires backend to send 'Access-Control-Allow-Origin' header (it does now).
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              console.warn('[PDF] Canvas context unavailable for:', filename);
+              resolve(null);
+              return;
+            }
+            ctx.drawImage(img, 0, 0);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            console.log(`[PDF] ✅ Image loaded: ${filename} (${canvas.width}x${canvas.height})`);
+            resolve(dataUrl);
+          } catch (canvasErr) {
+            console.warn('[PDF] Canvas conversion failed:', filename, canvasErr);
+            resolve(null);
+          }
+        };
+        img.onerror = (err) => {
+          console.warn(`[PDF] Image load failed: ${url}`, err);
+          resolve(null);
+        };
+        img.src = url;
+      });
+    } catch (e) {
+      console.warn('[PDF] Failed to load question image:', filename, e);
+      return null;
+    }
+  }
+
   private getHexTextColor(score: number): string {
     if (score >= 39.5 && score < 90.5) return '#1a1a1a'; 
     return '#ffffff'; 
@@ -517,6 +563,15 @@ export class PdfGeneratorService {
 
     sectionBanner('Question-wise Breakdown');
 
+    // ✅ NEW: Pre-load all question images in parallel (faster than per-question)
+    const questionImages = new Map<string, string | null>();
+    await Promise.all(questions.map(async (q: any) => {
+      if (q.question_image) {
+        const imgData = await this.loadQuestionImageAsBase64(q.question_image);
+        questionImages.set(String(q.id), imgData);
+      }
+    }));
+
     const hexR = 6;
     const hexW = hexR * Math.sqrt(3) / 2;
     const hexRowSpacing = hexR * 1.5 + 0.5;
@@ -535,7 +590,7 @@ export class PdfGeneratorService {
       { key: 'clarity', label: 'C3' }
     ];
 
-    questions.forEach((q: any, i: number) => {
+    for (const [i, q] of questions.entries()) {
       // ── 1. Measure Question (Full Width) ──
       doc.setFontSize(10); doc.setFont('helvetica', 'bold');
       const qLines = doc.splitTextToSize(`Q${i + 1}: ${q.question || ''}`, W - M * 2);
@@ -557,10 +612,18 @@ export class PdfGeneratorService {
       }
 
       // Taller column dono me se kaunsa hai? (Answer text ya Hexagons)
-      const rowH = Math.max(ansBlockH, HEX_BLOCK_H); 
-      const totalBlockH = qBlockH + rowH + fbBlockH + 12;
+      // const rowH = Math.max(ansBlockH, HEX_BLOCK_H); 
+      // const totalBlockH = qBlockH + rowH + fbBlockH + 12;
 
-      // Check for page break
+      // ✅ NEW: Estimate image height (worst case 70mm) for layout calculation
+      // Actual height is recalculated during image rendering with checkPage
+      const estimatedImageH = questionImages.has(String(q.id)) ? 70 : 0;
+
+      // Taller column dono me se kaunsa hai? (Answer text ya Hexagons)
+      const rowH = Math.max(ansBlockH, HEX_BLOCK_H); 
+      const totalBlockH = qBlockH + estimatedImageH + rowH + fbBlockH + 12;
+
+      // Check for page break (before question block starts)
       checkPage(Math.min(totalBlockH, 270));
 
       // ═════ DRAW QUESTION (Full Width) ═════
@@ -570,13 +633,55 @@ export class PdfGeneratorService {
 
       const rowStartY = y; // Yahan se columns start hongi
 
-      // ═════ DRAW ANSWER (Left/Middle - Plain Text) ═════
-      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#4b5563');
-      doc.text(aLines, M, rowStartY + 1); // Box nahi hai, toh direct M (margin) par print karein
+      // ✅ NEW: Draw question image (agar hai) — before answer, full width area me
+      let imageBottomY = rowStartY;
+      const qImgData = questionImages.get(String(q.id));
+      if (qImgData) {
+        try {
+          // Get image dimensions to preserve aspect ratio
+          const img = new Image();
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = qImgData;
+          });
 
+          const maxImgW = W - M * 2;          // Full width minus margins
+          const maxImgH = 70;                 // Max 70mm height (about 1/4 of A4 page)
+          
+          let imgW = maxImgW;
+          let imgH = (img.height / img.width) * imgW;
+          
+          // If too tall, scale down by height
+          if (imgH > maxImgH) {
+            imgH = maxImgH;
+            imgW = (img.width / img.height) * imgH;
+          }
+
+          // Center image horizontally
+          const imgX = M + (maxImgW - imgW) / 2;
+
+          // Page break check BEFORE image
+          checkPage(imgH + 5);
+
+          doc.addImage(qImgData, 'JPEG', imgX, y, imgW, imgH);
+          y += imgH + 3;                      // Move cursor below image
+          imageBottomY = y;
+        } catch (e) {
+          console.warn('[PDF] Failed to embed question image:', q.id, e);
+        }
+      }
+
+      // ═════ DRAW ANSWER (Left/Middle - Plain Text) ═════
+      // doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#4b5563');
+      // doc.text(aLines, M, rowStartY + 1); // Box nahi hai, toh direct M (margin) par print karein
+      // ═════ DRAW ANSWER (Left/Middle - Plain Text) ═════
+      // ✅ FIX: Image ke baad answer draw karo (imageBottomY use karo, rowStartY nahi)
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#4b5563');
+      doc.text(aLines, M, imageBottomY + 1);
       // ═════ DRAW HEXAGONS & LEGEND (Right) ═════
       // Hexagons ko theek answer ki shuruaati line ke level par rakha hai
-      const hexStartY = rowStartY + 5;
+      const hexStartY = imageBottomY + 5;
 
       const hexPositions = [
         { cx: hexColCenterX - hexW - hexHGap / 2, cy: hexStartY },
@@ -612,10 +717,16 @@ export class PdfGeneratorService {
 
       // ═════ ADVANCE Y BELOW BOTH COLUMNS ═════
       // 🔥 NAYA FIX: Answer bottom aur 'C3: Clarity' line me se jo lowest hai, bas uske theek 3-4mm neeche y set karein
-      const legendBottomY = legendY + 3; 
-      const answerBottomY = rowStartY + ansBlockH;
+      // const legendBottomY = legendY + 3; 
+      // const answerBottomY = rowStartY + ansBlockH;
       
-      // +3 kar diya hai (aap isko +2 ya +4 karke gap kam/zyada kar sakte hain)
+      // // +3 kar diya hai (aap isko +2 ya +4 karke gap kam/zyada kar sakte hain)
+      // y = Math.max(answerBottomY, legendBottomY) + 3;
+
+      const legendBottomY = legendY + 3; 
+      // ✅ FIX: answerBottomY image ke baad se count karo
+      const answerBottomY = imageBottomY + ansBlockH;
+      
       y = Math.max(answerBottomY, legendBottomY) + 3;
 
       // ═════ DRAW FEEDBACK (Full Width) ═════
@@ -627,7 +738,7 @@ export class PdfGeneratorService {
 
       // Divider line
       doc.setDrawColor('#e9d5ff'); doc.line(M, y, W - M, y); y += 6;
-    });
+    }
 
     // ── FOOTER ──
     const totalPages = doc.getNumberOfPages();

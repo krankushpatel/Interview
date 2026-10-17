@@ -16,3 +16,4 @@ export * from './group-schedule-modal.component';
 export * from './group-settings-modal.component';
 export * from './import-result-modal.component';
 export * from './student-timetable-modal.component';
+export * from './admin-images.component';
