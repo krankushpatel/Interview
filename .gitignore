@@ -23,11 +23,6 @@ log.txt
 node_modules/
 **/node_modules/
 
-# Explicitly ignores local environment files containing keys or backend IPs
-src/environments/environment.ts
-src/environments/environment.prod.ts
-src/environments/environment*.ts
-
 npm-debug.log
 yarn-error.log
 /.ionic
