@@ -22,9 +22,9 @@ print("\n" + "=" * 70)
 print("🔑 [AI INTERVIEW PLATFORM - STARTUP CONFIG CHECK]")
 if not gemini_key:
     print("❌ GEMINI_API_KEY: MISSING (.env me set nahi hai)")
-elif not gemini_key.startswith("AIzaSy") and not os.getenv("GEMINI_BASE_URL"):
+elif not (gemini_key.startswith("AIzaSy") or gemini_key.startswith("AQ")) and not os.getenv("GEMINI_BASE_URL"):
     print(f"⚠️ GEMINI_API_KEY: '{gemini_key[:8]}...' (Length: {len(gemini_key)})")
-    print("   WARNING: Google Gemini keys start with 'AIzaSy'. Check your .env key!")
+    print("   WARNING: Google Gemini keys usually start with 'AIzaSy' or 'AQ'. Check your .env key!")
 else:
     print(f"✅ GEMINI_API_KEY: Valid format ('{gemini_key[:8]}...', model: {gemini_model or 'default'})")
 

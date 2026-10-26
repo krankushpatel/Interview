@@ -660,9 +660,9 @@ async def _run_provider_chain(entries: List[Tuple[str, Callable[[], Awaitable[An
                     g_key = (os.getenv("GEMINI_API_KEY") or "").strip()
                     if not g_key:
                         print("   • Key Info: GEMINI_API_KEY is not set in environment or .env!")
-                    elif not g_key.startswith("AIzaSy") and not os.getenv("GEMINI_BASE_URL"):
+                    elif not (g_key.startswith("AIzaSy") or g_key.startswith("AQ")) and not os.getenv("GEMINI_BASE_URL"):
                         print(f"   • Key Diagnostic: GEMINI_API_KEY starts with '{g_key[:8]}...' (Length: {len(g_key)}).")
-                        print("     Official Google Gemini API keys start with 'AIzaSy...'. An invalid key will be rejected with 400 Bad Request.")
+                        print("     Official Google Gemini API keys start with 'AIzaSy...' or 'AQ...'. An invalid key will be rejected with 400 Bad Request.")
                 if _is_retryable(e) and attempt < MAX_ATTEMPTS_PER_PROVIDER - 1:
                     print(f"   🔄 Retrying '{name}' with backoff...")
                     await _jittered_backoff(attempt)
