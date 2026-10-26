@@ -23,13 +23,15 @@ export interface EditQuestionPayload {
   template: `
     <ion-modal class="auto-fit-modal" [isOpen]="isOpen" (ionModalDidDismiss)="onDismiss()">
       <ng-template>
-        <div style="background: var(--dip-surface, #ffffff); width: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
-          <ion-header class="ion-no-border">
+        <div style="background: var(--dip-surface, #ffffff); width: 100%; height: 100%; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+          <!-- ✅ FIX: height: 100% added above -->
+          <ion-header class="ion-no-border" style="flex-shrink: 0;">
+            <!-- ✅ FIX: flex-shrink: 0 added above -->
             <ion-toolbar class="modal-toolbar">
               <ion-title>Edit Question</ion-title>
             </ion-toolbar>
           </ion-header>
-          <div class="modal-body">
+          <div class="modal-body" style="flex: 1; min-height: 0;">
             <div class="modal-field">
               <label class="field-label">Question Text *</label>
               <textarea [(ngModel)]="text" rows="4" class="field-textarea" placeholder="Enter question text..."></textarea>
@@ -171,7 +173,7 @@ export interface EditQuestionPayload {
   `
 })
 export class EditQuestionModalComponent implements OnInit, OnChanges {
-  constructor(private elementRef: ElementRef) {}
+  constructor(private elementRef: ElementRef) { }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -201,7 +203,7 @@ export class EditQuestionModalComponent implements OnInit, OnChanges {
   // ✅ NEW: image state
   selectedImage: File | null = null;
   removeExisting: boolean = false;
-  imageError: string = '';         
+  imageError: string = '';
   imagePreviewUrl: string = '';
 
   ngOnInit() {
@@ -337,7 +339,7 @@ export class EditQuestionModalComponent implements OnInit, OnChanges {
     this.selectedImage = null;
     this.removeExisting = false;
     this.imageError = '';              // ✅ NEW
-    this.imagePreviewUrl = ''; 
+    this.imagePreviewUrl = '';
     this.dismiss.emit();
   }
 

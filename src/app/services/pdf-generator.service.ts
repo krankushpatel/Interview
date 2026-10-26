@@ -27,7 +27,7 @@ export class PdfGeneratorService {
     private hexService: HexagonLayoutService,
     private http: HttpClient,
     private toastCtrl: ToastController
-  ) {}
+  ) { }
 
   // Loads an image from a URL/path and returns it as a base64 data URL.
   private async loadImageAsBase64(path: string): Promise<string | null> {
@@ -94,8 +94,8 @@ export class PdfGeneratorService {
   }
 
   private getHexTextColor(score: number): string {
-    if (score >= 39.5 && score < 90.5) return '#1a1a1a'; 
-    return '#ffffff'; 
+    if (score >= 39.5 && score < 90.5) return '#1a1a1a';
+    return '#ffffff';
   }
 
   /**
@@ -109,9 +109,9 @@ export class PdfGeneratorService {
    * @param groupedEvents The pre-grouped events from UI (optional, for cross-checking)
    */
   async generateAndDownloadPDF(
-    result: any, 
-    rawHexagons: HexagonUI[], 
-    hexBounds: any, 
+    result: any,
+    rawHexagons: HexagonUI[],
+    hexBounds: any,
     aggregateMetrics: any[],
     groupedEvents: any[] = [],
     filenameSuffix: string = '' // 🔥 YEH 6TH ARGUMENT ADD KAREIN
@@ -142,8 +142,8 @@ export class PdfGeneratorService {
     // ── Helpers ────────────────────────────────────────────────────────
     const wmW = 150;
     const wmH = 130;
-    const wmX = (W - wmW) / 2;        
-    const wmY = (297 - wmH) / 2;      
+    const wmX = (W - wmW) / 2;
+    const wmY = (297 - wmH) / 2;
 
     const drawWatermark = () => {
       if (logoData) {
@@ -198,10 +198,10 @@ export class PdfGeneratorService {
     doc.rect(0, 0, W, 16, 'F');
 
     if (logoData) {
-      const logoW = 18;   
-      const logoH = 14;   
-      const logoX = 8;    
-      const logoY = 2;    
+      const logoW = 18;
+      const logoH = 14;
+      const logoX = 8;
+      const logoY = 2;
       try {
         doc.addImage(logoData, 'PNG', logoX, logoY, logoW, logoH);
       } catch (e) {
@@ -214,19 +214,19 @@ export class PdfGeneratorService {
     const startX = 70;
     doc.text('Dipstick', startX, 11);
     const originalSize = doc.getFontSize();
-    doc.setFontSize(originalSize * 0.55); 
-    doc.text('®', startX + 28, 8); 
+    doc.setFontSize(originalSize * 0.55);
+    doc.text('®', startX + 28, 8);
     doc.setFontSize(originalSize);
     doc.text(' Interview Report', startX + 30, 11);
 
     // ── STUDENT INFO ────────────────────────────────────────────────────────
     const evDate = result.evaluated_at ? new Date(result.evaluated_at).toLocaleString() : '—';
-    text(`Name : ${result.student_name || ''}`, M, 11, 'bold'); 
-    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor('#111111'); 
-    doc.text(`Evaluated On: ${evDate}`, W - M, y, { align: 'right' }); 
+    text(`Name : ${result.student_name || ''}`, M, 11, 'bold');
+    doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor('#111111');
+    doc.text(`Evaluated On: ${evDate}`, W - M, y, { align: 'right' });
 
     y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor('#6b7280'); 
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor('#6b7280');
     doc.text(`This is an AI generated interview evaluation report`, W - M, y, { align: 'right' });
     y += 6;
     divider();
@@ -234,14 +234,14 @@ export class PdfGeneratorService {
     // ── Overall Performance (HEXAGONAL GRID) ──────────────────────────
     if (rawHexagons && rawHexagons.length > 0) {
       sectionBanner('Overall Performance');
-      
+
       const scale = 0.21;
       const gridWidthMM = (hexBounds.maxX - hexBounds.minX) * scale;
       const gridHeightMM = (hexBounds.maxY - hexBounds.minY) * scale;
 
-      const TIGHT_LEGEND_W = 30;     
-      const TIGHT_GAP      = 5;      
-      const TIGHT_AGG_PAD  = 5;      
+      const TIGHT_LEGEND_W = 30;
+      const TIGHT_GAP = 5;
+      const TIGHT_AGG_PAD = 5;
 
       let aggClusterW = 0, aggClusterH = 0;
       let aggHexR = 0, aggHexW = 0, aggHexRowSpacing = 0, aggHexHGap = 0;
@@ -251,7 +251,7 @@ export class PdfGeneratorService {
         aggHexRowSpacing = aggHexR * 1.5 + 0.5;
         aggHexHGap = 0.8;
         aggClusterW = (aggHexW * 2 * 2) + aggHexHGap + (TIGHT_AGG_PAD * 2);
-        aggClusterH = 14 + (aggHexR * 2) + aggHexRowSpacing;  
+        aggClusterH = 14 + (aggHexR * 2) + aggHexRowSpacing;
       }
 
       const legendImgH = TIGHT_LEGEND_W * (478 / 421);
@@ -268,7 +268,7 @@ export class PdfGeneratorService {
 
       doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor('#0a0a0a');
       doc.text('Question-wise Report', hexGridLeftX, y + 2);
-      y += 4; 
+      y += 4;
 
       const offsetX = hexGridLeftX - hexBounds.minX * scale;
       const offsetY = y - hexBounds.minY * scale;
@@ -278,12 +278,12 @@ export class PdfGeneratorService {
         const nums = pathStr.match(/[\d\.]+/g)?.map(Number) || [];
         if (nums.length < 12) return;
         const pts = [];
-        for(let i=0; i<12; i+=2) pts.push({x: nums[i], y: nums[i+1]});
+        for (let i = 0; i < 12; i += 2) pts.push({ x: nums[i], y: nums[i + 1] });
         const scaledPts = pts.map(p => ({ x: p.x * scale + offsetX, y: p.y * scale + offsetY }));
 
         doc.setFillColor(fillColor); doc.setDrawColor('#ffffff'); doc.setLineWidth(0.5);
-        const linesArr = scaledPts.map((p, i) => i === 0 ? [0,0] : [p.x - scaledPts[i-1].x, p.y - scaledPts[i-1].y]);
-        doc.lines(linesArr, scaledPts[0].x, scaledPts[0].y, [1,1], 'FD', true);
+        const linesArr = scaledPts.map((p, i) => i === 0 ? [0, 0] : [p.x - scaledPts[i - 1].x, p.y - scaledPts[i - 1].y]);
+        doc.lines(linesArr, scaledPts[0].x, scaledPts[0].y, [1, 1], 'FD', true);
 
         const cx = scaledPts[0].x + (scaledPts[2].x - scaledPts[0].x) / 2;
         const cy = scaledPts[0].y + (scaledPts[4].y - scaledPts[0].y) / 2;
@@ -310,17 +310,17 @@ export class PdfGeneratorService {
           doc.text('Evaluation Report', aggStartX + aggClusterW / 2, aggStartY, { align: 'center' });
 
           const hexCenterX = aggStartX + aggClusterW / 2;
-          const hexStartY  = aggStartY + 4 + aggHexR;
+          const hexStartY = aggStartY + 4 + aggHexR;
           const aggPositions = [
-            { cx: hexCenterX - aggHexW - aggHexHGap / 2, cy: hexStartY,                   m: aggregateMetrics[0] },
-            { cx: hexCenterX + aggHexW + aggHexHGap / 2, cy: hexStartY,                   m: aggregateMetrics[1] },
-            { cx: hexCenterX,                            cy: hexStartY + aggHexRowSpacing, m: aggregateMetrics[2] }
+            { cx: hexCenterX - aggHexW - aggHexHGap / 2, cy: hexStartY, m: aggregateMetrics[0] },
+            { cx: hexCenterX + aggHexW + aggHexHGap / 2, cy: hexStartY, m: aggregateMetrics[1] },
+            { cx: hexCenterX, cy: hexStartY + aggHexRowSpacing, m: aggregateMetrics[2] }
           ];
 
           aggPositions.forEach(pos => {
             const cx = pos.cx, cy = pos.cy, m = pos.m;
             const fillColor = m.color;
-            const txtColor  = m.textColor === '#1a1a1a' ? '#1a1a1a' : '#ffffff';
+            const txtColor = m.textColor === '#1a1a1a' ? '#1a1a1a' : '#ffffff';
             const pts = [
               { x: cx - aggHexW, y: cy - aggHexR / 2 }, { x: cx, y: cy - aggHexR },
               { x: cx + aggHexW, y: cy - aggHexR / 2 }, { x: cx + aggHexW, y: cy + aggHexR / 2 },
@@ -360,7 +360,7 @@ export class PdfGeneratorService {
       else {
         y += gridHeightMM + 6;
         if (aggregateMetrics.length === 3) {
-          const fbClusterH = aggClusterH + 14; 
+          const fbClusterH = aggClusterH + 14;
           checkPage(fbClusterH + 6);
           const boxX = (W - aggClusterW) / 2;
           const boxY = y;
@@ -370,16 +370,16 @@ export class PdfGeneratorService {
           doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor('#5b21b6');
           doc.text('Evaluation Report', W / 2, boxY + 5, { align: 'center' });
 
-          const hexCenterX = W / 2; const hexStartY  = boxY + 5 + aggHexR + 2;
+          const hexCenterX = W / 2; const hexStartY = boxY + 5 + aggHexR + 2;
           const aggPositions = [
-            { cx: hexCenterX - aggHexW - aggHexHGap / 2, cy: hexStartY,                   m: aggregateMetrics[0] },
-            { cx: hexCenterX + aggHexW + aggHexHGap / 2, cy: hexStartY,                   m: aggregateMetrics[1] },
-            { cx: hexCenterX,                            cy: hexStartY + aggHexRowSpacing, m: aggregateMetrics[2] }
+            { cx: hexCenterX - aggHexW - aggHexHGap / 2, cy: hexStartY, m: aggregateMetrics[0] },
+            { cx: hexCenterX + aggHexW + aggHexHGap / 2, cy: hexStartY, m: aggregateMetrics[1] },
+            { cx: hexCenterX, cy: hexStartY + aggHexRowSpacing, m: aggregateMetrics[2] }
           ];
 
           aggPositions.forEach(pos => {
             const cx = pos.cx, cy = pos.cy, m = pos.m;
-            const fillColor = m.color; const txtColor  = m.textColor === '#1a1a1a' ? '#1a1a1a' : '#ffffff';
+            const fillColor = m.color; const txtColor = m.textColor === '#1a1a1a' ? '#1a1a1a' : '#ffffff';
             const pts = [
               { x: cx - aggHexW, y: cy - aggHexR / 2 }, { x: cx, y: cy - aggHexR },
               { x: cx + aggHexW, y: cy - aggHexR / 2 }, { x: cx + aggHexW, y: cy + aggHexR / 2 },
@@ -455,7 +455,7 @@ export class PdfGeneratorService {
     const eventDisplayMap: Record<string, string> = {
       'multiple_faces_detected': 'Multiple Faces detected',
       'multiple_speakers_detected': 'Multiple voice detected',
-      'no_face_detected': 'Face Missing from Screen',  
+      'no_face_detected': 'Face Missing from Screen',
       'eye_contact_violation': 'Eye Contact Violation detected',
       'tab_switch': 'Tab Switch detected',
       'fullscreen_exit': 'Full-screen Exit detected',
@@ -473,35 +473,35 @@ export class PdfGeneratorService {
       for (const ev of eventsArray) {
         let rawName = typeof ev === 'string' ? ev : (ev.event || '');
         rawName = rawName.replace(/\s*\(WebSocket\)\s*/gi, '').trim().toLowerCase();
-        
+
         // 🔥 HIDE VOICE MISMATCH
         if (rawName === 'voice_mismatch') continue;
 
         let display = eventDisplayMap[rawName];
         if (!display) {
-           display = rawName.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+          display = rawName.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
         }
-        
+
         if (display) {
-           tempViolations[display] = (tempViolations[display] || 0) + 1;
+          tempViolations[display] = (tempViolations[display] || 0) + 1;
         }
       }
     };
 
     if (groupedEvents && groupedEvents.length > 0) {
       groupedEvents.forEach((ev: any) => {
-         if (!ev.display?.toLowerCase().includes('voice mismatch')) {
-            tempViolations[ev.display || ev.event] = ev.count;
-         }
+        if (!ev.display?.toLowerCase().includes('voice mismatch')) {
+          tempViolations[ev.display || ev.event] = ev.count;
+        }
       });
     }
     else if (ba.violations && Object.keys(ba.violations).length > 0) {
       Object.entries(ba.violations).forEach(([k, v]) => {
-         if (!k.toLowerCase().includes('voice mismatch')) {
-             tempViolations[k] = Number(v) || 0;
-         }
+        if (!k.toLowerCase().includes('voice mismatch')) {
+          tempViolations[k] = Number(v) || 0;
+        }
       });
-    } 
+    }
     else if (ba.critical_events && Array.isArray(ba.critical_events)) {
       processRawEvents(ba.critical_events);
     }
@@ -519,19 +519,19 @@ export class PdfGeneratorService {
       doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor('#1f2937');
       doc.text('Proctor Violation Summary', M, y); y += 7;
 
-      const dashX       = W - M - 25;
+      const dashX = W - M - 25;
       const countRightX = W - M - 2;
 
       for (const v of violationEntries) {
         checkPage(7);
-        const countColor = v.count >= 10 ? '#dc2626' : v.count >= 5  ? '#d97706' : '#374151';
-        
+        const countColor = v.count >= 10 ? '#dc2626' : v.count >= 5 ? '#d97706' : '#374151';
+
         doc.setFontSize(9.5); doc.setFont('helvetica', 'normal'); doc.setTextColor('#374151');
         doc.text(v.display, M + 3, y);
         doc.setFont('helvetica', 'normal'); doc.setTextColor('#9ca3af');
         doc.text('-', dashX, y);
         doc.setFont('helvetica', 'bold'); doc.setTextColor(countColor);
-        doc.text(`${v.count}`, countRightX, y, { align: 'right' }); 
+        doc.text(`${v.count}`, countRightX, y, { align: 'right' });
         y += 6;
       }
     } else {
@@ -544,7 +544,7 @@ export class PdfGeneratorService {
     // ──────────────────────────────────────────────────────────────────────
     // NOTE: Your Transcript is correct  (placed at the bottom of the first page)
     // ──────────────────────────────────────────────────────────────────────
-    const noteText = 'Note : Your Transcript is correct';
+    const noteText = 'Note :Technical terms may be corrected in your transcript to improve accuracy. Your intended meaning will be preserved.';
     doc.setFontSize(10);                     // slightly smaller than body text
     doc.setFont('helvetica', 'italic');
     doc.setTextColor('#555555');             // a neutral gray
@@ -556,9 +556,9 @@ export class PdfGeneratorService {
 
     // ── QUESTION BREAKDOWN ─────────────────────────────────────────────
     if (doc.getNumberOfPages() === 1) {
-        doc.addPage();
-        y = 18; 
-        drawWatermark(); 
+      doc.addPage();
+      y = 18;
+      drawWatermark();
     }
 
     sectionBanner('Question-wise Breakdown');
@@ -576,13 +576,13 @@ export class PdfGeneratorService {
     const hexW = hexR * Math.sqrt(3) / 2;
     const hexRowSpacing = hexR * 1.5 + 0.5;
     const hexHGap = 0.8;
-    
+
     // Right side column width (Hexagons ke liye)
-    const hexColWidth = 45; 
+    const hexColWidth = 45;
     const hexColCenterX = W - M - 20; // Center of right column
 
     // Hexagon + Legend ki fixed height
-    const HEX_BLOCK_H = (hexR * 2) + hexRowSpacing + 12; 
+    const HEX_BLOCK_H = (hexR * 2) + hexRowSpacing + 12;
 
     const pdfMetrics = [
       { key: 'correctness', label: 'C1' },
@@ -591,14 +591,28 @@ export class PdfGeneratorService {
     ];
 
     for (const [i, q] of questions.entries()) {
+      // ✅ FIX: Respect hide_from_student flag
+      // - hide=true AND image exists → skip text, show image only (Option B)
+      // - hide=true AND image missing → show text (fallback)
+      // - hide=false → show text + image (normal)
+      const hasImage = questionImages.has(String(q.id));
+      const shouldHideText = q.hide_from_student === true && hasImage;
+
       // ── 1. Measure Question (Full Width) ──
+      let qLines: string[] = [];
+      let qBlockH = 0;
       doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-      const qLines = doc.splitTextToSize(`Q${i + 1}: ${q.question || ''}`, W - M * 2);
-      const qBlockH = qLines.length * 5.5;
+      if (shouldHideText) {
+        qLines = [`Q${i + 1}:`];
+        qBlockH = qLines.length * 5.5;
+      } else {
+        qLines = doc.splitTextToSize(`Q${i + 1}: ${q.question || ''}`, W - M * 2);
+        qBlockH = qLines.length * 5.5;
+      }
 
       // ── 2. Measure Answer (Left Column) ──
       doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-      const ansMaxW = W - M * 2 - hexColWidth - 5; // Answer sirf left area cover karega
+      const ansMaxW = W - M * 2 - hexColWidth - 5;
       const aLines = doc.splitTextToSize(`Ans: ${q.answer || '(no answer)'}`, ansMaxW);
       const ansBlockH = aLines.length * 5.5;
 
@@ -611,34 +625,30 @@ export class PdfGeneratorService {
         fbBlockH = fbLines.length * 5;
       }
 
-      // Taller column dono me se kaunsa hai? (Answer text ya Hexagons)
-      // const rowH = Math.max(ansBlockH, HEX_BLOCK_H); 
-      // const totalBlockH = qBlockH + rowH + fbBlockH + 12;
+      // ✅ Image height estimate (only if image exists)
+      const estimatedImageH = hasImage ? 70 : 0;
 
-      // ✅ NEW: Estimate image height (worst case 70mm) for layout calculation
-      // Actual height is recalculated during image rendering with checkPage
-      const estimatedImageH = questionImages.has(String(q.id)) ? 70 : 0;
-
-      // Taller column dono me se kaunsa hai? (Answer text ya Hexagons)
-      const rowH = Math.max(ansBlockH, HEX_BLOCK_H); 
+      // Taller column (Answer text vs Hexagons)
+      const rowH = Math.max(ansBlockH, HEX_BLOCK_H);
       const totalBlockH = qBlockH + estimatedImageH + rowH + fbBlockH + 12;
 
       // Check for page break (before question block starts)
       checkPage(Math.min(totalBlockH, 270));
 
-      // ═════ DRAW QUESTION (Full Width) ═════
+      // ═════ DRAW QUESTION (only if not hidden) ═════
       doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor('#1f2937');
       doc.text(qLines, M, y);
       y += qBlockH - 1;
 
       const rowStartY = y; // Yahan se columns start hongi
 
-      // ✅ NEW: Draw question image (agar hai) — before answer, full width area me
+      // ✅ OPTION A: Image LEFT side, narrower width — hexagons RIGHT side, parallel
+      // Image width: W - M*2 - hexColWidth - 5 (~130mm), left aligned at M
+      // Hexagons: RIGHT side at hexColCenterX, starting at same Y as image top
       let imageBottomY = rowStartY;
       const qImgData = questionImages.get(String(q.id));
       if (qImgData) {
         try {
-          // Get image dimensions to preserve aspect ratio
           const img = new Image();
           await new Promise<void>((resolve) => {
             img.onload = () => resolve();
@@ -646,43 +656,49 @@ export class PdfGeneratorService {
             img.src = qImgData;
           });
 
-          const maxImgW = W - M * 2;          // Full width minus margins
-          const maxImgH = 70;                 // Max 70mm height (about 1/4 of A4 page)
-          
+          // ✅ Image narrower — leave space for hexagons on right
+          const maxImgW = W - M * 2 - hexColWidth - 5;  // ~130mm (was 180mm)
+          const maxImgH = 70;
+
           let imgW = maxImgW;
           let imgH = (img.height / img.width) * imgW;
-          
-          // If too tall, scale down by height
           if (imgH > maxImgH) {
             imgH = maxImgH;
             imgW = (img.width / img.height) * imgH;
           }
 
-          // Center image horizontally
-          const imgX = M + (maxImgW - imgW) / 2;
+          // ✅ LEFT aligned (was centered)
+          const imgX = M;
 
-          // Page break check BEFORE image
           checkPage(imgH + 5);
-
           doc.addImage(qImgData, 'JPEG', imgX, y, imgW, imgH);
-          y += imgH + 3;                      // Move cursor below image
-          imageBottomY = y;
+          imageBottomY = y + imgH;   // image bottom Y (not += 3)
         } catch (e) {
           console.warn('[PDF] Failed to embed question image:', q.id, e);
         }
       }
 
-      // ═════ DRAW ANSWER (Left/Middle - Plain Text) ═════
-      // doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#4b5563');
-      // doc.text(aLines, M, rowStartY + 1); // Box nahi hai, toh direct M (margin) par print karein
-      // ═════ DRAW ANSWER (Left/Middle - Plain Text) ═════
-      // ✅ FIX: Image ke baad answer draw karo (imageBottomY use karo, rowStartY nahi)
-      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#4b5563');
-      doc.text(aLines, M, imageBottomY + 1);
-      // ═════ DRAW HEXAGONS & LEGEND (Right) ═════
-      // Hexagons ko theek answer ki shuruaati line ke level par rakha hai
-      const hexStartY = imageBottomY + 5;
+      // ✅ Hexagons start from image TOP (parallel), not image bottom
+      const hexStartY = rowStartY + 5;
 
+      // ✅ FIX: Answer positioning depends on whether an image exists:
+      //   - Image present  → answer starts BELOW the image (left column)
+      //   - No image      → answer starts RIGHT AFTER the question (no gap)
+      let answerStartY: number;
+      if (qImgData) {
+        // Image hai → image ke neeche answer (hexagons right side me parallel)
+        answerStartY = imageBottomY + 6;
+      } else {
+        // Image nahi hai → answer question ke turant neeche (scores right side parallel)
+        answerStartY = rowStartY + 3;
+      }
+
+      // ═════ DRAW ANSWER (Left, full width, below image + hexagons) ═════
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#4b5563');
+      doc.text(aLines, M, answerStartY);
+      const answerBottomY = answerStartY + ansBlockH;
+
+      // ═════ DRAW HEXAGONS & LEGEND (Right, parallel to image) ═════
       const hexPositions = [
         { cx: hexColCenterX - hexW - hexHGap / 2, cy: hexStartY },
         { cx: hexColCenterX + hexW + hexHGap / 2, cy: hexStartY },
@@ -719,14 +735,14 @@ export class PdfGeneratorService {
       // 🔥 NAYA FIX: Answer bottom aur 'C3: Clarity' line me se jo lowest hai, bas uske theek 3-4mm neeche y set karein
       // const legendBottomY = legendY + 3; 
       // const answerBottomY = rowStartY + ansBlockH;
-      
+
       // // +3 kar diya hai (aap isko +2 ya +4 karke gap kam/zyada kar sakte hain)
       // y = Math.max(answerBottomY, legendBottomY) + 3;
 
-      const legendBottomY = legendY + 3; 
-      // ✅ FIX: answerBottomY image ke baad se count karo
-      const answerBottomY = imageBottomY + ansBlockH;
-      
+      // ═════ ADVANCE Y BELOW BOTH COLUMNS ═════
+      // ✅ Answer already measured from below image+hexagons (answerStartY + ansBlockH)
+      // Now advance y to the lowest of: answer bottom, legend bottom
+      const legendBottomY = legendY + 3;
       y = Math.max(answerBottomY, legendBottomY) + 3;
 
       // ═════ DRAW FEEDBACK (Full Width) ═════

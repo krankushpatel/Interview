@@ -21,7 +21,7 @@
 
   <!-- Main Content -->
   <div class="page" *ngIf="result && !loading && !error">
-    
+
     <!-- AI Badge -->
     <div class="ai-badge" [class.rule-based]="!result.ai_powered">
       🤖 {{ result.ai_powered ? 'AI-Powered Evaluation' : 'Rule-Based Evaluation' }}
@@ -31,7 +31,7 @@
      ✅ UPDATED HERO CARD: Score/Decision on top, AI Summary below
      ═══════════════════════════════════════════════════════════════ -->
     <div class="hero-card">
-      
+
       <!-- Top Row: Student Info + Score Ring + Decision -->
       <div class="hero-top-flex">
         <div class="hero-left">
@@ -41,15 +41,13 @@
             <div class="sub">Evaluated: {{ result.evaluated_at | date:'medium' }}</div>
           </div>
         </div>
-        
+
         <div class="hero-score">
           <div class="score-ring">
             <svg width="110" height="110">
               <circle class="track" cx="55" cy="55" r="50"></circle>
-              <circle class="fill" cx="55" cy="55" r="50" 
-                      [attr.stroke]="getScoreColor(animatedScore)"
-                      [attr.stroke-dasharray]="'314 314'" 
-                      [attr.stroke-dashoffset]="314 - (314 * animatedScore / 100)">
+              <circle class="fill" cx="55" cy="55" r="50" [attr.stroke]="getScoreColor(animatedScore)"
+                [attr.stroke-dasharray]="'314 314'" [attr.stroke-dashoffset]="314 - (314 * animatedScore / 100)">
               </circle>
             </svg>
             <div class="score-num">
@@ -58,7 +56,8 @@
             </div>
           </div>
           <div class="decision-badge {{ getDecisionClass(result.final_result.decision) }}">
-            {{ getDecisionEmoji(result.final_result.decision) }} {{ result.final_result.grade }} · {{ result.final_result.decision }}
+            {{ getDecisionEmoji(result.final_result.decision) }} {{ result.final_result.grade }} · {{
+            result.final_result.decision }}
           </div>
         </div>
       </div>
@@ -84,24 +83,17 @@
         <!-- SVG Canvas (hexagon code UNCHANGED — do not modify shape or spacing) -->
         <div class="hex-svg-container">
           <svg [attr.viewBox]="svgViewBox" xmlns="http://www.w3.org/2000/svg">
-            <g *ngFor="let hex of hexagons; let i = index" 
-               (click)="selectHexagon(hex.questionIndex)"
-               [class.hex-active]="selectedHexIndex === hex.questionIndex">
-               
-               <!-- Hexagon Shape -->
-               <path [attr.d]="hex.path" 
-                     [attr.fill]="hex.color" 
-                     class="hex-path" />
-               
-               <!-- Hexagon Text (Q1, Q2...) -->
-               <text [attr.x]="hex.centerX" 
-                     [attr.y]="hex.centerY - 3" 
-                     class="hex-text-label">{{ hex.label }}</text>
-                     
-               <!-- Hexagon Score -->
-               <text [attr.x]="hex.centerX" 
-                     [attr.y]="hex.centerY + 5" 
-                     class="hex-text-score">{{ hex.score }}/10</text>
+            <g *ngFor="let hex of hexagons; let i = index" (click)="selectHexagon(hex.questionIndex)"
+              [class.hex-active]="selectedHexIndex === hex.questionIndex">
+
+              <!-- Hexagon Shape -->
+              <path [attr.d]="hex.path" [attr.fill]="hex.color" class="hex-path" />
+
+              <!-- Hexagon Text (Q1, Q2...) -->
+              <text [attr.x]="hex.centerX" [attr.y]="hex.centerY - 3" class="hex-text-label">{{ hex.label }}</text>
+
+              <!-- Hexagon Score -->
+              <text [attr.x]="hex.centerX" [attr.y]="hex.centerY + 5" class="hex-text-score">{{ hex.score }}/10</text>
             </g>
           </svg>
         </div>
@@ -119,26 +111,26 @@
             <!-- Top row: C1 + C2 -->
             <div class="hex-row-2">
               <div class="metric-hex-item" *ngFor="let agg of aggregateMetrics.slice(0,2)">
-                <svg [attr.viewBox]="'0 0 ' + agg.svgWidth + ' ' + agg.svgHeight"
-                     class="metric-hex-svg" xmlns="http://www.w3.org/2000/svg">
+                <svg [attr.viewBox]="'0 0 ' + agg.svgWidth + ' ' + agg.svgHeight" class="metric-hex-svg"
+                  xmlns="http://www.w3.org/2000/svg">
                   <path [attr.d]="agg.path" [attr.fill]="agg.color" class="metric-hex-path" />
-                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY - 4"
-                        [attr.fill]="agg.textColor" class="metric-hex-label">{{ agg.shortLabel }}</text>
-                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY + 8"
-                        [attr.fill]="agg.textColor" class="metric-hex-score">{{ agg.percentage }}%</text>
+                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY - 4" [attr.fill]="agg.textColor"
+                    class="metric-hex-label">{{ agg.shortLabel }}</text>
+                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY + 8" [attr.fill]="agg.textColor"
+                    class="metric-hex-score">{{ agg.percentage }}%</text>
                 </svg>
               </div>
             </div>
             <!-- Bottom row: C3 centered (nestled below) -->
             <div class="hex-row-1">
               <div class="metric-hex-item" *ngFor="let agg of aggregateMetrics.slice(2,3)">
-                <svg [attr.viewBox]="'0 0 ' + agg.svgWidth + ' ' + agg.svgHeight"
-                     class="metric-hex-svg" xmlns="http://www.w3.org/2000/svg">
+                <svg [attr.viewBox]="'0 0 ' + agg.svgWidth + ' ' + agg.svgHeight" class="metric-hex-svg"
+                  xmlns="http://www.w3.org/2000/svg">
                   <path [attr.d]="agg.path" [attr.fill]="agg.color" class="metric-hex-path" />
-                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY - 4"
-                        [attr.fill]="agg.textColor" class="metric-hex-label">{{ agg.shortLabel }}</text>
-                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY + 8"
-                        [attr.fill]="agg.textColor" class="metric-hex-score">{{ agg.percentage }}%</text>
+                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY - 4" [attr.fill]="agg.textColor"
+                    class="metric-hex-label">{{ agg.shortLabel }}</text>
+                  <text [attr.x]="agg.centerX" [attr.y]="agg.centerY + 8" [attr.fill]="agg.textColor"
+                    class="metric-hex-score">{{ agg.percentage }}%</text>
                 </svg>
               </div>
             </div>
@@ -197,7 +189,8 @@
       <div>
         <div class="beh-label">Classification</div>
         <div class="beh-class" [ngClass]="getBehaviorClass(result.behavior_analysis.classification)">
-          {{ getBehaviorEmoji(result.behavior_analysis.classification) }} {{ (result.behavior_analysis.classification || 'fair') | titlecase }}
+          {{ getBehaviorEmoji(result.behavior_analysis.classification) }} {{ (result.behavior_analysis.classification ||
+          'fair') | titlecase }}
         </div>
         <div class="penalty-info" *ngIf="result.behavior_analysis.penalty_percentage > 0">
           ⚠ {{ result.behavior_analysis.penalty_percentage }}% score penalty applied.
@@ -217,9 +210,7 @@
           <div class="event-row" *ngFor="let ev of groupedEvents; let i = index">
             <span class="event-num">{{ i + 1 }}.</span>
             <span class="event-chip grouped">{{ ev.display }}</span>
-            <span class="event-count" 
-                  [class.high]="ev.count >= 10" 
-                  [class.medium]="ev.count >= 5 && ev.count < 10">
+            <span class="event-count" [class.high]="ev.count >= 10" [class.medium]="ev.count >= 5 && ev.count < 10">
               {{ ev.count }} time{{ ev.count > 1 ? 's' : '' }}
             </span>
           </div>
@@ -232,30 +223,26 @@
 
     <!-- Existing Question Cards (Now acting as detailed breakdown) -->
     <div class="q-grid">
-      <div class="q-res-card" 
-           *ngFor="let q of result.questions; let i = index"
-           [id]="'q-card-' + i"
-           [class.q-card-highlight]="selectedHexIndex === i">
-           
+      <div class="q-res-card" *ngFor="let q of result.questions; let i = index" [id]="'q-card-' + i"
+        [class.q-card-highlight]="selectedHexIndex === i">
+
         <div class="q-res-header">
           <span class="q-res-num">Question {{ i+1 }}</span>
           <span class="q-avg" [style.color]="getScoreColor(q.average_score * 10)">{{ q.average_score }} / 10</span>
         </div>
-        
-        <div class="q-res-question">{{ q.question }}</div>
 
-        <!-- ✅ NEW: Question image (agar hai) -->
+        <!-- ✅ FIX: Show text when:
+            - hide_from_student = false (normal case)
+            - OR hide_from_student = true but image is missing (edge-case fallback) -->
+        <div *ngIf="!q.hide_from_student || !q.question_image" class="q-res-question">{{ q.question }}</div>
+
+        <!-- ✅ Show image if present -->
         <div *ngIf="q.question_image" class="q-res-image-wrap">
-          <img
-            [src]="getQuestionImageUrl(q.question_image)"
-            alt="Question diagram"
-            class="q-res-image"
-            (click)="openImagePreview(q.question_image)"
-            title="Click to view full size"
-          />
+          <img [src]="getQuestionImageUrl(q.question_image)" alt="Question diagram" class="q-res-image"
+            (click)="openImagePreview(q.question_image)" title="Click to view full size" />
           <div class="q-res-image-hint">🔍 Click to view larger</div>
         </div>
-        
+
         <!-- ✅ Flex row: answer on left, hexagons on right (2+1 layout) -->
         <div class="answer-hex-row">
           <div class="answer-col">
@@ -269,25 +256,25 @@
           <div class="metric-hex-side">
             <div class="hex-row-2">
               <div class="metric-hex-item" *ngFor="let mhex of getMetricHexagons(q).slice(0,2)">
-                <svg [attr.viewBox]="'0 0 ' + mhex.svgWidth + ' ' + mhex.svgHeight"
-                     class="metric-hex-svg" xmlns="http://www.w3.org/2000/svg">
+                <svg [attr.viewBox]="'0 0 ' + mhex.svgWidth + ' ' + mhex.svgHeight" class="metric-hex-svg"
+                  xmlns="http://www.w3.org/2000/svg">
                   <path [attr.d]="mhex.path" [attr.fill]="mhex.color" class="metric-hex-path" />
-                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY - 4"
-                        [attr.fill]="mhex.textColor" class="metric-hex-label">{{ mhex.shortLabel }}</text>
-                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY + 8"
-                        [attr.fill]="mhex.textColor" class="metric-hex-score">{{ mhex.score }}</text>
+                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY - 4" [attr.fill]="mhex.textColor"
+                    class="metric-hex-label">{{ mhex.shortLabel }}</text>
+                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY + 8" [attr.fill]="mhex.textColor"
+                    class="metric-hex-score">{{ mhex.score }}</text>
                 </svg>
               </div>
             </div>
             <div class="hex-row-1">
               <div class="metric-hex-item" *ngFor="let mhex of getMetricHexagons(q).slice(2,3)">
-                <svg [attr.viewBox]="'0 0 ' + mhex.svgWidth + ' ' + mhex.svgHeight"
-                     class="metric-hex-svg" xmlns="http://www.w3.org/2000/svg">
+                <svg [attr.viewBox]="'0 0 ' + mhex.svgWidth + ' ' + mhex.svgHeight" class="metric-hex-svg"
+                  xmlns="http://www.w3.org/2000/svg">
                   <path [attr.d]="mhex.path" [attr.fill]="mhex.color" class="metric-hex-path" />
-                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY - 4"
-                        [attr.fill]="mhex.textColor" class="metric-hex-label">{{ mhex.shortLabel }}</text>
-                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY + 8"
-                        [attr.fill]="mhex.textColor" class="metric-hex-score">{{ mhex.score }}</text>
+                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY - 4" [attr.fill]="mhex.textColor"
+                    class="metric-hex-label">{{ mhex.shortLabel }}</text>
+                  <text [attr.x]="mhex.centerX" [attr.y]="mhex.centerY + 8" [attr.fill]="mhex.textColor"
+                    class="metric-hex-score">{{ mhex.score }}</text>
                 </svg>
               </div>
             </div>
@@ -321,17 +308,9 @@
   </div>
 
   <!-- ✅ NEW: Question Image Lightbox -->
-  <div
-    class="result-image-backdrop"
-    *ngIf="previewImageUrl"
-    (click)="closeImagePreview()"
-  >
+  <div class="result-image-backdrop" *ngIf="previewImageUrl" (click)="closeImagePreview()">
     <div class="result-image-content" (click)="$event.stopPropagation()">
-      <button
-        class="result-image-close"
-        (click)="closeImagePreview()"
-        title="Close"
-      >✕</button>
+      <button class="result-image-close" (click)="closeImagePreview()" title="Close">✕</button>
       <img [src]="previewImageUrl" alt="Question image (full size)" />
     </div>
 

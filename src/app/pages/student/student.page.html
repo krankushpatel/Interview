@@ -287,21 +287,13 @@
               <div class="question-badge" id="question-badge">💡 Loading…</div>
 
               <!-- ✅ NEW: Show text only if NOT hidden -->
-              <div
-                *ngIf="!currentQuestion?.hide_from_student"
-                class="question-text"
-                id="question-text"
-              >{{ currentQuestion.question || 'Loading...' }}</div>
+              <div *ngIf="!currentQuestion?.hide_from_student" class="question-text" id="question-text">{{
+                currentQuestion.question || 'Loading...' }}</div>
 
               <!-- ✅ NEW: Question image (agar available hai) -->
               <div *ngIf="currentQuestion?.image" class="question-image-wrap">
-                <img
-                  [src]="getQuestionImageUrl(currentQuestion.image)"
-                  alt="Question diagram"
-                  class="question-image"
-                  (click)="openQuestionImagePreview()"
-                  title="Click to view full size"
-                />
+                <img [src]="getQuestionImageUrl(currentQuestion.image)" alt="Question diagram" class="question-image"
+                  (click)="openQuestionImagePreview()" title="Click to view full size" />
                 <div class="image-hint">🔍 Click image to view larger</div>
               </div>
             </div>
@@ -358,7 +350,8 @@
 
           <!-- NOTE: Your Transcript is correct -->
           <div class="note" style="margin-top:8px; color:#555;">
-            Note : Your Transcript is correct
+            Note :Technical terms may be corrected in your transcript to improve accuracy. Your intended meaning will be
+            preserved.
           </div>
 
           <!-- Action buttons -->
@@ -523,17 +516,9 @@
   </ion-modal>
 
   <!-- ✅ NEW: Question Image Lightbox -->
-  <div
-    class="student-image-modal-backdrop"
-    *ngIf="previewQuestionImageUrl"
-    (click)="closeQuestionImagePreview()"
-  >
+  <div class="student-image-modal-backdrop" *ngIf="previewQuestionImageUrl" (click)="closeQuestionImagePreview()">
     <div class="student-image-modal-content" (click)="$event.stopPropagation()">
-      <button
-        class="student-image-modal-close"
-        (click)="closeQuestionImagePreview()"
-        title="Close"
-      >✕</button>
+      <button class="student-image-modal-close" (click)="closeQuestionImagePreview()" title="Close">✕</button>
       <img [src]="previewQuestionImageUrl" alt="Question image (full size)" />
     </div>
   </div>

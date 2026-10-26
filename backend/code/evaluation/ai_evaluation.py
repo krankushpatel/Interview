@@ -185,23 +185,6 @@ def _safe_fallback(question_text: str, answer: str, category: str,
         "scoring_engine_version": SCORING_ENGINE_VERSION,
     }
 
-
-# def _gibberish_kill_switch(answer: str) -> Optional[dict]:
-#     if not is_gibberish(answer):
-#         return None
-#     _, reason = get_gibberish_reason(answer)
-#     return {
-#         "score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
-#         "feedback": f"This answer does not appear to be a valid response ({reason}). No marks awarded.",
-#         "topic": None,
-#         "evidence": {"expected_key_points": [], "key_point_coverage": [], "contradictions": []},
-#         "expected_key_points": [],
-#         "ai_used": True,
-#         "needs_human_review": False,
-#         "review_reasons": [],
-#         "scoring_engine_version": SCORING_ENGINE_VERSION,
-#     }
-
 def _gibberish_kill_switch(answer: str) -> Optional[dict]:
     if not is_gibberish(answer):
         return None

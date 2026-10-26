@@ -139,9 +139,13 @@ def _age_seconds(iso_ts) -> float:
 # Report-entry builders
 # ---------------------------------------------------------------------------
 
-def _skipped_result(qid, q_text, answer, category) -> dict:
+def _skipped_result(qid, q_text, answer, category,
+                    question_image=None, hide_from_student=False, send_text_only=False) -> dict:
     return {"id": qid, "question": q_text, "answer": answer, "category": category,
             "answer_original": answer, "answer_corrected": None,
+            "hide_from_student": hide_from_student,
+            "send_text_only_to_ai": send_text_only,
+            "question_image": question_image,
             "scores": {"correctness": 0, "completeness": 0, "clarity": 0},
             "average_score": 0.0, "feedback": "Question was skipped or left empty.",
             "topic": None, "evidence": None, "expected_key_points": [],
@@ -164,6 +168,8 @@ def _to_report_entry(item: dict, res: dict) -> dict:
     answer_corrected = res.get("answer_corrected")
     return {"id": item["id"], "question": item["question_text"],
             "question_image": item.get("question_image"),
+            "hide_from_student": item.get("hide_from_student", False), 
+            "send_text_only_to_ai": item.get("send_text_only_to_ai", False),
             "answer": answer_corrected or answer_original,
             "answer_original": answer_original,
             "answer_corrected": answer_corrected,
@@ -294,8 +300,23 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
         answer = clamp_answer_words(raw_answer)
         category = str(ans.get("category") or "General")
 
+        # ✅ NEW: Fetch question doc FIRST (before skip check) so skipped
+        # questions still carry image + hide flags into the report/PDF.
+        q_doc = await _db(db.questions.find_one, {"id": qid},
+                          {"image": 1, "send_text_only_to_ai": 1, "hide_from_student": 1, "_id": 0})
+        question_image = (q_doc or {}).get("image")
+        send_text_only = bool((q_doc or {}).get("send_text_only_to_ai"))
+        hide_from_student = bool((q_doc or {}).get("hide_from_student", False))
+
+        # ✅ Skip case: preserve image + flags so results page / PDF stays
+        # consistent with what the student saw during the exam.
         if is_empty_answer(answer) or is_skipped_answer(answer):
-            results_map[qid] = _skipped_result(qid, q_text, answer, category)
+            results_map[qid] = _skipped_result(
+                qid, q_text, answer, category,
+                question_image=question_image,
+                hide_from_student=hide_from_student,
+                send_text_only=send_text_only,
+            )
             continue
 
         prior = stored.get(str(qid))
@@ -305,30 +326,28 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
                                 "answer": prior.get("answer_corrected") or answer,
                                 "answer_original": prior.get("answer_original", answer),
                                 "answer_corrected": prior.get("answer_corrected"),
-                                "category": category}
+                                "category": category,
+                                "question_image": question_image,          # ✅ preserve
+                                "hide_from_student": hide_from_student,    # ✅ preserve
+                                "send_text_only_to_ai": send_text_only}    # ✅ preserve
             continue
 
-        # ✅ Fetch question doc (image + send_text_only_to_ai)
-        q_doc = await _db(db.questions.find_one, {"id": qid}, 
-                          {"image": 1, "send_text_only_to_ai": 1, "_id": 0})
-        question_image = (q_doc or {}).get("image")
-        send_text_only = bool((q_doc or {}).get("send_text_only_to_ai"))
-
-        # ✅ NEW: Load image b64 for AI (Task A + Task B logic)
+        # ✅ Load image b64 for AI (Task A + Task B logic)
         question_image_b64 = None
         if send_text_only:
-            # Task B: skip image for AI
             question_image_b64 = None
         elif question_image:
-            # Task A: load image for AI
             question_image_b64 = _load_question_image_b64(question_image)
 
         item = {"id": qid, "question_text": q_text, "answer": answer, "category": category,
                 "question_image": question_image,
-                "image_b64": question_image_b64,           # ✅ NEW
+                "image_b64": question_image_b64,
+                "hide_from_student": hide_from_student,
+                "send_text_only_to_ai": send_text_only,
                 "reference_answer": ans.get("reference_answer"),
                 "question_data": ans.get("question_data"),
                 "existing_key_points": (prior or {}).get("expected_key_points")}
+
         if _is_intro_question(q_text, category):
             intro_items.append(item)
             intro_ids.add(qid)
@@ -339,7 +358,7 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
         res = await _call_single_ai(item["question_text"], item["answer"], item["category"],
                                     reference_answer=item["reference_answer"],
                                     question_data=item["question_data"],
-                                    image_b64=item.get("image_b64"))       # ✅ NEW
+                                    image_b64=item.get("image_b64"))
         results_map[item["id"]] = _to_report_entry(item, res)
 
     ai_summary = None
@@ -350,7 +369,7 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
             if res is None:
                 res = {"score": 0.0, "correctness": 0, "completeness": 0, "clarity": 0,
                        "feedback": "Evaluation missing.", "topic": None, "ai_used": False,
-                        "answer_original": item["answer"], "answer_corrected": None,
+                       "answer_original": item["answer"], "answer_corrected": None,
                        "terms_corrected": False,
                        "needs_human_review": True,
                        "review_reasons": ["result missing after batch evaluation"],
@@ -500,6 +519,7 @@ async def evaluate_single(
     question_data_json: str = Form(default=None),
 ):
     ai_client.set_usage_session(session_id, username)
+    db = _get_db()                                    # ✅ FIX 1: db initialize karo
     resolved_q = (question or question_text or "").strip()
     question_data = None
     if question_data_json:
@@ -509,25 +529,38 @@ async def evaluate_single(
             pass
 
     safe_answer = clamp_answer_words(answer)
-    item = {"id": question_id, "question_text": resolved_q, "question": resolved_q, "answer": safe_answer, "category": category}
+    item = {"id": question_id, "question_text": resolved_q, "question": resolved_q,
+            "answer": safe_answer, "category": category,
+            "question_image": None, "hide_from_student": False,
+            "send_text_only_to_ai": False}
 
     if is_empty_answer(safe_answer) or is_skipped_answer(safe_answer):
         entry = _skipped_result(question_id, resolved_q, safe_answer, category)
     else:
-        # ✅ NEW: Fetch image from DB
-        q_doc = await _db(db.questions.find_one, {"id": question_id}, 
-                          {"image": 1, "send_text_only_to_ai": 1, "_id": 0})
+        q_doc = await _db(db.questions.find_one, {"id": question_id},
+                          {"image": 1, "send_text_only_to_ai": 1, "hide_from_student": 1, "_id": 0})
         q_image = (q_doc or {}).get("image")
         q_send_text_only = bool((q_doc or {}).get("send_text_only_to_ai"))
-        
+        q_hide_from_student = bool((q_doc or {}).get("hide_from_student"))
+
+        item["question_image"] = q_image
+        item["hide_from_student"] = q_hide_from_student
+        item["send_text_only_to_ai"] = q_send_text_only
+
         img_b64 = None
         if not q_send_text_only and q_image:
             img_b64 = _load_question_image_b64(q_image)
-        
-        res = await _call_single_ai(resolved_q, safe_answer, category,
-                                    reference_answer=reference_answer,
-                                    question_data=question_data,
-                                    image_b64=img_b64)      # ✅ NEW
+
+        # ✅ FIX 2: Saare arguments pass karo
+        res = await _call_single_ai(
+            question_text=resolved_q,
+            answer=safe_answer,
+            category=category,
+            reference_answer=reference_answer,
+            question_data=question_data,
+            existing_key_points=None,     # single endpoint me frozen rubric nahi
+            image_b64=img_b64,
+        )
         entry = _to_report_entry(item, res)
 
     return entry
@@ -544,6 +577,7 @@ async def evaluate_chunk(
     answers_json: str = Form(...),
 ):
     ai_client.set_usage_session(session_id, username)
+    db = _get_db()
     try:
         chunk = json.loads(answers_json)
     except json.JSONDecodeError as e:
@@ -556,15 +590,25 @@ async def evaluate_chunk(
               "answer": clamp_answer_words(str(it.get("answer") or "")),
               "category": str(it.get("category") or "General"),
               "reference_answer": it.get("reference_answer"),
-              "question_data": it.get("question_data")}
+              "question_data": it.get("question_data"),
+              "question_image": None,         # NEW: Will be filled from DB
+              "hide_from_student": False,     # NEW: Will be filled from DB
+              "send_text_only_to_ai": False}  # NEW: Will be filled from DB
              for i, it in enumerate(chunk)]
 
-    # ✅ NEW: Attach image_b64 to each item
+    # NEW: Attach image_b64 to each item
     for item in items:
         q_doc = await _db(db.questions.find_one, {"id": item["id"]}, 
-                          {"image": 1, "send_text_only_to_ai": 1, "_id": 0})
+                          {"image": 1, "send_text_only_to_ai": 1, "hide_from_student": 1, "_id": 0})
         q_img = (q_doc or {}).get("image")
         q_send_only = bool((q_doc or {}).get("send_text_only_to_ai"))
+        q_hide = bool((q_doc or {}).get("hide_from_student"))
+        
+        # ✅ Fill item with DB data
+        item["question_image"] = q_img
+        item["send_text_only_to_ai"] = q_send_only
+        item["hide_from_student"] = q_hide
+        
         if not q_send_only and q_img:
             item["image_b64"] = _load_question_image_b64(q_img)
 

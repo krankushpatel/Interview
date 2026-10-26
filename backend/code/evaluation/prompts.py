@@ -166,7 +166,16 @@ Follow these steps in order:
 5. Score completeness from 0 to 10 using the requested concepts and key-point coverage. Do not reward irrelevant padding. A brief answer can still be complete if the question only requires a brief response. When a detailed explanation is explicitly required but only a one-line answer is given, reflect the missing depth in the score:
 {anchors_as_text(COMPLETENESS_ANCHORS)}
 
-6. Score clarity from 0 to 10 based on organization, precision, and ease of understanding. Evaluate clarity independently from correctness. Do not penalize minor grammatical errors, pauses, or speech-to-text noise:
+6. Score clarity from 0 to 10 based on organization, precision, and ease of understanding. 
+Evaluate clarity independently from correctness. Do not penalize minor grammatical errors, 
+pauses, or speech-to-text noise.
+
+CRITICAL CLARITY RULE: Clarity measures HOW WELL THE ANSWER IS EXPRESSED, not whether 
+the candidate admitted ignorance. If the candidate says "I don't know", "no idea", 
+"skip", or otherwise provides NO substantive answer, clarity MUST be 0-2 
+("so terse it can't be assessed for structure"). NEVER give clarity 5+ when there is 
+no actual content to evaluate for structure or precision. A terse admission of 
+ignorance is not "clear" — it is unassessable:
 {anchors_as_text(CLARITY_ANCHORS)}
 
 7. Include candidate_final_value and expected_final_value only when the question has one unambiguous numeric answer.
@@ -284,7 +293,9 @@ For EACH question above, independently:
 {anchors_as_text(CORRECTNESS_ANCHORS)}
 5. Score completeness (0-10) from the fraction of key points covered/partial:
 {anchors_as_text(COMPLETENESS_ANCHORS)}
-6. Score clarity (0-10) from structure and precision of language ONLY - independent of whether the content is correct:
+6. Score clarity (0-10) from structure and precision of language ONLY - independent of whether the content is correct.
+
+CRITICAL CLARITY RULE: Clarity measures HOW WELL THE ANSWER IS EXPRESSED, not whether the candidate admitted ignorance. If the candidate says "I don't know", "no idea", "skip", or otherwise provides NO substantive answer, clarity MUST be 0-2 ("so terse it can't be assessed for structure"). NEVER give clarity 5+ when there is no actual content to evaluate for structure or precision. A terse admission of ignorance is not "clear" — it is unassessable:
 {anchors_as_text(CLARITY_ANCHORS)}
 7. If (and only if) a question has a single unique numeric final answer, set candidate_final_value (the candidate's final value) and expected_final_value (the correct one); otherwise omit both.
 

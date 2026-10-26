@@ -18,6 +18,7 @@ Env vars:
   LLM_CIRCUIT_FAILURE_THRESHOLD (3), LLM_CIRCUIT_COOLDOWN_S (60)
 """
 
+from google import genai
 import asyncio
 import json
 import logging
@@ -171,9 +172,14 @@ def _get_gemini_client() -> Any:
             )
         else:
             # Yeh normal AI Studio (chahe AIzaSy ho ya AQ) ke liye properly chalega
-            kwargs: dict = {"api_key": api_key}
+            kwargs: dict = {
+                "api_key": "dummy",  # SDK ko dummy key do taaki Bearer na bheje
+                "http_options": {
+                    "headers": {"x-goog-api-key": api_key}
+                }
+            }
             if GEMINI_BASE_URL:
-                kwargs["http_options"] = {"base_url": GEMINI_BASE_URL}
+                kwargs["http_options"]["base_url"] = GEMINI_BASE_URL
             _gemini_client = genai.Client(**kwargs)
             
     return _gemini_client
