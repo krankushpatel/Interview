@@ -500,6 +500,16 @@ export class AdminService {
     return lastValueFrom(this.http.get(`${environment.apiUrl}/admin/student-full-profile/${username}`));
   }
 
+  async reEvaluateAttempt(username: string, sessionId: string, force: boolean = true): Promise<any> {
+    const fd = new FormData();
+    fd.append('username', username);
+    fd.append('session_id', sessionId);
+    fd.append('force', String(force));
+    return lastValueFrom(
+      this.http.post(`${environment.apiUrl}/evaluation/re-evaluate`, fd)
+    );
+  }
+
   async getBulkImportStatus(jobId: string): Promise<any> {
     return lastValueFrom(this.http.get(`${environment.apiUrl}/admin/bulk-import/status/${jobId}`));
   }

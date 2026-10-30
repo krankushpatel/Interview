@@ -593,7 +593,7 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
         "profanity_filter": "false",
         "endpointing": endpointing,
         "utterance_end_ms": utterance_end_ms,
-        "vad_events": "true",
+        "vad_events": "false",
         "interim_results": "true",
         "encoding": "linear16",
         "sample_rate": "16000",
@@ -736,7 +736,6 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     data = json.loads(msg.data)
                     stt_stats["dg_msgs"] += 1
-                    print(f"[STT] Deepgram message: {data.get('type')}")
 
                     if data.get("type") == "Results":
                         channel = data.get("channel", {})

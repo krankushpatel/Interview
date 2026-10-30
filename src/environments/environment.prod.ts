@@ -37,7 +37,7 @@ export const environment = {
         punctuate: true,
         keywords: [],
         keyword_boost: 4.0,
-        endpointing: 3000,
-        utterance_end_ms: 1200
+        endpointing: 200,
+        utterance_end_ms: 500
     } as DeepgramOptions
 };

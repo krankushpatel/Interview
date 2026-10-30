@@ -268,7 +268,7 @@ export class SpeechService {
       }
 
       const source = this.dgAudioContext.createMediaStreamSource(this.dgStream);
-      this.dgScriptNode = this.dgAudioContext.createScriptProcessor(8192, 1, 1);
+      this.dgScriptNode = this.dgAudioContext.createScriptProcessor(2048, 1, 1);
       source.connect(this.dgScriptNode);
 
       // Connect to zero-gain destination to keep ScriptProcessor running without audio feedback

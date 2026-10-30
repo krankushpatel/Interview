@@ -1978,13 +1978,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     const badgeEl = document.getElementById('question-badge');
     if (badgeEl) badgeEl.innerHTML = `💡 ${this.currentQuestion.category} · <span style="color:var(--text2);font-size:.65rem">${this.currentQuestion.difficulty || 'Medium'}</span>`;
-    
+
     const counterEl = document.getElementById('q-counter-label');
     if (counterEl) counterEl.textContent = `Question ${this.currentIndex + 1} of ${this.questions.length}`;
-    
+
     const fillEl = document.getElementById('progress-fill');
     if (fillEl) fillEl.style.width = `${(this.currentIndex / this.questions.length) * 100}%`;
-    
+
     for (let i = 0; i < this.questions.length; i++) {
       const dot = document.getElementById(`qdot-${i}`);
       if (dot) dot.className = i < this.currentIndex ? 'q-dot done' : i === this.currentIndex ? 'q-dot current' : 'q-dot';
@@ -2465,7 +2465,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
               }
             } catch (e) { }
           }
-        }, 1000);
+        }, 300);
       };
       this.cameraStreamWs.onerror = (err) => console.warn('[LIVE] Camera WS unavailable');
       this.cameraStreamWs.onclose = () => console.log('[LIVE] Camera WS closed');

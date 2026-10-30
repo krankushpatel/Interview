@@ -461,6 +461,36 @@ ion-modal {
   background: transparent;
 }
 
+/* ── STUDENT DETAIL & PREVIEW MODAL EXPANDED WIDTH ── */
+ion-modal.student-detail-modal,
+ion-modal.large-preview-modal {
+  --width: 980px;
+  --max-width: 95vw;
+  --height: 88vh;
+  --max-height: 900px;
+  --border-radius: 18px;
+}
+
+ion-modal.student-detail-modal::part(content),
+ion-modal.large-preview-modal::part(content) {
+  width: 980px;
+  max-width: 95vw;
+  height: 88vh;
+  max-height: 900px;
+  border-radius: 18px;
+}
+
+@media (max-width: 1024px) {
+  ion-modal.student-detail-modal,
+  ion-modal.large-preview-modal {
+    --width: 95vw;
+  }
+  ion-modal.student-detail-modal::part(content),
+  ion-modal.large-preview-modal::part(content) {
+    width: 95vw;
+  }
+}
+
 /* ── STUDENT PAGE THEME OVERRIDE (#D3E3E8 background, #182F48 text) ── */
 app-student {
   display: block;

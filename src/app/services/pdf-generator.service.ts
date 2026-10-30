@@ -425,7 +425,6 @@ export class PdfGeneratorService {
     const rawScore = fr.raw_score ?? 0;
     const adjScore2 = fr.adjusted_score ?? 0;
     const scoreColor = adjScore2 >= 65 ? '#16a34a' : '#dc2626';
-    const decColor = decision === 'Selected' ? '#16a34a' : '#dc2626';
 
     doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor('#6b7280');
     doc.text('Raw Score', M, y); doc.text('Adjusted Score', M + 55, y); y += 5;
@@ -438,8 +437,6 @@ export class PdfGeneratorService {
     doc.text(`${Math.floor(adjScore2)}`, M + 55, y + 8);
     doc.setFontSize(12); doc.setTextColor('#6b7280'); doc.text('/ 100', M + 75, y + 8);
 
-    doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(decColor);
-    doc.text(`${fr.grade ?? ''} . ${decision}`, M + 110, y + 8);
     y += 20;
     wrapped(fr.summary ?? '', M, W - M * 2); y += 2;
     divider();
@@ -542,16 +539,24 @@ export class PdfGeneratorService {
     y += 2; divider();
 
     // ──────────────────────────────────────────────────────────────────────
-    // NOTE: Your Transcript is correct  (placed at the bottom of the first page)
+    // NOTE: Placed immediately below the Proctor Violation Summary divider line
     // ──────────────────────────────────────────────────────────────────────
-    const noteText = 'Note :Technical terms may be corrected in your transcript to improve accuracy. Your intended meaning will be preserved.';
-    doc.setFontSize(10);                     // slightly smaller than body text
+    y += 4;
+    doc.setTextColor('#374151');
+
+    // "Note :" in bold (left-aligned at margin M)
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Note :', M, y);
+
+    // Below lines in italic neutral text (left-aligned at margin M)
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'italic');
-    doc.setTextColor('#555555');             // a neutral gray
-    // Center the note horizontally at the current vertical position (+10px for spacing)
-    doc.text(noteText, W / 2, y + 10, { align: 'center' });
-    // Advance the cursor so that any following content starts below the note
-    y += 20;                                 // adjust spacing as you like
+    doc.setTextColor('#4b5563');
+    doc.text('Technical terms may be corrected in your transcript to improve accuracy.', M, y + 4.5);
+    doc.text('Your intended meaning will be preserved.', M, y + 8.5);
+
+    y += 12;
     // ──────────────────────────────────────────────────────────────────────
 
     // ── QUESTION BREAKDOWN ─────────────────────────────────────────────

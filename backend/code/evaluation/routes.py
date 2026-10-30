@@ -460,6 +460,98 @@ async def _evaluate_session(db, username: str, answers: list, events: list, sess
 
 
 # ---------------------------------------------------------------------------
+# POST /re-evaluate - Admin re-evaluation endpoint
+# ---------------------------------------------------------------------------
+
+@router.post("/re-evaluate")
+async def re_evaluate_attempt(
+    username: str = Form(...),
+    session_id: str = Form(...),
+    force: bool = Form(True),
+):
+    """
+    Admin endpoint to re-evaluate an exam attempt.
+    Gathers answers from db.submissions (or existing evaluation doc) and proctoring
+    logs, resets the evaluation state, and executes full AI evaluation.
+    """
+    db = _get_db()
+    query = {"username": username, "session_id": session_id}
+
+    def _fetch_subs():
+        return list(db.submissions.find(query).sort("question_id", pymongo.ASCENDING))
+
+    subs = await _db(_fetch_subs)
+    answers = []
+    seen_qids = set()
+    for s in subs:
+        qid = s.get("question_id")
+        if qid is not None and str(qid) not in seen_qids:
+            seen_qids.add(str(qid))
+            answers.append({
+                "question_id": qid,
+                "question": s.get("question") or s.get("question_text", ""),
+                "category": s.get("category", "General"),
+                "answer": s.get("answer", ""),
+            })
+
+    if not answers:
+        eval_doc = await _db(db.evaluations.find_one, query)
+        if eval_doc and eval_doc.get("questions"):
+            for q in eval_doc["questions"]:
+                qid = q.get("id")
+                if qid is not None and str(qid) not in seen_qids:
+                    seen_qids.add(str(qid))
+                    answers.append({
+                        "question_id": qid,
+                        "question": q.get("question", ""),
+                        "category": q.get("category", "General"),
+                        "answer": q.get("answer_original") or q.get("answer", ""),
+                    })
+
+    if not answers:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No answers found for student '{username}' in session '{session_id}'."
+        )
+
+    answers = _deduplicate_answers(answers)
+    events = await _fetch_proctoring_events(db, username, session_id)
+
+    ai_client.set_usage_session(session_id, username)
+    update_data = {
+        "status": "scoring_questions",
+        "done": False,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "error": None,
+    }
+    if force:
+        await _db(db.evaluations.update_one, query,
+                  {"$set": update_data, "$unset": {"question_results": ""}},
+                  upsert=True)
+    else:
+        await _db(db.evaluations.update_one, query,
+                  {"$set": update_data},
+                  upsert=True)
+
+    try:
+        final = await asyncio.wait_for(
+            _evaluate_session(db, username, answers, events, session_id),
+            timeout=EVAL_TOTAL_TIMEOUT_S
+        )
+        await _db(db.evaluations.update_one, query,
+                  {"$set": {**final, "status": "done", "done": True}},
+                  upsert=True)
+        ai_client.log_interview_usage(session_id, note="admin re-evaluation finished")
+        return {"success": True, "message": "Re-evaluation completed successfully", "result": final}
+    except Exception as e:
+        logger.exception("[re-evaluate] failed user=%s session=%s", username, session_id)
+        await _db(db.evaluations.update_one, query,
+                  {"$set": {"status": "failed", "done": False, "error": str(e)[:300]}},
+                  upsert=True)
+        raise HTTPException(status_code=500, detail=f"AI evaluation failed: {str(e)[:200]}")
+
+
+# ---------------------------------------------------------------------------
 # GET /status/{username}
 # ---------------------------------------------------------------------------
 

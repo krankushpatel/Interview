@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ModalController, AlertController, ToastController } from '@ionic/angular';
+import { IonicModule, ModalController, AlertController, ToastController, LoadingController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
 import { AdminService } from '../../services/admin.service';
@@ -123,26 +123,32 @@ interface EventCount {
           <div *ngFor="let attempt of fullData.history" class="attempt-card" style="background: var(--dip-surface); border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; border: 1px solid var(--dip-border); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03);">
             
             <!-- Info -->
-            <div>
+            <div style="flex-shrink: 0; min-width: 130px;">
               <h4 style="margin: 0; font-weight: 900; color: var(--dip-brand-1); font-size: 1.1rem;">Attempt #{{ attempt.attempt_number }}</h4>
               <p style="margin: 4px 0 0; color: var(--dip-text-secondary); font-size: 0.85rem; font-family: monospace;">ID: {{ attempt.session_id.substring(0,8) }}...</p>
             </div>
 
             <!-- Actions & Buttons -->
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
               <!-- Status Badge -->
-              <span [style.background]="attempt.result?.final_result?.decision === 'Selected' ? 'var(--dip-success)' : 'var(--dip-danger)'" style="color: white; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 0.85rem;">
+              <span [style.background]="attempt.result?.final_result?.decision === 'Selected' ? 'var(--dip-success)' : 'var(--dip-danger)'" style="color: white; padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; white-space: nowrap;">
                 {{ attempt.result?.final_result?.decision || 'Review Pending' }}
               </span>
 
               <!-- 👁️ NEW PREVIEW BUTTON -->
-              <ion-button size="small" style="--background: var(--dip-bg-secondary); --color: var(--dip-text-primary); --border-radius: 8px; font-weight: 700;" (click)="openPreviewModal(attempt)">
+              <ion-button size="small" style="--background: var(--dip-bg-secondary); --color: var(--dip-text-primary); --border-radius: 8px; font-weight: 700; white-space: nowrap;" (click)="openPreviewModal(attempt)">
                 👁️ Preview
               </ion-button>
 
               <!-- 📄 REPORT BUTTON -->
-              <ion-button size="small" fill="outline" style="--color: var(--dip-brand-1); --border-color: var(--dip-brand-1); --border-radius: 8px; font-weight: 700;" (click)="$event.stopPropagation(); downloadReport(attempt)">
+              <ion-button size="small" fill="outline" style="--color: var(--dip-brand-1); --border-color: var(--dip-brand-1); --border-radius: 8px; font-weight: 700; white-space: nowrap;" (click)="$event.stopPropagation(); downloadReport(attempt)">
                 📄 Report
+              </ion-button>
+
+              <!-- 🔄 RE-EVALUATE BUTTON -->
+              <ion-button size="small" fill="outline" style="--color: #eab308; --border-color: #eab308; --border-radius: 8px; font-weight: 700; white-space: nowrap;" [disabled]="evaluatingSessions[attempt.session_id]" (click)="$event.stopPropagation(); confirmReEvaluate(attempt)">
+                <span *ngIf="evaluatingSessions[attempt.session_id]">⏳ Evaluating...</span>
+                <span *ngIf="!evaluatingSessions[attempt.session_id]">🔄 Evaluation</span>
               </ion-button>
             </div>
 
@@ -190,6 +196,7 @@ export class StudentDetailModalComponent implements OnInit {
 
   availableCategories: string[] = [];
   selectedCategories: string[] = [];
+  evaluatingSessions: { [sessionId: string]: boolean } = {};
 
   apiUrl = environment.apiUrl;
 
@@ -198,6 +205,7 @@ export class StudentDetailModalComponent implements OnInit {
     private adminService: AdminService,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
+    private loadingCtrl: LoadingController,
     private http: HttpClient,
     private hexService: HexagonLayoutService,
     private pdfGenerator: PdfGeneratorService
@@ -322,6 +330,55 @@ export class StudentDetailModalComponent implements OnInit {
       cssClass: 'large-preview-modal'
     });
     await modal.present();
+  }
+
+  // 🔄 RE-EVALUATE: Confirmation Alert + Execution
+  async confirmReEvaluate(attempt: any) {
+    const alert = await this.alertCtrl.create({
+      header: 'Re-evaluate Attempt?',
+      subHeader: `Attempt #${attempt.attempt_number} (${this.studentName || this.username})`,
+      message: 'Are you sure you want to re-run AI evaluation for this attempt? AI will re-analyze all answers and update scores and decision.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Yes, Evaluate',
+          handler: () => {
+            this.runReEvaluation(attempt);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async runReEvaluation(attempt: any) {
+    const sid = attempt.session_id;
+    this.evaluatingSessions[sid] = true;
+
+    const loading = await this.loadingCtrl.create({
+      message: `Re-evaluating Attempt #${attempt.attempt_number} with AI... Please wait`,
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.adminService.reEvaluateAttempt(this.username, sid, true);
+      await loading.dismiss();
+      this.evaluatingSessions[sid] = false;
+
+      this.showToast('✅ Attempt re-evaluated successfully! Report is updated.', 'success');
+      // Reload student profile so attempt card results, decision badge & report data refresh
+      await this.loadProfile();
+    } catch (err: any) {
+      await loading.dismiss();
+      this.evaluatingSessions[sid] = false;
+      console.error('Re-evaluation error:', err);
+      const msg = err?.error?.detail || err?.message || 'Failed to re-evaluate attempt. Please try again.';
+      this.showToast(`❌ ${msg}`, 'danger');
+    }
   }
 
   // Fallback if needed, though mostly moved to Preview Modal

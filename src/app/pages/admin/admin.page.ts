@@ -1646,7 +1646,8 @@ export class AdminPage implements OnInit, OnDestroy {
   async filterByStudent(username: string, name?: string) {
     const modal = await this.modalCtrl.create({
       component: StudentDetailModalComponent,
-      componentProps: { username, studentName: name || username }
+      componentProps: { username, studentName: name || username },
+      cssClass: 'student-detail-modal'
     });
     await modal.present();
     const { data } = await modal.onDidDismiss();
