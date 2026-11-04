@@ -1038,38 +1038,61 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   private async runFaceEnrollment(videoEl: HTMLVideoElement) {
     let attempts = 0;
     const maxAttempts = 40;
+    let isEnrolling = false;
+
     this.cameraCheckInterval = setInterval(async () => {
+      if (this.faceDetected || isEnrolling) return;
       attempts++;
       if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
         if (!faceapi.nets.tinyFaceDetector.isLoaded || !faceapi.nets.faceRecognitionNet.isLoaded) {
           return;
         }
+        isEnrolling = true;
         try {
-          const detection = await (faceapi as any).detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+          // Use inputSize: 320, scoreThreshold: 0.5 for accurate landmark alignment
+          const detection = await (faceapi as any).detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
             .withFaceLandmarks()
             .withFaceDescriptor();
 
           if (detection) {
-            // ✅ FIX: Collect 3 frames and average the descriptor for a more stable reference
+            // Immediately stop interval to prevent overlapping runs
+            if (this.cameraCheckInterval) {
+              clearInterval(this.cameraCheckInterval);
+              this.cameraCheckInterval = null;
+            }
+
+            // Collect 3 frames and average the descriptor for a stable reference
             const descriptors: Float32Array[] = [detection.descriptor];
             for (let f = 0; f < 2; f++) {
-              await new Promise(r => setTimeout(r, 300));
-              const extra = await (faceapi as any).detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+              await new Promise(r => setTimeout(r, 250));
+              const extra = await (faceapi as any).detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                 .withFaceLandmarks()
                 .withFaceDescriptor();
-              if (extra) descriptors.push(extra.descriptor);
+              if (extra && extra.descriptor) descriptors.push(extra.descriptor);
             }
+
             // Average across collected descriptors
             const avgDescriptor = new Float32Array(descriptors[0].length);
             for (let i = 0; i < avgDescriptor.length; i++) {
               avgDescriptor[i] = descriptors.reduce((sum, d) => sum + d[i], 0) / descriptors.length;
             }
 
+            // L2 Normalize the averaged descriptor so it sits on the unit hypersphere
+            let norm = 0;
+            for (let i = 0; i < avgDescriptor.length; i++) {
+              norm += avgDescriptor[i] * avgDescriptor[i];
+            }
+            norm = Math.sqrt(norm);
+            if (norm > 0) {
+              for (let i = 0; i < avgDescriptor.length; i++) {
+                avgDescriptor[i] /= norm;
+              }
+            }
+
             this.faceDetected = true;
             this.referenceFaceDescriptor = avgDescriptor;
-            clearInterval(this.cameraCheckInterval);
 
-            console.log(`[Face] ✅ Candidate face enrolled with ${descriptors.length}-frame average descriptor`);
+            console.log(`[Face] ✅ Candidate face enrolled with normalized ${descriptors.length}-frame average descriptor`);
             this.captureEvidence('face_enrolled', 'Baseline candidate face enrolled during camera setup');
 
             this.showToast('✅ Face detected! Calibrating eye tracking...', 'success');
@@ -1089,10 +1112,15 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
           }
         } catch (err) {
           console.error('[Face] Detection error:', err);
+        } finally {
+          isEnrolling = false;
         }
       }
       if (attempts >= maxAttempts && !this.faceDetected) {
-        clearInterval(this.cameraCheckInterval);
+        if (this.cameraCheckInterval) {
+          clearInterval(this.cameraCheckInterval);
+          this.cameraCheckInterval = null;
+        }
         this.showToast('❌ Face detection failed. Please refresh and try again.', 'danger');
       }
     }, 500);
@@ -1216,28 +1244,28 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   startPeriodicFaceVerification() {
     if (this.faceVerificationInterval) clearInterval(this.faceVerificationInterval);
     this.faceMismatchCount = 0;
+    let isVerifying = false;
+
     this.faceVerificationInterval = setInterval(async () => {
-      if (this.showEvaluation || !this.referenceFaceDescriptor) return;
+      if (this.showEvaluation || !this.referenceFaceDescriptor || isVerifying) return;
       const videoEl = this.videoRef?.nativeElement;
       if (!videoEl || videoEl.readyState < 2 || videoEl.videoWidth === 0) return;
 
-      // ✅ NEW: Pause MediaPipe to free up GPU for face-api.js
+      isVerifying = true;
+      // Pause MediaPipe and proctoring face detection to prevent WebGL GPU contention
       this.eyeTracking.pauseTracking();
+      this.proctor.pauseFaceDetection();
 
       try {
         const detections = await (faceapi as any).detectAllFaces(
           videoEl,
-          // ✅ FIX: scoreThreshold 0.35 matches proctoring.service.ts — without this,
-          // a different person's face (detected at 0.35–0.49 confidence) was falling
-          // through as "no face detected" and resetting faceMismatchCount to 0
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 })
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 })
         )
           .withFaceLandmarks()
           .withFaceDescriptors();
 
         if (!detections || detections.length === 0) {
-          // ✅ FIX: Reset mismatch streak on no-face — a skipped frame must not
-          // carry over and contribute to the next cycle's false alarm
+          // If no face detected, don't flag as mismatch (proctoring service handles no-face)
           this.faceMismatchCount = 0;
           return;
         }
@@ -1248,17 +1276,29 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
         }
 
         const detection = detections[0];
-        const distance = faceapi.euclideanDistance(this.referenceFaceDescriptor, detection.descriptor);
-        // ✅ FIX: Raised from 0.65 → 0.72 to allow for natural variation
-        // (lighting changes, slight head tilt, glasses glare) without false alarms
-        const threshold = 0.72;
+
+        // Ensure live descriptor is normalized
+        let liveDescriptor = detection.descriptor;
+        let lNorm = 0;
+        for (let i = 0; i < liveDescriptor.length; i++) lNorm += liveDescriptor[i] * liveDescriptor[i];
+        lNorm = Math.sqrt(lNorm);
+        if (lNorm > 0) {
+          const normDesc = new Float32Array(liveDescriptor.length);
+          for (let i = 0; i < liveDescriptor.length; i++) normDesc[i] = liveDescriptor[i] / lNorm;
+          liveDescriptor = normDesc;
+        }
+
+        const distance = faceapi.euclideanDistance(this.referenceFaceDescriptor, liveDescriptor);
+        // Robust threshold for normalized 128D embeddings
+        const threshold = 0.70;
 
         if (distance > threshold) {
           this.faceMismatchCount++;
-          // ✅ FIX: Raised from >= 2 → >= 3 consecutive mismatches before violation fires
           console.warn(`[Face] Mismatch warning (count: ${this.faceMismatchCount}/3, distance: ${distance.toFixed(3)})`);
           if (this.faceMismatchCount >= 3) {
             this.handleViolation('face', `Different person detected (distance: ${distance.toFixed(3)})`);
+            // Reset counter after firing violation to avoid flooding every 8s while reading or speaking
+            this.faceMismatchCount = 0;
           }
         } else {
           this.faceMismatchCount = 0;
@@ -1267,8 +1307,9 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       } catch (err) {
         console.error('[Face] Verification error:', err);
       } finally {
-        // ✅ NEW: Resume MediaPipe
         this.eyeTracking.resumeTracking();
+        this.proctor.resumeFaceDetection();
+        isVerifying = false;
       }
     }, 8000);
   }
@@ -1394,7 +1435,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     }
     try {
       const fullStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
       });
       const audioTrack = fullStream.getAudioTracks()[0];

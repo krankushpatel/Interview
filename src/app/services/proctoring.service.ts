@@ -31,6 +31,8 @@ export class ProctoringService {
   private faceDetectionInterval: any = null;
   private videoElement: HTMLVideoElement | null = null;
   public faceModelsLoaded = false;  // 👈 made public so student.page.ts can check
+  public isFaceDetectionPaused = false;
+  private isFaceDetecting = false;
 
   private lastWarningTime = new Map<string, number>();
   private readonly WARNING_COOLDOWN_MS = 4000;
@@ -553,12 +555,22 @@ export class ProctoringService {
     }
   }
 
+  public pauseFaceDetection() {
+    this.isFaceDetectionPaused = true;
+  }
+
+  public resumeFaceDetection() {
+    this.isFaceDetectionPaused = false;
+  }
+
   private async detectFaces() {
+    if (this.isFaceDetectionPaused || this.isFaceDetecting) return;
     if (!this.videoElement || this.videoElement.readyState < 2) {
       // ✅ DIAGNOSTIC: uncomment when debugging "detection not working"
       console.log('[Proctor] detectFaces SKIP — readyState:', this.videoElement?.readyState);
       return;
     }
+    this.isFaceDetecting = true;
     try {
       const detections = await faceapi.detectAllFaces(
         this.videoElement,
@@ -596,6 +608,8 @@ export class ProctoringService {
       }
     } catch (err) {
       console.error('[Proctor] Face detection error:', err);
+    } finally {
+      this.isFaceDetecting = false;
     }
   }
 
