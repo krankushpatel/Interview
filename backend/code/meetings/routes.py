@@ -156,11 +156,12 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
         student_name = user.get("name", req.username)
         student_email = user.get("email")
 
-        # 1. Provision Zoom meeting
+        # 1. Provision Zoom meeting as a Scheduled meeting (Type 2 with JBH=true)
         meeting = await zoom_service.create_meeting(
             topic=f"Technical Interview: {student_name}",
             candidate_username=req.username,
-            duration_minutes=60
+            duration_minutes=60,
+            start_time=req.start_time
         )
 
         # 2. Lock Timetable slot in MongoDB
@@ -181,6 +182,7 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
                 "zoom_meeting_id": meeting.get("meeting_id"),
                 "zoom_app_url": meeting.get("app_url"),
                 "zoom_join_url": meeting.get("join_url"),
+                "zoom_host_url": meeting.get("host_url"),
                 "zoom_passcode": meeting.get("password")
             }}
         )

@@ -187,27 +187,43 @@ class ZoomService:
         self,
         topic: str = "Candidate Interview",
         candidate_username: str = "",
-        duration_minutes: int = 60
+        duration_minutes: int = 60,
+        start_time: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create an automated Zoom meeting for an examination session.
-        Returns host URL (for admin) and candidate join URL.
+        Uses type: 2 (Scheduled Meeting) with join_before_host=True and jbh_time=0
+        so that candidates can join directly without waiting for the host.
         """
         token = await self.get_access_token()
+
+        # Format start_time for Zoom API (UTC ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ)
+        formatted_start = None
+        if start_time:
+            try:
+                dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                formatted_start = dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+            except Exception:
+                formatted_start = start_time
+
         payload = {
             "topic": topic,
-            "type": 1,  # 1 = Instant meeting
+            "type": 2,  # 2 = Scheduled meeting (REQUIRED for join_before_host to work)
             "duration": duration_minutes,
             "timezone": "Asia/Kolkata",
             "settings": {
                 "host_video": True,
                 "participant_video": True,
                 "join_before_host": True,
+                "jbh_time": 0,  # 0 = Participants can join anytime
                 "mute_upon_entry": False,
                 "waiting_room": False,
                 "meeting_authentication": False
             }
         }
+
+        if formatted_start:
+            payload["start_time"] = formatted_start
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
