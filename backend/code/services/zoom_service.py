@@ -228,6 +228,7 @@ class ZoomService:
             "topic": meeting.get("topic"),
             "host_url": meeting.get("start_url"),
             "join_url": meeting.get("join_url"),
+            "app_url": f"zoommtg://zoom.us/join?confno={meeting.get('id')}&pwd={meeting.get('password', '')}&uname={candidate_username}",
             "password": meeting.get("password", ""),
             "candidate_username": candidate_username,
             "provider": "zoom",

@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from code.services.zoom_service import zoom_service
 from code.settings_route.routes import load_settings, save_settings
+from code.services.email_service import send_zoom_schedule_email
+from code.services.timetable_service import set_student_timetable
+from code.core.data_manager import db
 
 router = APIRouter()
 
@@ -25,6 +28,14 @@ class ZoomSessionTokenRequest(BaseModel):
 class ZoomSignatureRequest(BaseModel):
     meeting_number: str
     role: Optional[int] = 0
+
+class ZoomScheduleRequest(BaseModel):
+    username: str
+    start_time: str
+    end_time: str
+    topics: Optional[List[str]] = []
+    custom_message: Optional[str] = ""
+    send_email: bool = True
 
 @router.get("/zoom/config")
 async def get_zoom_config():
@@ -128,4 +139,76 @@ async def end_active_meeting(username: str):
     """End or dismiss active meeting for student."""
     success = zoom_service.end_meeting_for_candidate(username)
     return {"success": success}
+
+@router.post("/zoom/schedule")
+async def schedule_zoom_interview(req: ZoomScheduleRequest):
+    """
+    Schedule a Zoom interview appointment for student:
+    1. Provisions a Zoom Meeting with direct App launcher and Passcode.
+    2. Saves timetable slot in MongoDB (restricting access to this window).
+    3. Sends formatted Zoom email invite to candidate.
+    """
+    try:
+        user = db.users.find_one({"username": req.username}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=404, detail=f"Student '{req.username}' not found")
+
+        student_name = user.get("name", req.username)
+        student_email = user.get("email")
+
+        # 1. Provision Zoom meeting
+        meeting = await zoom_service.create_meeting(
+            topic=f"Technical Interview: {student_name}",
+            candidate_username=req.username,
+            duration_minutes=60
+        )
+
+        # 2. Lock Timetable slot in MongoDB
+        timetable = set_student_timetable(
+            username=req.username,
+            start_time=req.start_time,
+            end_time=req.end_time,
+            topics=req.topics or [],
+            student_email=student_email,
+            student_name=student_name
+        )
+
+        # Link Zoom meeting ID and URLs in timetable record
+        db.timetables.update_one(
+            {"username": req.username},
+            {"$set": {
+                "provider": "zoom",
+                "zoom_meeting_id": meeting.get("meeting_id"),
+                "zoom_app_url": meeting.get("app_url"),
+                "zoom_join_url": meeting.get("join_url"),
+                "zoom_passcode": meeting.get("password")
+            }}
+        )
+
+        # 3. Send Zoom Invite Email
+        email_sent = False
+        if req.send_email and student_email:
+            email_sent = send_zoom_schedule_email(
+                to_email=student_email,
+                name=student_name,
+                username=req.username,
+                start_time=req.start_time,
+                end_time=req.end_time,
+                zoom_join_url=meeting.get("join_url", ""),
+                zoom_app_url=meeting.get("app_url", ""),
+                meeting_id=meeting.get("meeting_id", ""),
+                passcode=meeting.get("password", ""),
+                topics=req.topics,
+                custom_message=req.custom_message
+            )
+
+        return {
+            "success": True,
+            "message": "Zoom interview successfully scheduled and invite sent",
+            "meeting": meeting,
+            "timetable": timetable,
+            "email_sent": email_sent
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to schedule Zoom interview: {str(e)}")
 

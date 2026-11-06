@@ -124,7 +124,12 @@ def check_exam_eligibility(username: str) -> Dict[str, Any]:
             "start_time": start_ist.isoformat(),
             "end_time": end_ist.isoformat(),
             "time_remaining": f"{hours}h {minutes}m",
-            "time_remaining_seconds": time_diff.total_seconds()
+            "time_remaining_seconds": time_diff.total_seconds(),
+            "provider": timetable.get("provider", "webrtc"),
+            "zoom_meeting_id": timetable.get("zoom_meeting_id"),
+            "zoom_app_url": timetable.get("zoom_app_url"),
+            "zoom_join_url": timetable.get("zoom_join_url"),
+            "zoom_passcode": timetable.get("zoom_passcode")
         }
     
     # Exam already ended
@@ -135,7 +140,12 @@ def check_exam_eligibility(username: str) -> Dict[str, Any]:
             "message": f"Exam time has passed. Your exam ended on {end_ist.strftime('%d %b %Y, %I:%M %p')}",
             "schedule": schedule,
             "start_time": start_ist.isoformat(),
-            "end_time": end_ist.isoformat()
+            "end_time": end_ist.isoformat(),
+            "provider": timetable.get("provider", "webrtc"),
+            "zoom_meeting_id": timetable.get("zoom_meeting_id"),
+            "zoom_app_url": timetable.get("zoom_app_url"),
+            "zoom_join_url": timetable.get("zoom_join_url"),
+            "zoom_passcode": timetable.get("zoom_passcode")
         }
     
     # Exam is ongoing
@@ -151,7 +161,12 @@ def check_exam_eligibility(username: str) -> Dict[str, Any]:
         "start_time": start_ist.isoformat(),
         "end_time": end_ist.isoformat(),
         "time_remaining": f"{hours}h {minutes}m",
-        "time_remaining_seconds": time_left.total_seconds()
+        "time_remaining_seconds": time_left.total_seconds(),
+        "provider": timetable.get("provider", "webrtc"),
+        "zoom_meeting_id": timetable.get("zoom_meeting_id"),
+        "zoom_app_url": timetable.get("zoom_app_url"),
+        "zoom_join_url": timetable.get("zoom_join_url"),
+        "zoom_passcode": timetable.get("zoom_passcode")
     }
 
 def bulk_set_student_timetable(

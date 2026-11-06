@@ -11,6 +11,7 @@ export interface StudentTimetablePayload {
   endTimeOnly: string;
   endAmPm: string;
   timetableTopics: string;
+  isZoomSchedule?: boolean;
 }
 
 @Component({
@@ -63,6 +64,19 @@ export interface StudentTimetablePayload {
                 placeholder="e.g. Prepare for Python & Data Structures interview..."
               ></textarea>
             </div>
+
+            <!-- 📹 Zoom Schedule Toggle -->
+            <div class="modal-field" style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.25); border-radius: 8px; padding: 12px 14px; margin-top: 10px;">
+              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
+                <input type="checkbox" [(ngModel)]="isZoomSchedule" style="width: 18px; height: 18px; accent-color: #2563eb; margin-top: 2px;" />
+                <div>
+                  <span style="font-weight: 700; font-size: 13px; color: #1e40af; display: block;">📹 Schedule as Zoom Video Interview</span>
+                  <span style="font-size: 11px; color: #64748b; line-height: 1.4; display: block; margin-top: 2px;">
+                    Automatically provisions Zoom meeting, locks candidate time window, and sends 1-Click Zoom App Launcher & Passcode via email.
+                  </span>
+                </div>
+              </label>
+            </div>
             <div class="modal-actions">
               <button
                 class="btn btn-danger-outline"
@@ -105,6 +119,7 @@ export class StudentTimetableModalComponent {
   @Input() timetableTopics: string = '';
   @Input() hasCurrentTimetable: boolean = false;
   @Input() isSaving: boolean = false;
+  isZoomSchedule: boolean = false;
 
   @Output() dismiss = new EventEmitter<void>();
   @Output() save = new EventEmitter<StudentTimetablePayload>();
@@ -122,7 +137,8 @@ export class StudentTimetableModalComponent {
       endDateOnly: this.endDateOnly,
       endTimeOnly: this.endTimeOnly,
       endAmPm: this.endAmPm,
-      timetableTopics: this.timetableTopics
+      timetableTopics: this.timetableTopics,
+      isZoomSchedule: this.isZoomSchedule
     });
   }
 

@@ -36,6 +36,18 @@
           <span class="row-label">📚 Topics:</span>
           <span class="row-value">{{ examSchedule.schedule.topics?.join(', ') || 'Not specified' }}</span>
         </div>
+        <div class="schedule-row" *ngIf="examSchedule.provider === 'zoom'">
+          <span class="row-label">📹 Platform:</span>
+          <span class="row-value" style="color: #2D8CFF; font-weight: 700;">Native Zoom Application</span>
+        </div>
+        <div class="schedule-row" *ngIf="examSchedule.zoom_meeting_id">
+          <span class="row-label">🆔 Meeting ID:</span>
+          <span class="row-value font-mono">{{ examSchedule.zoom_meeting_id }}</span>
+        </div>
+        <div class="schedule-row" *ngIf="examSchedule.zoom_passcode">
+          <span class="row-label">🔑 Passcode:</span>
+          <span class="row-value font-mono">{{ examSchedule.zoom_passcode }}</span>
+        </div>
       </div>
     </div>
 
@@ -54,6 +66,47 @@
         <div class="panel-header">
           <h2>📋 Exam Instructions</h2>
           <p>Please review the rules carefully before starting your session.</p>
+        </div>
+
+        <!-- Zoom Dedicated Launch Card -->
+        <div class="zoom-scheduled-card" *ngIf="examSchedule?.provider === 'zoom'">
+          <div class="zoom-card-header">
+            <span class="zoom-live-pill">
+              <span class="zoom-pulse-dot"></span> Zoom Video Interview Mode
+            </span>
+            <span class="zoom-slot-badge">⏰ Slot Active</span>
+          </div>
+          <div class="zoom-card-body">
+            <h4>📹 Your interview is set for the native Zoom Application</h4>
+            <p>Connect your mic & camera in Zoom. Questions and your live response tracker run autonomously in the Zoom sidebar or companion tab.</p>
+            
+            <div class="zoom-meta-grid">
+              <div class="meta-item">
+                <span class="m-title">Meeting ID:</span>
+                <span class="m-val">{{ examSchedule.zoom_meeting_id || 'Auto-assigned' }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="m-title">Passcode:</span>
+                <span class="m-val">{{ examSchedule.zoom_passcode || 'Direct Join' }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="m-title">Scheduled Slot:</span>
+                <span class="m-val">{{ formatScheduleDateTime(examSchedule.start_time) }}</span>
+              </div>
+            </div>
+
+            <div class="zoom-actions-row">
+              <button type="button" class="btn btn-zoom-app" (click)="launchZoomApp()">
+                <span>🚀 1-Click Launch Zoom App</span>
+              </button>
+              <button type="button" class="btn btn-zoom-sidebar" (click)="openZoomExamWindow()">
+                <span>📝 Open Question Companion</span>
+              </button>
+              <button type="button" class="btn btn-zoom-web" *ngIf="examSchedule.zoom_join_url" (click)="openZoomWeb()">
+                <span>🌐 Join via Web</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Single unified card containing all numbered instructions -->

@@ -8,6 +8,7 @@ export interface ZoomMeetingDetails {
   topic: string;
   host_url: string;
   join_url: string;
+  app_url?: string;
   password?: string;
   candidate_username: string;
   provider: 'zoom' | 'google_meet' | 'webrtc';
@@ -93,6 +94,20 @@ export class MeetingService {
   async getZoomConfig(): Promise<{ has_video_sdk: boolean; has_oauth: boolean; has_jwt: boolean }> {
     return firstValueFrom(
       this.http.get<{ has_video_sdk: boolean; has_oauth: boolean; has_jwt: boolean }>(`${this.apiUrl}/meetings/zoom/config`)
+    );
+  }
+
+  // 8. Schedule Zoom Interview & Email Candidate Invite
+  async scheduleZoomInterview(data: {
+    username: string;
+    start_time: string;
+    end_time: string;
+    topics?: string[];
+    custom_message?: string;
+    send_email?: boolean;
+  }): Promise<any> {
+    return firstValueFrom(
+      this.http.post<any>(`${this.apiUrl}/meetings/zoom/schedule`, data)
     );
   }
 }

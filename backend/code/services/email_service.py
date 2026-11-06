@@ -180,6 +180,160 @@ AI Interview Platform Team
     except Exception as e:
         print(f"[EMAIL] Failed to send schedule to {to_email}: {e}")
         return False
+
+def send_zoom_schedule_email(
+    to_email: str,
+    name: str,
+    username: str,
+    start_time: str,
+    end_time: str,
+    zoom_join_url: str,
+    zoom_app_url: str,
+    meeting_id: str,
+    passcode: str,
+    topics: list = None,
+    custom_message: str = ""
+) -> bool:
+    """Send formal Zoom interview appointment with credentials and 1-click launcher."""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("[EMAIL] SMTP not configured, skipping Zoom invite email")
+        return False
+
+    formatted_start = format_schedule_datetime(start_time)
+    formatted_end = format_schedule_datetime(end_time)
+    topics_str = ', '.join(topics) if topics else 'Comprehensive Technical Assessment'
+
+    subject = f"📅 Zoom Interview Scheduled: {name} ({formatted_start})"
+
+    msg_section = ""
+    if custom_message and custom_message.strip():
+        msg_section = f"""
+        <div style="background: #f1f5f9; border-left: 4px solid #2563eb; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+            <strong style="color: #1e293b; font-size: 13px;">📝 SPECIAL INSTRUCTIONS:</strong>
+            <p style="margin: 4px 0 0 0; color: #475569; font-size: 14px;">{custom_message.strip()}</p>
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }}
+            .header {{ background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: #ffffff; padding: 24px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }}
+            .header p {{ margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; }}
+            .content {{ padding: 24px; }}
+            .schedule-box {{ background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 16px 0; }}
+            .schedule-row {{ display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }}
+            .schedule-label {{ color: #64748b; font-weight: 600; }}
+            .schedule-value {{ color: #1e293b; font-weight: 700; }}
+            .creds-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; }}
+            .btn-group {{ margin: 24px 0; text-align: center; }}
+            .btn-zoom {{ display: inline-block; background: #2563eb; color: #ffffff !important; padding: 12px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }}
+            .btn-web {{ display: inline-block; background: #f1f5f9; color: #475569 !important; padding: 10px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 13px; margin-top: 10px; }}
+            .footer {{ background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📹 Video Interview Scheduled via Zoom</h1>
+                <p>Eklakhya AI Interview Platform</p>
+            </div>
+            <div class="content">
+                <p style="font-size: 15px;">Dear <strong>{name}</strong>,</p>
+                <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+                    Your upcoming technical interview has been scheduled on the <strong>Zoom Application</strong>. Please review your appointment details and credentials below:
+                </p>
+
+                <div class="schedule-box">
+                    <div style="font-size: 13px; font-weight: 700; color: #2563eb; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">📅 APPOINTMENT WINDOW</div>
+                    <div style="margin-bottom: 6px;"><span class="schedule-label">Start Time:</span> <span class="schedule-value">{formatted_start}</span></div>
+                    <div style="margin-bottom: 6px;"><span class="schedule-label">End Time:</span> <span class="schedule-value">{formatted_end}</span></div>
+                    <div><span class="schedule-label">Topics:</span> <span class="schedule-value">{topics_str}</span></div>
+                </div>
+
+                {msg_section}
+
+                <div class="creds-box">
+                    <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px;">🔑 YOUR ZOOM INTERVIEW CREDENTIALS</div>
+                    <div style="font-family: monospace; font-size: 14px; margin-bottom: 6px;"><strong>Candidate Username:</strong> <span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">{username}</span></div>
+                    <div style="font-family: monospace; font-size: 14px; margin-bottom: 6px;"><strong>Zoom Meeting ID:</strong> <span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">{meeting_id}</span></div>
+                    <div style="font-family: monospace; font-size: 14px;"><strong>Zoom Passcode:</strong> <span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">{passcode or 'None'}</span></div>
+                </div>
+
+                <div class="btn-group">
+                    <a href="{zoom_app_url}" class="btn-zoom">🚀 Open in Zoom Application</a><br>
+                    <a href="{zoom_join_url}" class="btn-web">🌐 Join via Web Browser</a>
+                </div>
+
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #991b1b;">
+                    <strong>⚠️ Important Security Instructions:</strong>
+                    <ul style="margin: 6px 0 0 0; padding-left: 20px;">
+                        <li>You can only access the interview within your scheduled time window.</li>
+                        <li>Ensure your Zoom desktop/mobile app is updated and your camera & microphone are working.</li>
+                        <li>Have a quiet, well-lit environment ready before launching the meeting.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer">
+                © Eklakhya Interview Platform • Automated Appointment Dispatcher
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_body = f"""
+Dear {name},
+
+Your technical interview has been scheduled on the Zoom Application.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 APPOINTMENT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Start Time: {formatted_start}
+End Time: {formatted_end}
+Topics: {topics_str}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔑 ZOOM CREDENTIALS & LAUNCHER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Candidate Username: {username}
+Zoom Meeting ID: {meeting_id}
+Zoom Passcode: {passcode or 'None'}
+
+🚀 Join via Native Zoom App: {zoom_app_url}
+🌐 Join via Web Browser: {zoom_join_url}
+
+⚠️ Important: Access is strictly restricted to your scheduled time slot.
+
+Best regards,
+Eklakhya AI Interview Platform
+"""
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['From'] = FROM_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(plain_body, 'plain'))
+        msg.attach(MIMEText(html_content, 'html'))
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+
+        print(f"[EMAIL] Zoom schedule invite successfully emailed to {to_email} for {username}")
+        return True
+    except Exception as e:
+        print(f"[EMAIL] Failed to send Zoom schedule invite to {to_email}: {e}")
+        return False
     
 def send_custom_email(to_email: str, name: str, subject: str, message: str) -> bool:
     """Send custom email to student"""
