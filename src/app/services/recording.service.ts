@@ -65,7 +65,7 @@ export class RecordingService {
       ? new MediaRecorder(this.stream, { mimeType: mime })
       : new MediaRecorder(this.stream);
     this.recorder.ondataavailable = (e) => { if (e.data.size) this.chunks.push(e.data); };
-    this.recorder.start(500);
+    this.recorder.start(3000);
     this.isRecording = true;
     console.log('[Recording] Started');
   }

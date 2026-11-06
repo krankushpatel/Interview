@@ -122,15 +122,23 @@ export class EyeTrackingService implements OnDestroy {
     else this.config = DEVICE_TIER_CONFIG.high;
   }
 
+  private lastProcessTime = 0;
+  // 4-5 FPS: Instantaneous eye/gaze proctoring detection without starving the GPU/compositor
+  private readonly PROCESS_INTERVAL_MS = 220;
+
   private loop = (): void => {
     if (!this.isRunning || !this.videoElement || !this.faceLandmarker) return;
 
     if (this.videoElement.readyState >= 2 && !this.isPaused) {
-      this.frameCount++;
-      if (this.frameCount % this.config.processEveryNthFrame === 0) {
-        const now = performance.now();
-        const results = this.faceLandmarker.detectForVideo(this.videoElement, now);
-        this.processResults(results, now);
+      const now = performance.now();
+      if (now - this.lastProcessTime >= this.PROCESS_INTERVAL_MS) {
+        this.lastProcessTime = now;
+        try {
+          const results = this.faceLandmarker.detectForVideo(this.videoElement, now);
+          this.processResults(results, now);
+        } catch (e) {
+          // ignore transient frame capture glitch
+        }
       }
     }
     this.rafId = requestAnimationFrame(this.loop);
@@ -191,12 +199,11 @@ export class EyeTrackingService implements OnDestroy {
       timestamp: now
     };
 
-    this.ngZone.run(() => {
-      this.metricsSubject.next(metrics);
-      if (this.isSettled) {
-        this.evaluateEvents(metrics, gazeAwayDuration, now);
-      }
-    });
+    // Keep metrics outside Angular zone so 60 FPS video renderer is NEVER interrupted
+    this.metricsSubject.next(metrics);
+    if (this.isSettled) {
+      this.evaluateEvents(metrics, gazeAwayDuration, now);
+    }
   }
 
   private updateGazeStats(gaze: GazeData, isClosed: boolean): void {
@@ -216,14 +223,18 @@ export class EyeTrackingService implements OnDestroy {
     // 1. Gaze away
     if (gazeAwayDuration >= this.config.gazeAwayWarningMs) {
       if (gazeAwayDuration >= this.config.gazeAwayViolationMs) {
-        this.violationSubject.next({ type: 'gaze_away_violation', detail: 'Looked away for 15s+' });
+        this.ngZone.run(() => {
+          this.violationSubject.next({ type: 'gaze_away_violation', detail: 'Looked away for 15s+' });
+        });
         this.gazeAwaySince = null;
         return;
       }
       if (now - this.lastWarningTime > 10000) {
         this.lastWarningTime = now;
         const dir = this.metricsService.getGazeDirection(m.gaze);
-        this.warningSubject.next({ type: 'gaze_away_warning', detail: `You are looking ${dir}. Please look at the center.`, direction: dir });
+        this.ngZone.run(() => {
+          this.warningSubject.next({ type: 'gaze_away_warning', detail: 'You are looking ' + dir + '. Please look at the center.', direction: dir });
+        });
       }
       return;
     }
@@ -231,13 +242,17 @@ export class EyeTrackingService implements OnDestroy {
     // 2. Eye closure
     if (m.closureDurationMs >= this.config.eyeClosureWarningMs) {
       if (m.closureDurationMs >= this.config.eyeClosureViolationMs) {
-        this.violationSubject.next({ type: 'eye_closure_violation', detail: 'Eyes closed for 10s+' });
+        this.ngZone.run(() => {
+          this.violationSubject.next({ type: 'eye_closure_violation', detail: 'Eyes closed for 10s+' });
+        });
         this.eyesClosedSince = null;
         return;
       }
       if (now - this.lastWarningTime > 10000) {
         this.lastWarningTime = now;
-        this.warningSubject.next({ type: 'eye_closure_warning', detail: 'Your eyes are closed. Please keep them open.', direction: 'closed' });
+        this.ngZone.run(() => {
+          this.warningSubject.next({ type: 'eye_closure_warning', detail: 'Your eyes are closed. Please keep them open.', direction: 'closed' });
+        });
       }
       return;
     }
@@ -249,14 +264,18 @@ export class EyeTrackingService implements OnDestroy {
       const headTurnDuration = now - this.headTurnedSince;
 
       if (headTurnDuration >= this.config.headTurnViolationMs) {
-        this.violationSubject.next({ type: 'head_turned_violation', detail: 'Head turned for 15s+' });
+        this.ngZone.run(() => {
+          this.violationSubject.next({ type: 'head_turned_violation', detail: 'Head turned for 15s+' });
+        });
         this.headTurnedSince = null;
         return;
       }
       if (headTurnDuration >= this.config.headTurnWarningMs && now - this.lastWarningTime > 10000) {
         this.lastWarningTime = now;
         const dir = m.headPose.yaw < -30 ? 'left' : m.headPose.yaw > 30 ? 'right' : m.headPose.pitch < -25 ? 'up' : 'down';
-        this.warningSubject.next({ type: 'gaze_away_warning', detail: `You are looking ${dir}. Please look at the center.`, direction: dir });
+        this.ngZone.run(() => {
+          this.warningSubject.next({ type: 'gaze_away_warning', detail: 'You are looking ' + dir + '. Please look at the center.', direction: dir });
+        });
       }
     } else {
       this.headTurnedSince = null;

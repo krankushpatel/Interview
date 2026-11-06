@@ -1,0 +1,131 @@
+from fastapi import APIRouter, HTTPException, Depends, Body
+from pydantic import BaseModel
+from typing import Optional
+from code.services.zoom_service import zoom_service
+from code.settings_route.routes import load_settings, save_settings
+
+router = APIRouter()
+
+class ZoomTestRequest(BaseModel):
+    account_id: str
+    client_id: str
+    client_secret: str
+
+class ZoomCreateRequest(BaseModel):
+    candidate_username: str
+    topic: Optional[str] = None
+    duration_minutes: Optional[int] = 60
+
+class ZoomSessionTokenRequest(BaseModel):
+    user_identity: str
+    session_name: Optional[str] = None
+    role: Optional[int] = 0
+    session_key: Optional[str] = ""
+
+class ZoomSignatureRequest(BaseModel):
+    meeting_number: str
+    role: Optional[int] = 0
+
+@router.get("/zoom/config")
+async def get_zoom_config():
+    """Check availability of Zoom credentials."""
+    creds = zoom_service.get_credentials()
+    return {
+        "has_video_sdk": bool(creds.get("video_sdk_key") and creds.get("video_sdk_secret")),
+        "has_oauth": bool(creds.get("account_id") and creds.get("client_id") and creds.get("client_secret")),
+        "has_jwt": bool(creds.get("video_sdk_secret"))
+    }
+
+@router.post("/zoom/session-token")
+async def get_zoom_session_token(req: ZoomSessionTokenRequest):
+    """
+    Generate Zoom Video SDK session token.
+    role: 0 for candidate silent background participant, 1 for admin proctor.
+    """
+    try:
+        session_name = req.session_name or f"exam_{req.user_identity.strip().lower()}"
+        res = zoom_service.generate_video_sdk_token(
+            session_name=session_name,
+            user_identity=req.user_identity.strip(),
+            role=req.role if req.role in (0, 1) else 0,
+            session_key=req.session_key or ""
+        )
+        return {"success": True, **res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Token generation failed: {str(e)}")
+
+@router.post("/zoom/signature")
+async def get_zoom_signature(req: ZoomSignatureRequest):
+    """Generate signature for Zoom Web Meeting Client / Component."""
+    try:
+        res = zoom_service.generate_meeting_sdk_signature(
+            meeting_number=req.meeting_number.strip(),
+            role=req.role if req.role in (0, 1) else 0
+        )
+        return {"success": True, **res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Signature generation failed: {str(e)}")
+
+@router.post("/zoom/test")
+async def test_zoom_credentials(req: ZoomTestRequest):
+    """Admin tests Zoom Server-to-Server OAuth credentials."""
+    try:
+        result = await zoom_service.test_connection(
+            account_id=req.account_id.strip(),
+            client_id=req.client_id.strip(),
+            client_secret=req.client_secret.strip()
+        )
+        return {"success": True, "message": "Zoom connection successful", "details": result}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/zoom/save-credentials")
+async def save_zoom_credentials(req: ZoomTestRequest):
+    """Save verified Zoom credentials to system settings."""
+    try:
+        # Verify first
+        await zoom_service.test_connection(
+            account_id=req.account_id.strip(),
+            client_id=req.client_id.strip(),
+            client_secret=req.client_secret.strip()
+        )
+        settings = load_settings()
+        settings["zoom_account_id"] = req.account_id.strip()
+        settings["zoom_client_id"] = req.client_id.strip()
+        settings["zoom_client_secret"] = req.client_secret.strip()
+        save_settings(settings)
+        return {"success": True, "message": "Zoom credentials verified and saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+
+@router.post("/zoom/create")
+async def create_zoom_meeting(req: ZoomCreateRequest):
+    """
+    Admin triggers instant Zoom meeting creation for a candidate.
+    Returns meeting URLs and passcode.
+    """
+    try:
+        topic = req.topic or f"Live Interview - {req.candidate_username}"
+        meeting = await zoom_service.create_meeting(
+            topic=topic,
+            candidate_username=req.candidate_username,
+            duration_minutes=req.duration_minutes or 60
+        )
+        return {"success": True, "meeting": meeting}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Zoom meeting creation failed: {str(e)}")
+
+@router.get("/active/{username}")
+async def get_active_meeting(username: str):
+    """Candidate or Admin polls for active provisioned meeting."""
+    meeting = zoom_service.get_active_meeting_for_candidate(username)
+    if not meeting:
+        return {"active": False, "meeting": None}
+    return {"active": True, "meeting": meeting}
+
+@router.post("/end/{username}")
+async def end_active_meeting(username: str):
+    """End or dismiss active meeting for student."""
+    success = zoom_service.end_meeting_for_candidate(username)
+    return {"success": success}
+

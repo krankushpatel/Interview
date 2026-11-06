@@ -90,6 +90,8 @@ build/
 # Environment Configurations & Secrets
 .env
 *.env
+test_artifacts/
+scratch/
 secrets.json
 
 # ==========================================

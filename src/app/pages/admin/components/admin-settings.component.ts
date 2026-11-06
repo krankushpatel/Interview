@@ -3,11 +3,16 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ThemeService, AppTheme } from '../../../services/theme.service';
+import { MeetingService } from '../../../services/meeting.service';
 
 export interface ExamSettings {
   question_timer_seconds: number;
   max_attempts_default: number;
   allow_typing?: boolean;
+  conferencing_provider?: 'webrtc' | 'zoom' | 'google_meet';
+  zoom_account_id?: string;
+  zoom_client_id?: string;
+  zoom_client_secret?: string;
 }
 
 @Component({
@@ -21,7 +26,7 @@ export interface ExamSettings {
       <div class="page-header">
         <div>
           <h1 class="page-title">Settings</h1>
-          <p class="page-subtitle">Configure theme appearance, exam timer, input methods, and student defaults</p>
+          <p class="page-subtitle">Configure theme appearance, exam timer, input methods, conferencing & Zoom integrations</p>
         </div>
       </div>
 
@@ -103,6 +108,113 @@ export interface ExamSettings {
           </div>
         </div>
 
+        <!-- 📹 Video Conferencing & Zoom Integration Card -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-card-icon" style="background: rgba(45, 140, 255, 0.15); font-size: 22px;">📹</div>
+            <div style="flex: 1;">
+              <div class="settings-card-title">Live Video & Interview Conferencing</div>
+              <div class="settings-card-sub">Choose primary live monitoring provider and configure Zoom integration</div>
+            </div>
+            <span class="chip chip-easy">
+              {{ examSettings.conferencing_provider === 'zoom' ? 'Zoom Active' : (examSettings.conferencing_provider === 'google_meet' ? 'Google Meet Active' : '⚡ WebRTC Active') }}
+            </span>
+          </div>
+
+          <!-- Provider Selector -->
+          <div class="settings-field">
+            <label class="field-label">Preferred Interview Provider</label>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 1rem;">
+              <button 
+                type="button" 
+                class="timer-preset-btn" 
+                [class.active]="!examSettings.conferencing_provider || examSettings.conferencing_provider === 'webrtc'" 
+                (click)="examSettings.conferencing_provider = 'webrtc'">
+                ⚡ Internal WebRTC (Ultra Low-Latency)
+              </button>
+              <button 
+                type="button" 
+                class="timer-preset-btn" 
+                [class.active]="examSettings.conferencing_provider === 'zoom'" 
+                (click)="examSettings.conferencing_provider = 'zoom'">
+                📹 Zoom Video Meetings
+              </button>
+              <button 
+                type="button" 
+                class="timer-preset-btn" 
+                [class.active]="examSettings.conferencing_provider === 'google_meet'" 
+                (click)="examSettings.conferencing_provider = 'google_meet'">
+                🌐 Google Meet
+              </button>
+            </div>
+          </div>
+
+          <!-- Zoom Configuration Fields -->
+          <div style="background: var(--bg-surface-2); padding: 1.25rem; border-radius: var(--r-md); border: 1px solid var(--border); margin-top: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+              <strong style="color: var(--text-primary); font-size: 0.95rem;">Zoom Server-to-Server OAuth Credentials</strong>
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">Managed in Zoom Marketplace</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+              <div>
+                <label class="field-label" style="font-size: 0.75rem;">Account ID</label>
+                <input 
+                  type="text" 
+                  class="field-input" 
+                  [(ngModel)]="examSettings.zoom_account_id" 
+                  placeholder="e.g. abcd1234efgh" />
+              </div>
+              <div>
+                <label class="field-label" style="font-size: 0.75rem;">Client ID</label>
+                <input 
+                  type="text" 
+                  class="field-input" 
+                  [(ngModel)]="examSettings.zoom_client_id" 
+                  placeholder="e.g. 5xYzaBC123" />
+              </div>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+              <label class="field-label" style="font-size: 0.75rem;">Client Secret</label>
+              <div style="position: relative;">
+                <input 
+                  [type]="showSecret ? 'text' : 'password'" 
+                  class="field-input" 
+                  [(ngModel)]="examSettings.zoom_client_secret" 
+                  placeholder="Paste Client Secret here" />
+                <button 
+                  type="button" 
+                  (click)="showSecret = !showSecret"
+                  style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 13px;">
+                  {{ showSecret ? 'Hide' : 'Show' }}
+                </button>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
+              <button 
+                type="button" 
+                class="btn btn-outline" 
+                style="padding: 6px 14px; font-size: 0.85rem;" 
+                (click)="onTestZoomConnection()" 
+                [disabled]="zoomTesting || !examSettings.zoom_account_id || !examSettings.zoom_client_id">
+                <span *ngIf="!zoomTesting">🔌 Test Zoom Connection</span>
+                <span *ngIf="zoomTesting">Testing connection...</span>
+              </button>
+
+              <div *ngIf="zoomTestResult" style="font-size: 0.85rem;">
+                <span *ngIf="zoomTestResult.success" style="color: #00e5a0; font-weight: 600;">
+                  ✅ {{ zoomTestResult.message }}
+                </span>
+                <span *ngIf="!zoomTestResult.success" style="color: #ff5252; font-weight: 600;">
+                  ❌ {{ zoomTestResult.message }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Interview Timer -->
         <div class="settings-card">
           <div class="settings-card-header">
@@ -179,12 +291,17 @@ export interface ExamSettings {
 })
 export class AdminSettingsComponent {
   private themeService = inject(ThemeService);
+  private meetingService = inject(MeetingService);
   private cdr = inject(ChangeDetectorRef);
 
   @Input() examSettings: ExamSettings = {
     question_timer_seconds: 180,
     max_attempts_default: 3,
-    allow_typing: true
+    allow_typing: true,
+    conferencing_provider: 'webrtc',
+    zoom_account_id: '',
+    zoom_client_id: '',
+    zoom_client_secret: ''
   };
   @Input() settingsLoading: boolean = false;
   @Input() settingsSaving: boolean = false;
@@ -192,6 +309,10 @@ export class AdminSettingsComponent {
 
   @Output() save = new EventEmitter<ExamSettings>();
   @Output() resetSettings = new EventEmitter<void>();
+
+  showSecret: boolean = false;
+  zoomTesting: boolean = false;
+  zoomTestResult: { success: boolean; message: string } | null = null;
 
   get isLightMode(): boolean {
     return this.themeService.currentTheme() === 'light';
@@ -218,6 +339,46 @@ export class AdminSettingsComponent {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
+  async onTestZoomConnection() {
+    if (!this.examSettings.zoom_account_id || !this.examSettings.zoom_client_id || !this.examSettings.zoom_client_secret) {
+      this.zoomTestResult = { success: false, message: 'Please enter all 3 Zoom credentials' };
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.zoomTesting = true;
+    this.zoomTestResult = null;
+    this.cdr.markForCheck();
+
+    try {
+      const res = await this.meetingService.testZoomCredentials(
+        this.examSettings.zoom_account_id,
+        this.examSettings.zoom_client_id,
+        this.examSettings.zoom_client_secret
+      );
+      this.zoomTestResult = {
+        success: true,
+        message: `Connected! Account: ${res.details?.email || res.details?.account_id || 'Active'}`
+      };
+      // Auto-save verified Zoom credentials to database immediately
+      try {
+        await this.meetingService.saveZoomCredentials(
+          this.examSettings.zoom_account_id,
+          this.examSettings.zoom_client_id,
+          this.examSettings.zoom_client_secret
+        );
+      } catch (e) {}
+    } catch (err: any) {
+      this.zoomTestResult = {
+        success: false,
+        message: err?.error?.detail || err?.message || 'Connection failed. Check credentials.'
+      };
+    } finally {
+      this.zoomTesting = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   onSave() {
     this.save.emit(this.examSettings);
   }
@@ -226,4 +387,3 @@ export class AdminSettingsComponent {
     this.resetSettings.emit();
   }
 }
-

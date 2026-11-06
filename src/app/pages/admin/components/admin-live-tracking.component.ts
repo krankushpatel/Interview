@@ -93,8 +93,19 @@ import { CommonModule } from '@angular/common';
             <button class="live-action-btn" (click)="viewProctoringLogs.emit({ username: exam.username })">
               📋 Proctor Logs
             </button>
-            <button class="live-action-btn" (click)="viewLiveScreen.emit(exam.username)">
-              🖥️ Live Screen
+            <button 
+              class="live-action-btn" 
+              style="background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.35); color: #4ade80; font-weight: 600;" 
+              (click)="viewLiveExam.emit(exam.username)"
+              title="Open Live 30fps Video, Screen & 2-Way Intercom (WebRTC)">
+              ⚡ WebRTC Live
+            </button>
+            <button 
+              class="live-action-btn" 
+              style="background: rgba(37, 99, 235, 0.15); border-color: rgba(37, 99, 235, 0.35); color: #60a5fa; font-weight: 600;" 
+              (click)="startZoomMeeting.emit(exam.username)"
+              title="Open Zoom Cloud Live Proctor in same tab">
+              📹 Zoom Live
             </button>
           </div>
         </div>
@@ -121,6 +132,7 @@ export class AdminLiveTrackingComponent {
   @Output() viewLiveExam = new EventEmitter<string>();
   @Output() viewProctoringLogs = new EventEmitter<{ username: string }>();
   @Output() viewLiveScreen = new EventEmitter<string>();
+  @Output() startZoomMeeting = new EventEmitter<string>();
 
   formatTime(seconds: number): string {
     if (!seconds || seconds < 0) return '00:00';

@@ -315,6 +315,7 @@ ion-content {
   .login-wrapper {
     grid-template-columns: 1fr;
     max-width: 440px;
+    min-height: auto;
   }
   .left-panel {
     padding: 2rem;
@@ -342,23 +343,6 @@ ion-content::part(scroll) {
   min-height: 100%;
   padding: 20px;
   box-sizing: border-box;
-}
-
-.login-wrapper {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 1000px;
-  display: grid;
-  grid-template-columns: 1fr 420px;
-  min-height: 580px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow:
-    0 32px 80px rgba(59, 130, 246, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.06),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
-  background: transparent;
 }
 
 .left-panel {

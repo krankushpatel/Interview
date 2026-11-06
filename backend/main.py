@@ -61,6 +61,9 @@ from code.settings_route.routes import router as settings_router
 from code.services.dipstick_auto_sync import auto_sync_dipstick_questions
 from code.classes.routes import router as classes_router
 from code.admin.images_routes import router as admin_images_router
+from code.recording.webrtc_signaling import router as webrtc_router
+from code.recording.websocket_handlers import router as ws_stream_router
+from code.meetings.routes import router as meetings_router
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 from code.admin.ws_manager import admin_ws_manager
@@ -125,6 +128,9 @@ app.include_router(audio_router, tags=["Audio"])
 app.include_router(batches_router, prefix="/admin/batches", tags=["Batches"], dependencies=[Depends(get_current_admin)])
 app.include_router(settings_router, prefix="/exam-settings", tags=["Settings"])
 app.include_router(classes_router, prefix="/classes", tags=["Classes"])
+app.include_router(webrtc_router, tags=["WebRTC Signaling"])
+app.include_router(ws_stream_router, tags=["WS Live Streaming"])
+app.include_router(meetings_router, prefix="/meetings", tags=["Meetings"])
 # ✅ Admin Image Manager (JWT protected)
 app.include_router(
     admin_images_router,

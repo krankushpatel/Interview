@@ -568,7 +568,13 @@ async def stt_stream(websocket: WebSocket, username: str, session_id: str):
     punctuate = websocket.query_params.get("punctuate", "true")
     smart_format = websocket.query_params.get("smart_format", "true")
     endpointing = websocket.query_params.get("endpointing", "150")
-    utterance_end_ms = websocket.query_params.get("utterance_end_ms", "800")
+    utterance_end_ms = websocket.query_params.get("utterance_end_ms", "1000")
+    # Deepgram requires utterance_end_ms >= 1000ms. Values < 1000 fail with: "beneath the configured step size."
+    try:
+        if int(utterance_end_ms) < 1000:
+            utterance_end_ms = "1000"
+    except Exception:
+        utterance_end_ms = "1000"
     keyword_boost = websocket.query_params.get("keyword_boost", "6.0")
 
     # Nova-3 does NOT support the legacy `keywords` param (HTTP 400).

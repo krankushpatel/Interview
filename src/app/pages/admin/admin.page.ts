@@ -5,11 +5,13 @@ import { environment } from '../../../environments/environment';
 import { IonicModule, NavController, ModalController, ToastController } from '@ionic/angular';
 import { AdminService, Submission, Student, Question, ExamRecording, ScreenRecording } from '../../services/admin.service';
 import { ThemeService } from '../../services/theme.service';
+import { MeetingService } from '../../services/meeting.service';
 import { SubmissionModalComponent } from '../../components/submission-modal/submission-modal.component';
 import { StudentDetailModalComponent } from '../../components/student-detail-modal/student-detail-modal.component';
 import { VideoModalComponent } from '../../components/video-modal/video-modal.component';
 import { AddStudentModalComponent } from '../../components/add-student-modal/add-student-modal.component';
 import { LiveViewModalComponent } from '../../components/live-view-modal/live-view-modal.component';
+import { ZoomLiveModalComponent } from '../../components/zoom-live-modal/zoom-live-modal.component';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ProctoringLogsModalComponent } from '../../components/proctoring-logs-modal/proctoring-logs-modal.component';
 import {
@@ -293,7 +295,8 @@ export class AdminPage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
-    public themeService: ThemeService
+    public themeService: ThemeService,
+    private meetingService: MeetingService
   ) {}
 
   get isDarkTheme(): boolean {
@@ -1989,6 +1992,19 @@ export class AdminPage implements OnInit, OnDestroy {
       componentProps: { username }
     });
     await modal.present();
+  }
+
+  async openZoomLiveModal(username: string) {
+    const modal = await this.modalCtrl.create({
+      component: ZoomLiveModalComponent,
+      componentProps: { username },
+      cssClass: 'live-view-modal-custom'
+    });
+    await modal.present();
+  }
+
+  async onStartZoomMeeting(username: string) {
+    await this.openZoomLiveModal(username);
   }
 
   async viewLiveScreen(username: string) {

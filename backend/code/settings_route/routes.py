@@ -28,6 +28,10 @@ DEFAULT_SETTINGS = {
     "penalty_cheating": 25,               # Score penalty % for cheating
     "max_attempts_default": 1,            #  max attempts per student
     "allow_typing": True,                 # typing allow
+    "conferencing_provider": "webrtc",
+    "zoom_account_id": "",
+    "zoom_client_id": "",
+    "zoom_client_secret": "",
 }
 
 # One-time migration: If legacy exam_settings.json exists, migrate to MongoDB
@@ -71,6 +75,13 @@ class ExamSettings(BaseModel):
     penalty_cheating: Optional[int] = None
     max_attempts_default: Optional[int] = None
     allow_typing: bool = True
+    conferencing_provider: Optional[str] = None
+    zoom_account_id: Optional[str] = None
+    zoom_client_id: Optional[str] = None
+    zoom_client_secret: Optional[str] = None
+
+    class Config:
+        extra = "allow"
 
 
 @router.get("")

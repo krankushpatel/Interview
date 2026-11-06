@@ -19,7 +19,7 @@ export type DeviceTier = 'low' | 'mid' | 'high';
 
 export const DEVICE_TIER_CONFIG: Record<DeviceTier, EyeTrackingConfig> = {
   low: {
-    processEveryNthFrame: 3,
+    processEveryNthFrame: 4, // ~15 FPS - lightweight on GPU
     earClosureThreshold: 0.20,
     yawLimitDeg: 35,
     pitchLimitDeg: 30,
@@ -33,7 +33,7 @@ export const DEVICE_TIER_CONFIG: Record<DeviceTier, EyeTrackingConfig> = {
     headTurnViolationMs: 15000
   },
   mid: {
-    processEveryNthFrame: 2,
+    processEveryNthFrame: 4, // ~15 FPS - ultra smooth camera rendering
     earClosureThreshold: 0.22,
     yawLimitDeg: 30,
     pitchLimitDeg: 25,
@@ -47,7 +47,7 @@ export const DEVICE_TIER_CONFIG: Record<DeviceTier, EyeTrackingConfig> = {
     headTurnViolationMs: 15000
   },
   high: {
-    processEveryNthFrame: 1,
+    processEveryNthFrame: 3, // ~20 FPS - silky smooth without GPU lock
     earClosureThreshold: 0.23,
     yawLimitDeg: 25,
     pitchLimitDeg: 20,

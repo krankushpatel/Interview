@@ -1,14 +1,19 @@
 const getApiUrl = (): string => {
     if (typeof window === 'undefined') return '';
-    return (window as any).__ENV__?.API_URL || 'http://localhost:8001';
+    if ((window as any).__ENV__?.API_URL) return (window as any).__ENV__.API_URL;
+    const hostname = window.location.hostname || 'localhost';
+    return `http://${hostname}:8001`;
 };
 
 const getWsUrl = (): string => {
     if (typeof window === 'undefined') return '';
     if ((window as any).__ENV__?.WS_URL) return (window as any).__ENV__.WS_URL;
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProto}//${window.location.host}`;
+    const hostname = window.location.hostname || 'localhost';
+    return `${wsProto}//${hostname}:8001`;
 };
+
+
 
 export interface DeepgramOptions {
     model?: string;
@@ -38,6 +43,6 @@ export const environment = {
         keywords: [],
         keyword_boost: 4.0,
         endpointing: 200,
-        utterance_end_ms: 500
+        utterance_end_ms: 1000
     } as DeepgramOptions
 };

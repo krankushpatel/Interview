@@ -327,7 +327,7 @@ export class SpeechService {
             keywords: allKeywords.slice(0, 100),
             keyword_boost: opts.keyword_boost ?? 6.0,
             endpointing: opts.endpointing ?? 150,
-            utterance_end_ms: opts.utterance_end_ms ?? 800,
+            utterance_end_ms: opts.utterance_end_ms ?? 1000,
           };
           try {
             this.dgWebSocket!.send(JSON.stringify(settings));

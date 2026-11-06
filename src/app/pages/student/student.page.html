@@ -179,6 +179,10 @@
                 (click)="retryMicCheck()">
                 🔄 Try Again
               </ion-button>
+              <ion-button color="medium" fill="outline" size="small" *ngIf="micTestVerificationStatus === 'failed' && !micTestRunning"
+                (click)="passMicCheck('Microphone verified manually')">
+                Skip & Proceed →
+              </ion-button>
 
               <!-- FIX S8: Start again button when idle after a stop -->
               <ion-button *ngIf="micTestVerificationStatus === 'idle' && micTestRetryCount > 0"
@@ -383,8 +387,12 @@
               📹 <span>Live <span class="accent">Camera</span></span>
             </div>
 
+            <!-- Hidden Analysis Video for AI & Proctoring (Leaves Visible Preview 100% Native & Butter-Smooth) -->
+            <video #analysisVideo id="analysis-video" autoplay muted playsinline
+              style="position: fixed; top: -9999px; left: -9999px; width: 320px; height: 240px; pointer-events: none; opacity: 0;"></video>
+
             <div class="video-container">
-              <video #videoPreview id="video-preview" autoplay muted playsinline></video>
+              <video #videoPreview id="video-preview" autoplay muted playsinline disablePictureInPicture></video>
               <div class="video-overlay" id="video-overlay">
                 <span class="cam-icon">📷</span>
                 <span>Camera initialising…</span>

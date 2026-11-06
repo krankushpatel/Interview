@@ -269,8 +269,8 @@
           [liveExamsCount]="liveExamsCount"
           [totalQuestionsAnswered]="totalQuestionsAnswered"
           (viewLiveExam)="viewLiveExam($event)"
-          (viewProctoringLogs)="viewProctoringLogs($event.username, $event.username)"
-          (viewLiveScreen)="viewLiveScreen($event)">
+          (startZoomMeeting)="openZoomLiveModal($event)"
+          (viewProctoringLogs)="viewProctoringLogs($event.username, $event.username)">
         </app-admin-live-tracking>
 
         <!-- ── Settings ── -->

@@ -40,7 +40,7 @@ export class ProctoringService {
 
   private consecutiveNoFace = 0;
   private consecutiveMultiFace = 0;
-  private readonly CONSECUTIVE_THRESHOLD = 5;
+  private readonly CONSECUTIVE_THRESHOLD = 3;
   private multipleFaceCount = 0;
   private readonly MULTIPLE_FACE_THRESHOLD = 3;
 
@@ -531,10 +531,14 @@ export class ProctoringService {
     this.videoElement = videoEl;
     await this.loadFaceModels();
     if (this.faceModelsLoaded) {
-      this.faceDetectionInterval = setInterval(() => this.detectFaces(), 500);
+      this.ngZone.runOutsideAngular(() => {
+        this.faceDetectionInterval = setInterval(() => this.detectFaces(), 2500);
+      });
     } else {
       console.warn('[Proctor] Face models not loaded, using pixel variance fallback');
-      this.startPixelVarianceFallback();
+      this.ngZone.runOutsideAngular(() => {
+        this.startPixelVarianceFallback();
+      });
     }
   }
 
