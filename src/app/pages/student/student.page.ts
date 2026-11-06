@@ -130,9 +130,15 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       const uname = encodeURIComponent(sessionStorage.getItem('username') || 'Candidate');
       const pwd = this.examSchedule?.zoom_passcode || '';
       window.location.href = `zoommtg://zoom.us/join?confno=${this.examSchedule.zoom_meeting_id}&pwd=${pwd}&uname=${uname}`;
-    } else {
-      this.showToast('Zoom Meeting details not found for your session.', 'warning');
     }
+
+    // Automatically transition to autonomous question engine without waiting for admin
+    const currentUsername = sessionStorage.getItem('username') || 'Ankush';
+    setTimeout(() => {
+      this.navCtrl.navigateForward(['/zoom-app'], {
+        queryParams: { username: currentUsername }
+      });
+    }, 1200);
   }
 
   openZoomWeb() {

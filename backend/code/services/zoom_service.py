@@ -239,13 +239,29 @@ class ZoomService:
             raise Exception(f"Failed to create Zoom meeting ({resp.status_code}): {resp.text}")
 
         meeting = resp.json()
+        start_url = meeting.get("start_url", "")
+        meeting_id = str(meeting.get("id"))
+        password = meeting.get("password", "")
+
+        # Extract ZAK (Zoom Access Key) from start_url for zero-friction auto-start
+        zak_token = ""
+        if "zak=" in start_url:
+            zak_token = start_url.split("zak=")[1].split("&")[0]
+
+        # If ZAK is present, launch with start action so candidate NEVER waits for host!
+        if zak_token:
+            app_url = f"zoommtg://zoom.us/start?confno={meeting_id}&zak={zak_token}&uname={candidate_username}"
+        else:
+            app_url = f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={candidate_username}"
+
         meeting_record = {
-            "meeting_id": str(meeting.get("id")),
+            "meeting_id": meeting_id,
             "topic": meeting.get("topic"),
-            "host_url": meeting.get("start_url"),
+            "host_url": start_url,
             "join_url": meeting.get("join_url"),
-            "app_url": f"zoommtg://zoom.us/join?confno={meeting.get('id')}&pwd={meeting.get('password', '')}&uname={candidate_username}",
-            "password": meeting.get("password", ""),
+            "app_url": app_url,
+            "participant_app_url": f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={candidate_username}",
+            "password": password,
             "candidate_username": candidate_username,
             "provider": "zoom",
             "created_at": time.time(),

@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { QuestionService, Question, AnswerRecord } from '../../services/question.service';
 import { SpeechService } from '../../services/speech.service';
-import { Subscription } from 'rxjs';
+import { Subscription, lastValueFrom } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import zoomSdk from '@zoom/appssdk';
 
 @Component({
@@ -518,6 +520,7 @@ export class ZoomAppPage implements OnInit, OnDestroy {
 
   constructor(
     private route: ActivatedRoute,
+    private http: HttpClient,
     private qService: QuestionService,
     public speech: SpeechService,
     private cdr: ChangeDetectorRef,
@@ -530,6 +533,34 @@ export class ZoomAppPage implements OnInit, OnDestroy {
     await this.loadQuestions();
     this.startTimer();
     this.initSpeechSubscription();
+    this.autoStartMic();
+    await this.autoLaunchZoomIfNeeded();
+  }
+
+  private autoStartMic() {
+    try {
+      this.isListening = true;
+      this.speech.startListening(this.username, this.examSessionId);
+    } catch (e) {
+      console.warn('[ZoomApp] Auto-mic deferred until user interaction:', e);
+    }
+  }
+
+  private async autoLaunchZoomIfNeeded() {
+    const shouldLaunch = this.route.snapshot.queryParamMap.get('launch_zoom');
+    if (shouldLaunch === 'true') {
+      try {
+        const schedule = await lastValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/student/exam-schedule/${this.username}`)
+        );
+        if (schedule?.zoom_app_url) {
+          console.log('[ZoomApp] Auto-launching native Zoom application...');
+          window.location.href = schedule.zoom_app_url;
+        }
+      } catch (e) {
+        console.warn('[ZoomApp] Auto-launch Zoom app skipped:', e);
+      }
+    }
   }
 
   private extractUserIdentity() {

@@ -266,8 +266,17 @@ def send_zoom_schedule_email(
                 </div>
 
                 <div class="btn-group">
-                    <a href="{zoom_app_url}" class="btn-zoom">🚀 Open in Zoom Application</a><br>
-                    <a href="{zoom_join_url}" class="btn-web">🌐 Join via Web Browser</a>
+                    <a href="https://dipstickdev.eklakshya.com/zoom-app?username={username}&launch_zoom=true" class="btn-zoom" style="background: #2563eb; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; display: inline-block;">
+                        🚀 Start Zoom Interview & Begin Questions
+                    </a>
+                    <div style="margin-top: 12px;">
+                        <a href="{zoom_app_url}" class="btn-web" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 8px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px; margin-right: 8px;">
+                            📹 Direct Zoom App Launch
+                        </a>
+                        <a href="{zoom_join_url}" class="btn-web" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 8px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px;">
+                            🌐 Web Browser Join
+                        </a>
+                    </div>
                 </div>
 
                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #991b1b;">
