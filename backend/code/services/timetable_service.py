@@ -14,7 +14,9 @@ def get_student_timetable(username: str) -> Optional[Dict[str, Any]]:
     timetable = db.timetables.find_one({"username": username})
     
     if timetable and "schedule" in timetable:
-        return {"schedule": timetable["schedule"]}
+        if "_id" in timetable:
+            timetable["_id"] = str(timetable["_id"])
+        return timetable
     return None
 
 def set_student_timetable(
