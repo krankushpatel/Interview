@@ -131,6 +131,7 @@ def check_exam_eligibility(username: str) -> Dict[str, Any]:
             "zoom_meeting_id": timetable.get("zoom_meeting_id"),
             "zoom_app_url": timetable.get("zoom_app_url"),
             "zoom_join_url": timetable.get("zoom_join_url"),
+            "zoom_host_url": timetable.get("zoom_host_url"),
             "zoom_passcode": timetable.get("zoom_passcode")
         }
     
@@ -147,6 +148,7 @@ def check_exam_eligibility(username: str) -> Dict[str, Any]:
             "zoom_meeting_id": timetable.get("zoom_meeting_id"),
             "zoom_app_url": timetable.get("zoom_app_url"),
             "zoom_join_url": timetable.get("zoom_join_url"),
+            "zoom_host_url": timetable.get("zoom_host_url"),
             "zoom_passcode": timetable.get("zoom_passcode")
         }
     
@@ -168,6 +170,7 @@ def check_exam_eligibility(username: str) -> Dict[str, Any]:
         "zoom_meeting_id": timetable.get("zoom_meeting_id"),
         "zoom_app_url": timetable.get("zoom_app_url"),
         "zoom_join_url": timetable.get("zoom_join_url"),
+        "zoom_host_url": timetable.get("zoom_host_url"),
         "zoom_passcode": timetable.get("zoom_passcode")
     }
 

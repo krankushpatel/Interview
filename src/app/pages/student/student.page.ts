@@ -124,7 +124,10 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   launchZoomApp() {
-    if (this.examSchedule?.zoom_app_url) {
+    // 1. Prefer Host URL (contains ZAK token) to bypass "Waiting for host" screen completely!
+    if (this.examSchedule?.zoom_host_url) {
+      window.open(this.examSchedule.zoom_host_url, '_blank');
+    } else if (this.examSchedule?.zoom_app_url) {
       window.location.href = this.examSchedule.zoom_app_url;
     } else if (this.examSchedule?.zoom_meeting_id) {
       const uname = encodeURIComponent(sessionStorage.getItem('username') || 'Candidate');
@@ -132,7 +135,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       window.location.href = `zoommtg://zoom.us/join?confno=${this.examSchedule.zoom_meeting_id}&pwd=${pwd}&uname=${uname}`;
     }
 
-    // Automatically transition to autonomous question engine without waiting for admin
+    // 2. Automatically transition to autonomous question engine without waiting for admin
     const currentUsername = sessionStorage.getItem('username') || 'Ankush';
     setTimeout(() => {
       this.navCtrl.navigateForward(['/zoom-app'], {

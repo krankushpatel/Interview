@@ -191,6 +191,7 @@ def send_zoom_schedule_email(
     zoom_app_url: str,
     meeting_id: str,
     passcode: str,
+    zoom_host_url: str = "",
     topics: list = None,
     custom_message: str = ""
 ) -> bool:
@@ -266,14 +267,14 @@ def send_zoom_schedule_email(
                 </div>
 
                 <div class="btn-group">
-                    <a href="https://dipstickdev.eklakshya.com/zoom-app?username={username}&launch_zoom=true" class="btn-zoom" style="background: #2563eb; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; display: inline-block;">
-                        🚀 Start Zoom Interview & Begin Questions
+                    <a href="{zoom_host_url or zoom_app_url}" class="btn-zoom" style="background: #2563eb; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; display: inline-block;">
+                        🚀 1-Click Launch Zoom Meeting (Auto-Start)
                     </a>
-                    <div style="margin-top: 12px;">
-                        <a href="{zoom_app_url}" class="btn-web" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 8px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px; margin-right: 8px;">
-                            📹 Direct Zoom App Launch
+                    <div style="margin-top: 14px;">
+                        <a href="https://dipstickdev.eklakshya.com/zoom-app?username={username}&launch_zoom=true" class="btn-web" style="display: inline-block; background: #0f172a; color: #38bdf8 !important; padding: 10px 18px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 13px; margin-right: 8px;">
+                            📝 Open In-Client Question Window
                         </a>
-                        <a href="{zoom_join_url}" class="btn-web" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 8px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px;">
+                        <a href="{zoom_join_url}" class="btn-web" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 10px 18px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px;">
                             🌐 Web Browser Join
                         </a>
                     </div>

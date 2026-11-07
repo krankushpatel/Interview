@@ -200,6 +200,7 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
                 zoom_app_url=meeting.get("app_url", ""),
                 meeting_id=meeting.get("meeting_id", ""),
                 passcode=meeting.get("password", ""),
+                zoom_host_url=meeting.get("host_url", ""),
                 topics=req.topics,
                 custom_message=req.custom_message
             )

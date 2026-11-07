@@ -553,7 +553,10 @@ export class ZoomAppPage implements OnInit, OnDestroy {
         const schedule = await lastValueFrom(
           this.http.get<any>(`${environment.apiUrl}/student/exam-schedule/${this.username}`)
         );
-        if (schedule?.zoom_app_url) {
+        if (schedule?.zoom_host_url) {
+          console.log('[ZoomApp] Launching Zoom via host URL (Zero waiting room)...');
+          window.open(schedule.zoom_host_url, '_blank');
+        } else if (schedule?.zoom_app_url) {
           console.log('[ZoomApp] Auto-launching native Zoom application...');
           window.location.href = schedule.zoom_app_url;
         }

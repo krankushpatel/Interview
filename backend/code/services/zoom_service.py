@@ -218,7 +218,10 @@ class ZoomService:
                 "jbh_time": 0,  # 0 = Participants can join anytime
                 "mute_upon_entry": False,
                 "waiting_room": False,
-                "meeting_authentication": False
+                "meeting_authentication": False,
+                "approval_type": 2,  # No registration required
+                "audio": "both",
+                "enforce_login": False
             }
         }
 
