@@ -124,7 +124,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   launchZoomApp() {
-    // 1. Prefer Host URL (contains ZAK token) to bypass "Waiting for host" screen completely!
+    // 1. Launch Zoom Meeting directly as Host / Auto-Start so candidate NEVER waits for host
     if (this.examSchedule?.zoom_host_url) {
       window.open(this.examSchedule.zoom_host_url, '_blank');
     } else if (this.examSchedule?.zoom_app_url) {
@@ -135,13 +135,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       window.location.href = `zoommtg://zoom.us/join?confno=${this.examSchedule.zoom_meeting_id}&pwd=${pwd}&uname=${uname}`;
     }
 
-    // 2. Automatically transition to autonomous question engine without waiting for admin
-    const currentUsername = sessionStorage.getItem('username') || 'Ankush';
+    // 2. Automatically accept instructions & advance to full proctoring pipeline
+    // (Mic Check -> Camera Check with AI Face Baseline -> Screen Share to Admin -> Active Exam with Skip/Clear/Submit & Multiple Face Detection)
+    this.instructionsAccepted = true;
+    this.showToast('🚀 Zoom launched! Proceeding to setup...', 'primary');
     setTimeout(() => {
-      this.navCtrl.navigateForward(['/zoom-app'], {
-        queryParams: { username: currentUsername }
-      });
-    }, 1200);
+      this.nextStep();
+    }, 1000);
   }
 
   openZoomWeb() {
