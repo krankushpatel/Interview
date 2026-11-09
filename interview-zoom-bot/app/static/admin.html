@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interview Bot Admin</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --mute:#667085; --line:#e4e7ec; --brand:#2563eb; --ok:#12805c; --warn:#b54708; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1216; --card:#171b21; --ink:#e8ecf1; --mute:#98a2b3; --line:#2a313b; --brand:#6b9bff; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:12px; align-items:center; }
+  header h1 { font-size:16px; margin:0; }
+  .badge { font-size:11px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--mute); }
+  main { display:grid; grid-template-columns:340px 1fr; gap:16px; padding:16px 20px; align-items:start; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:16px; }
+  .card h2 { font-size:13px; margin:0 0 10px; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); }
+  label { display:block; font-size:12px; color:var(--mute); margin:10px 0 4px; }
+  input, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--ink); font:inherit; }
+  textarea { min-height:110px; resize:vertical; }
+  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:9px 14px; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .list .item { padding:9px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; cursor:pointer; display:flex; justify-content:space-between; gap:8px; }
+  .list .item.sel { border-color:var(--brand); }
+  .pill { font-size:11px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); }
+  .pill.in_progress { color:var(--ok); border-color:var(--ok); } .pill.waiting { color:var(--warn); border-color:var(--warn); }
+  .pill.completed { color:var(--mute); } .pill.aborted { color:var(--bad); border-color:var(--bad); }
+  .big { font-size:17px; font-weight:600; }
+  .timer { font-variant-numeric:tabular-nums; font-size:28px; font-weight:700; }
+  .timer.low { color:var(--bad); }
+  .live { min-height:96px; padding:10px 12px; border:1px dashed var(--line); border-radius:8px; white-space:pre-wrap; }
+  .live .partial { color:var(--mute); font-style:italic; }
+  .chat { max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .msg { margin-bottom:8px; white-space:pre-wrap; } .msg b { font-size:11px; color:var(--mute); display:block; }
+  .msg.bot { color:var(--brand); }
+  table { width:100%; border-collapse:collapse; } td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; color:var(--mute); font-weight:600; }
+  .mute { color:var(--mute); } .err { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Interview Bot — Admin <span class="mute">(prototype)</span></h1>
+  <span class="badge" id="mode">…</span>
+  <span class="badge" id="wsstate">ws: …</span>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <h2>New interview</h2>
+      <label>Candidate name</label><input id="cand" value="Candidate">
+      <label>Zoom meeting URL <span class="mute">(any text in mock mode)</span></label><input id="murl" placeholder="https://zoom.us/j/123456789?pwd=...">
+      <label>Default time per question (seconds)</label><input id="limit" type="number" min="5" max="3600" value="300">
+      <label>Questions — one per line. Optional per-question seconds: <code>text | 120</code></label>
+      <textarea id="qs">Tell me about yourself.
+Explain the difference between a list and a tuple in Python. | 180
+Describe a project you are proud of.</textarea>
+      <div class="row" style="margin-top:12px"><button id="create">Create &amp; send bot</button><span id="createmsg" class="mute"></span></div>
+    </div>
+    <div class="card list"><h2>Interviews</h2><div id="list" class="mute">loading…</div></div>
+  </section>
+
+  <section id="detail" class="card">
+    <h2>Live view</h2>
+    <div id="nosel" class="mute">Create or select an interview.</div>
+    <div id="sel" hidden>
+      <div class="row" style="justify-content:space-between">
+        <div><span class="big" id="dname"></span> <span class="pill" id="dstatus"></span><div class="mute" id="dinfo"></div></div>
+        <div style="text-align:right"><div class="timer" id="dtimer">–</div><button class="ghost" id="endbtn">End interview</button></div>
+      </div>
+      <label>Current question</label><div id="dq" class="big">–</div>
+      <label>Student answer (live, from Deepgram)</label><div id="dlive" class="live"></div>
+      <label>Chat (what the bot posts / what the student types)</label><div id="dchat" class="chat"></div>
+      <label>Saved answers</label>
+      <table><thead><tr><th>#</th><th>Status</th><th>Answer</th><th>Words</th><th>Sec</th></tr></thead><tbody id="dans"></tbody></table>
+    </div>
+  </section>
+</main>
+
+<script>
+const KEY = new URLSearchParams(location.search).get('key') || '';
+const q = (p) => p + (p.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(KEY);
+const $ = (id) => document.getElementById(id);
+let selected = null, snap = null, ws = null, deadline = 0, refreshT = null;
+
+async function api(path, opts) {
+  const r = await fetch(q(path), opts);
+  if (!r.ok) throw new Error((await r.text()) || r.status);
+  return r.json();
+}
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (n) => { n = Math.max(0, Math.round(n)); return Math.floor(n/60) + ':' + String(n%60).padStart(2,'0'); };
+
+async function loadHealth() {
+  try { const h = await api('/api/health'); $('mode').textContent = h.mode.toUpperCase() + ' mode · default ' + fmt(h.default_time_limit_sec) + '/question'; } catch (e) { $('mode').textContent = 'api error'; }
+}
+async function loadList() {
+  try {
+    const rows = await api('/api/interviews');
+    $('list').innerHTML = rows.length ? '' : 'No interviews yet.';
+    rows.forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'item' + (r.id === selected ? ' sel' : '');
+      d.innerHTML = `<span>${esc(r.candidate_name)} <span class="mute">· Q${Math.max(0, r.q_index + 1)}/${r.total_questions}</span></span><span class="pill ${r.status}">${r.status}</span>`;
+      d.onclick = () => select(r.id);
+      $('list').appendChild(d);
+    });
+  } catch (e) { $('list').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; }
+}
+async function select(id) { selected = id; connectWs(); await refresh(); loadList(); }
+async function refresh() {
+  if (!selected) return;
+  try { snap = await api('/api/interviews/' + selected); render(); } catch (e) { console.error(e); }
+}
+function scheduleRefresh() { clearTimeout(refreshT); refreshT = setTimeout(() => { refresh(); loadList(); }, 250); }
+
+function render() {
+  $('nosel').hidden = true; $('sel').hidden = false;
+  $('dname').textContent = snap.candidate_name;
+  $('dstatus').textContent = snap.status; $('dstatus').className = 'pill ' + snap.status;
+  $('dinfo').textContent = `id ${snap.id} · Q${Math.max(0, (snap.q_index ?? -1) + 1)}/${snap.total_questions}` + (snap.student_name ? ` · student: ${snap.student_name}` : '');
+  $('dq').textContent = snap.question || (snap.status === 'waiting' ? 'Waiting for the student to type /start' : '–');
+  deadline = snap.deadline || 0;
+  setLive(snap.answer_so_far || '', snap.partial || '');
+  $('dchat').innerHTML = (snap.chat_log || []).map(m =>
+    `<div class="msg ${m.direction === 'bot' ? 'bot' : ''}"><b>${m.direction === 'bot' ? 'bot' : esc(m.participant || 'participant')}</b>${esc(m.text)}</div>`).join('');
+  $('dchat').scrollTop = $('dchat').scrollHeight;
+  $('dans').innerHTML = (snap.answers || []).map(a =>
+    `<tr><td>${a.q_index + 1}</td><td>${esc(a.status)}</td><td>${esc(a.answer) || '<span class="mute">(empty)</span>'}</td><td>${a.word_count}</td><td>${a.duration_sec}</td></tr>`).join('');
+  $('endbtn').disabled = !(snap.live && (snap.status === 'waiting' || snap.status === 'in_progress'));
+}
+function setLive(final, partial) {
+  $('dlive').innerHTML = esc(final) + (partial ? ' <span class="partial">' + esc(partial) + '</span>' : '') || '<span class="mute">—</span>';
+}
+setInterval(() => {
+  const t = $('dtimer');
+  if (!deadline) { t.textContent = '–'; t.classList.remove('low'); return; }
+  const left = deadline - Date.now() / 1000;
+  t.textContent = fmt(left); t.classList.toggle('low', left <= 60);
+}, 250);
+
+function connectWs() {
+  if (ws) { try { ws.close(); } catch (e) {} }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/admin?interview_id=${encodeURIComponent(selected || '')}&key=${encodeURIComponent(KEY)}`);
+  ws.onopen = () => { $('wsstate').textContent = 'ws: live'; setInterval(() => { try { ws.send('ping'); } catch (e) {} }, 20000); };
+  ws.onclose = () => { $('wsstate').textContent = 'ws: closed'; };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'transcript') { setLive(m.final ? m.answer_so_far : (m.answer_so_far.slice(0, Math.max(0, m.answer_so_far.length - m.text.length)).trim()), m.final ? '' : m.text); return; }
+    scheduleRefresh();
+  };
+}
+
+$('create').onclick = async () => {
+  $('create').disabled = true; $('createmsg').textContent = 'creating…'; $('createmsg').className = 'mute';
+  try {
+    const questions = $('qs').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      const i = l.lastIndexOf('|'); if (i > 0 && /^\d+$/.test(l.slice(i + 1).trim())) return { text: l.slice(0, i).trim(), time_limit_sec: +l.slice(i + 1).trim() };
+      return l;
+    });
+    const s = await api('/api/interviews', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ candidate_name: $('cand').value, meeting_url: $('murl').value, time_limit_sec: +$('limit').value || null, questions }) });
+    $('createmsg').textContent = 'created: ' + s.id; await loadList(); select(s.id);
+  } catch (e) { $('createmsg').textContent = e.message.slice(0, 300); $('createmsg').className = 'err'; }
+  $('create').disabled = false;
+};
+$('endbtn').onclick = async () => { if (selected && confirm('End this interview now?')) { await api('/api/interviews/' + selected + '/end', { method: 'POST' }); refresh(); } };
+
+loadHealth(); loadList(); setInterval(loadList, 8000);
+</script>
+</body>
+</html>

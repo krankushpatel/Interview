@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from typing import Optional, List
 from code.services.zoom_service import zoom_service
+from code.services.zoom_bot_service import zoom_bot_service
 from code.settings_route.routes import load_settings, save_settings
 from code.services.email_service import send_zoom_schedule_email
 from code.services.timetable_service import set_student_timetable
@@ -205,13 +206,64 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
                 custom_message=req.custom_message
             )
 
+        # 4. Auto-provision Zoom Interview Bot for this session
+        bot_session = None
+        try:
+            questions = []
+            if req.topics:
+                q_docs = list(db.questions.find({"category": {"$in": req.topics}}, {"_id": 0, "question": 1}).limit(5))
+                questions = [q["question"] for q in q_docs if "question" in q]
+            if not questions:
+                q_docs = list(db.questions.find({}, {"_id": 0, "question": 1}).limit(5))
+                questions = [q["question"] for q in q_docs if "question" in q]
+
+            bot_session = await zoom_bot_service.create_bot_interview(
+                username=req.username,
+                candidate_name=student_name,
+                meeting_url=meeting.get("join_url", ""),
+                questions=questions,
+                default_time_limit_sec=300
+            )
+        except Exception as bot_err:
+            print(f"[ZoomSchedule] Bot auto-register notice: {bot_err}")
+
         return {
             "success": True,
             "message": "Zoom interview successfully scheduled and invite sent",
             "meeting": meeting,
             "timetable": timetable,
-            "email_sent": email_sent
+            "email_sent": email_sent,
+            "bot_session": bot_session
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to schedule Zoom interview: {str(e)}")
+
+
+# ─────────────────────────────────────────────────────────────────
+# ZOOM BOT INTEGRATION ENDPOINTS
+# ─────────────────────────────────────────────────────────────────
+@router.post("/zoom-bot/event")
+async def on_zoom_bot_event(payload: dict = Body(...)):
+    """Receives real-time streaming events from interview-zoom-bot."""
+    await zoom_bot_service.handle_bot_event(payload)
+    return {"ok": True}
+
+
+@router.post("/zoom-bot/complete")
+async def on_zoom_bot_complete(payload: dict = Body(...)):
+    """Receives completed interview payload from interview-zoom-bot and triggers AI scoring."""
+    await zoom_bot_service.handle_bot_completion(payload)
+    return {"ok": True, "message": "Interview completion recorded and evaluation scheduled"}
+
+
+@router.get("/zoom-bot/status/{username}")
+async def get_candidate_bot_status(username: str):
+    """Admin live status poll for candidate taking Zoom Bot interview."""
+    active = db.active_meetings.find_one({"candidate_username": username})
+    if not active or not active.get("bot_interview_id"):
+        return {"live": False, "message": "No active bot interview"}
+    bot_id = active.get("bot_interview_id")
+    status = await zoom_bot_service.get_bot_interview_status(bot_id)
+    return {"live": bool(status and status.get("live")), "data": status}
+
 
