@@ -64,6 +64,7 @@ from code.admin.images_routes import router as admin_images_router
 from code.recording.webrtc_signaling import router as webrtc_router
 from code.recording.websocket_handlers import router as ws_stream_router
 from code.meetings.routes import router as meetings_router
+from code.zoom_bot.routes import router as zoom_bot_router
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 from code.admin.ws_manager import admin_ws_manager
@@ -72,7 +73,7 @@ from code.admin.monitoring import get_live_exams
 # Initialize FastAPI app
 app = FastAPI(title="AI Interview Platform", version="5.0")
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(BACKEND_DIR / "static")), name="static")
 
 # CORS
 app.add_middleware(
@@ -131,6 +132,8 @@ app.include_router(classes_router, prefix="/classes", tags=["Classes"])
 app.include_router(webrtc_router, tags=["WebRTC Signaling"])
 app.include_router(ws_stream_router, tags=["WS Live Streaming"])
 app.include_router(meetings_router, prefix="/meetings", tags=["Meetings"])
+app.include_router(zoom_bot_router, prefix="/zoom-bot", tags=["Zoom Bot"])
+app.include_router(zoom_bot_router, tags=["Zoom Bot (Compat)"])
 # ✅ Admin Image Manager (JWT protected)
 app.include_router(
     admin_images_router,

@@ -132,3 +132,6 @@ backend/recordings/
 /backend/uploads/**
 /backend/static/uploads/**
 /backend/recordings/**
+*.db
+/data/
+/backend/data/*.db
