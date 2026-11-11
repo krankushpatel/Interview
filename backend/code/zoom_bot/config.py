@@ -73,3 +73,4 @@ def load_settings() -> Settings:
         zoom_obf_token_url=os.getenv("ZOOM_OBF_TOKEN_URL", "").strip(),
         zoom_zak_url=os.getenv("ZOOM_ZAK_URL", "").strip(),
     )
+

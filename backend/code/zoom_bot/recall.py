@@ -114,3 +114,4 @@ class MockRecall:
 
     async def leave(self, bot_id: str) -> None:
         log.info("[MOCK RECALL] bot %s left call", bot_id)
+

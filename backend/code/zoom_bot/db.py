@@ -133,3 +133,4 @@ def get_answers(iid: str) -> list[dict[str, Any]]:
             "SELECT * FROM answers WHERE interview_id = ? ORDER BY q_index ASC", (iid,)
         ).fetchall()
     return [dict(r) for r in rows]
+

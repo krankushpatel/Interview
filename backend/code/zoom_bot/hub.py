@@ -40,3 +40,4 @@ class Hub:
                 dead.append(ws)
         for ws in dead:
             self.disconnect(ws)
+
