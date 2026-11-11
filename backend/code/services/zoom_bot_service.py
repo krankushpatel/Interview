@@ -96,7 +96,7 @@ class ZoomBotService:
                             entry_message=entry_msg,
                             webhook_url=webhook_url
                         )
-                        mb_bot_id = mb_res.get("bot_id") or mb_res.get("id")
+                        mb_bot_id = mb_res.get("bot_id") or (mb_res.get("data") or {}).get("bot_id") or mb_res.get("id")
                         if mb_bot_id:
                             db.active_meetings.update_one(
                                 {"candidate_username": username},

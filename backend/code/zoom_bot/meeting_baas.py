@@ -60,6 +60,11 @@ class MeetingBaaSClient:
             
             data = resp.json()
             log.info("[MeetingBaaS] Bot deployed successfully: %s", data)
+            # Normalize v2 response structure so data['bot_id'] is always accessible
+            if isinstance(data, dict):
+                inner_id = (data.get("data") or {}).get("bot_id")
+                if inner_id and "bot_id" not in data:
+                    data["bot_id"] = inner_id
             return data
 
     async def get_bot(self, bot_id: str) -> Dict[str, Any]:
