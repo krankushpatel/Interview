@@ -71,17 +71,38 @@ class MeetingBaaSClient:
             )
             return resp.json() if resp.status_code < 400 else {}
 
+    async def send_chat_message(self, bot_id: str, message: str) -> bool:
+        """Send live in-meeting chat message through the bot."""
+        if not self.api_key or not bot_id or not message.strip():
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    f"{self.base_url}/bots/{bot_id}/send-chat-message",
+                    json={"message": message.strip()},
+                    headers=self._headers()
+                )
+                if resp.status_code == 200:
+                    log.info("[MeetingBaaS] Chat message sent successfully to bot %s", bot_id)
+                    return True
+                else:
+                    log.warning("[MeetingBaaS] Failed to send chat message (%s): %s", resp.status_code, resp.text)
+                    return False
+        except Exception as e:
+            log.warning("[MeetingBaaS] Error sending chat message: %s", e)
+            return False
+
     async def leave_bot(self, bot_id: str) -> bool:
         """Disconnect bot from meeting."""
         try:
             async with httpx.AsyncClient(timeout=15) as client:
-                resp = await client.delete(
-                    f"{self.base_url}/bots/{bot_id}",
+                resp = await client.post(
+                    f"{self.base_url}/bots/{bot_id}/leave",
                     headers=self._headers()
                 )
                 return resp.status_code in (200, 204)
         except Exception as e:
-            log.warning("[MeetingBaaS] Error leaving call for bot %s: %e", bot_id, e)
+            log.warning("[MeetingBaaS] Error leaving call for bot %s: %s", bot_id, e)
             return False
 
     async def get_meeting_data(self, bot_id: str) -> Dict[str, Any]:
