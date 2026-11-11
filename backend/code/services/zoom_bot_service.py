@@ -12,7 +12,7 @@ log = logging.getLogger("zoom_bot_service")
 
 class ZoomBotService:
     def __init__(self):
-        pass
+        self._active_baas_sessions: Dict[str, Dict[str, Any]] = {}
 
     def _get_engine(self):
         try:
@@ -85,24 +85,36 @@ class ZoomBotService:
                     try:
                         from code.zoom_bot.meeting_baas import MeetingBaaSClient
                         mb_client = MeetingBaaSClient(mb_key)
-                        q_list_text = "\n".join([f"Q{i+1}: {q[0]}" for i, q in enumerate(payload_questions)])
-                        entry_msg = (
-                            f"👋 Welcome {candidate_name or username}! I am your AI Interviewer.\n\n"
-                            f"📝 Your Questions:\n{q_list_text}\n\n"
-                            f"Please speak your answers clearly into your Zoom microphone."
-                        )
+                        q_texts = [q[0] for q in payload_questions]
+                        public_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+                        webhook_url = f"{public_url}/zoom-bot/webhook/meeting-baas" if public_url else ""
+
+                        entry_msg = f"👋 Welcome {candidate_name or username}! I am your AI Interviewer."
                         mb_res = await mb_client.create_bot(
                             meeting_url=meeting_url,
                             bot_name="Interviewer",
-                            entry_message=entry_msg
+                            entry_message=entry_msg,
+                            webhook_url=webhook_url
                         )
                         mb_bot_id = mb_res.get("bot_id") or mb_res.get("id")
                         if mb_bot_id:
                             db.active_meetings.update_one(
                                 {"candidate_username": username},
-                                {"$set": {"meeting_baas_bot_id": mb_bot_id}}
+                                {"$set": {
+                                    "meeting_baas_bot_id": mb_bot_id,
+                                    "mb_questions": q_texts,
+                                    "mb_current_index": 0
+                                }}
                             )
                             log.info(f"[ZoomBot] Meeting BaaS bot deployed to Zoom: {mb_bot_id}")
+                            # Launch autonomous session loop for Zoom In-Meeting Chat & question progression
+                            asyncio.create_task(self._run_meeting_baas_interview(
+                                bot_id=mb_bot_id,
+                                username=username,
+                                candidate_name=candidate_name or username,
+                                questions=q_texts,
+                                time_limit_sec=default_time_limit_sec
+                            ))
                     except Exception as mb_err:
                         log.warning(f"[ZoomBot] Meeting BaaS deployment notice: {mb_err}")
 
@@ -168,7 +180,7 @@ class ZoomBotService:
             update_exam_status(username, "completed")
 
     async def handle_meeting_baas_event(self, event_type: str, data: Dict[str, Any]):
-        """Handle status and transcript webhooks from Meeting BaaS."""
+        """Handle status, chat messages and transcript webhooks from Meeting BaaS."""
         bot_id = data.get("bot_id")
         record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id}) or \
                  db.active_meetings.find_one({"bot_interview_id": bot_id})
@@ -176,16 +188,132 @@ class ZoomBotService:
 
         if event_type == "bot.status_change":
             status_code = (data.get("status") or {}).get("code")
-            if status_code == "in_call":
+            if status_code in ("in_call", "in_call_recording"):
                 update_exam_status(username, "active")
             elif status_code == "call_ended":
                 update_exam_status(username, "completed")
                 # Trigger transcript extraction
                 asyncio.create_task(self._process_meeting_baas_transcript(bot_id, username))
 
+        elif event_type in ("bot.chat_message", "bot.chatmessage", "chat_message"):
+            text = (data.get("text") or data.get("message") or "").strip().lower()
+            sender = (data.get("sender_name") or data.get("sender") or "").strip()
+            log.info(f"[MeetingBaaS] In-meeting chat received from {sender}: '{text}'")
+
+            session = self._active_baas_sessions.get(bot_id)
+            if session:
+                if text in ("/submit", "/next", "submit", "next"):
+                    session["skip"] = False
+                    session["advance_event"].set()
+                elif text in ("/skip", "skip"):
+                    session["skip"] = True
+                    session["advance_event"].set()
+                elif text in ("/repeat", "repeat"):
+                    curr_q = session["questions"][session["current_index"]]
+                    import os
+                    from code.zoom_bot.meeting_baas import MeetingBaaSClient
+                    c = MeetingBaaSClient(os.getenv("MEETING_BAAS_API_KEY", ""))
+                    asyncio.create_task(c.send_chat_message(
+                        bot_id,
+                        f"🔁 Question {session['current_index'] + 1} Repeat:\n\n{curr_q}"
+                    ))
+                elif text in ("/end", "end", "/exit"):
+                    # End immediately
+                    session["current_index"] = len(session["questions"])
+                    session["advance_event"].set()
+
         elif event_type == "complete":
             update_exam_status(username, "completed")
             asyncio.create_task(self._process_meeting_baas_transcript(bot_id, username))
+
+    async def _run_meeting_baas_interview(
+        self,
+        bot_id: str,
+        username: str,
+        candidate_name: str,
+        questions: List[str],
+        time_limit_sec: int = 180
+    ):
+        """Autonomous controller for in-meeting chat question stream and timers."""
+        import os
+        mb_key = os.getenv("MEETING_BAAS_API_KEY", "").strip()
+        from code.zoom_bot.meeting_baas import MeetingBaaSClient
+        client = MeetingBaaSClient(mb_key)
+
+        session = {
+            "bot_id": bot_id,
+            "username": username,
+            "questions": questions,
+            "current_index": 0,
+            "advance_event": asyncio.Event(),
+            "skip": False
+        }
+        self._active_baas_sessions[bot_id] = session
+
+        log.info(f"[MeetingBaaS] Session controller started for {bot_id} ({len(questions)} questions)")
+
+        # Wait for bot to be admitted into the call
+        in_call = False
+        for _ in range(40):
+            await asyncio.sleep(3)
+            b = await client.get_bot(bot_id)
+            st = ((b.get("data") or {}).get("status") or "").lower()
+            if "in_call" in st or "recording" in st:
+                in_call = True
+                break
+        if not in_call:
+            log.warning(f"[MeetingBaaS] Bot {bot_id} did not transition to in_call within timeout")
+
+        await asyncio.sleep(4)
+
+        for idx, q in enumerate(questions):
+            session["current_index"] = idx
+            session["advance_event"].clear()
+            session["skip"] = False
+
+            # Update Admin live view
+            update_exam_progress(username, idx, idx, q)
+
+            # Post Question to Zoom In-Meeting Chat
+            mins = max(1, time_limit_sec // 60)
+            msg = (
+                f"📝 Question {idx + 1} of {len(questions)}:\n\n"
+                f"{q}\n\n"
+                f"⏱️ You have {mins} min. Speak clearly into your microphone!\n"
+                f"👉 Type '/submit' in this chat when done."
+            )
+            await client.send_chat_message(bot_id, msg)
+
+            # Wait for candidate to type /submit or for timer to expire
+            try:
+                await asyncio.wait_for(session["advance_event"].wait(), timeout=float(time_limit_sec))
+                if session["current_index"] >= len(questions):
+                    break
+                action = "Skipped" if session.get("skip") else "Recorded & Submitted"
+                ack = f"✅ Question {idx + 1} {action}!"
+                await client.send_chat_message(bot_id, ack)
+            except asyncio.TimeoutError:
+                ack = f"⏳ Time's up for Question {idx + 1}! Auto-advancing..."
+                await client.send_chat_message(bot_id, ack)
+
+            await asyncio.sleep(2)
+
+        # All questions finished
+        final_msg = (
+            f"🎉 Congratulations {candidate_name}!\n"
+            f"All {len(questions)} questions completed. Thank you for your responses!\n\n"
+            f"The bot is now disconnecting and your AI evaluation report is being generated."
+        )
+        await client.send_chat_message(bot_id, final_msg)
+        await asyncio.sleep(3)
+        await client.leave_bot(bot_id)
+
+        update_exam_status(username, "completed")
+        self._active_baas_sessions.pop(bot_id, None)
+
+        # Trigger AI evaluation from transcript
+        await asyncio.sleep(5)
+        await self._process_meeting_baas_transcript(bot_id, username)
 
     async def _process_meeting_baas_transcript(self, bot_id: str, username: str):
         """Fetch transcript from Meeting BaaS, save answers and trigger evaluation."""
