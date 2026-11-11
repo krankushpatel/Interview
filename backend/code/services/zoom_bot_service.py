@@ -218,13 +218,111 @@ class ZoomBotService:
                         f"🔁 Question {session['current_index'] + 1} Repeat:\n\n{curr_q}"
                     ))
                 elif text in ("/end", "end", "/exit"):
-                    # End immediately
                     session["current_index"] = len(session["questions"])
                     session["advance_event"].set()
+            else:
+                # Direct DB-backed fallback handling
+                if text in ("/submit", "/next", "submit", "next"):
+                    asyncio.create_task(self._advance_meeting_baas_question(bot_id, skip=False))
+                elif text in ("/skip", "skip"):
+                    asyncio.create_task(self._advance_meeting_baas_question(bot_id, skip=True))
+                elif text in ("/repeat", "repeat"):
+                    asyncio.create_task(self._repeat_meeting_baas_question(bot_id))
+                elif text in ("/end", "end", "/exit"):
+                    asyncio.create_task(self._end_meeting_baas_interview(bot_id))
 
         elif event_type == "complete":
             update_exam_status(username, "completed")
             asyncio.create_task(self._process_meeting_baas_transcript(bot_id, username))
+
+    async def _advance_meeting_baas_question(self, bot_id: str, skip: bool = False):
+        """Advances to the next question using MongoDB record as source of truth."""
+        import os
+        from code.zoom_bot.meeting_baas import MeetingBaaSClient
+        client = MeetingBaaSClient(os.getenv("MEETING_BAAS_API_KEY", ""))
+
+        record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id}) or \
+                 db.active_meetings.find_one({"bot_interview_id": bot_id})
+        if not record:
+            return
+
+        username = record.get("candidate_username", "Candidate")
+        questions = record.get("mb_questions") or [
+            q.get("text") for q in record.get("bot_session", {}).get("questions", [])
+            if isinstance(q, dict) and q.get("text")
+        ]
+        if not questions:
+            questions = [
+                "Introduce Yourself and describe your technical background.",
+                "What is Python, and what are its main features?",
+                "What is the difference between compiled and interpreted languages? Where does Python fit?",
+                "What are variables in Python, and how does dynamic typing work?",
+                "What are the different built-in data types in Python?"
+            ]
+
+        curr_idx = record.get("mb_current_index", 0)
+        next_idx = curr_idx + 1
+
+        action_word = "Skipped" if skip else "Recorded & Submitted"
+        ack = f"✅ Question {curr_idx + 1} {action_word}!"
+        await client.send_chat_message(bot_id, ack)
+        await asyncio.sleep(1)
+
+        if next_idx < len(questions):
+            next_q = questions[next_idx]
+            db.active_meetings.update_one(
+                {"_id": record["_id"]},
+                {"$set": {"mb_current_index": next_idx}}
+            )
+            update_exam_progress(username, next_idx, next_idx, next_q)
+
+            msg = (
+                f"📝 Question {next_idx + 1} of {len(questions)}:\n\n"
+                f"{next_q}\n\n"
+                f"⏱️ You have 3 minutes. Speak clearly into your microphone!\n"
+                f"👉 Type '/submit' in this chat when done."
+            )
+            await client.send_chat_message(bot_id, msg)
+            log.info(f"[MeetingBaaS] Advanced to Question {next_idx + 1} for {username}")
+        else:
+            final_msg = (
+                f"🎉 Congratulations {username}!\n"
+                f"All {len(questions)} questions completed. Thank you for your responses!\n\n"
+                f"The bot is now disconnecting and your AI evaluation report is being generated."
+            )
+            await client.send_chat_message(bot_id, final_msg)
+            await asyncio.sleep(2)
+            await client.leave_bot(bot_id)
+            update_exam_status(username, "completed")
+            await asyncio.sleep(5)
+            await self._process_meeting_baas_transcript(bot_id, username)
+
+    async def _repeat_meeting_baas_question(self, bot_id: str):
+        import os
+        from code.zoom_bot.meeting_baas import MeetingBaaSClient
+        client = MeetingBaaSClient(os.getenv("MEETING_BAAS_API_KEY", ""))
+        record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id})
+        if record:
+            curr_idx = record.get("mb_current_index", 0)
+            questions = record.get("mb_questions") or []
+            if curr_idx < len(questions):
+                await client.send_chat_message(
+                    bot_id,
+                    f"🔁 Question {curr_idx + 1} Repeat:\n\n{questions[curr_idx]}"
+                )
+
+    async def _end_meeting_baas_interview(self, bot_id: str):
+        import os
+        from code.zoom_bot.meeting_baas import MeetingBaaSClient
+        client = MeetingBaaSClient(os.getenv("MEETING_BAAS_API_KEY", ""))
+        record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id})
+        username = record.get("candidate_username", "Candidate") if record else "Candidate"
+        await client.send_chat_message(bot_id, "⏹️ Interview ended by candidate. Generating evaluation...")
+        await asyncio.sleep(2)
+        await client.leave_bot(bot_id)
+        update_exam_status(username, "completed")
+        await asyncio.sleep(5)
+        await self._process_meeting_baas_transcript(bot_id, username)
 
     async def _run_meeting_baas_interview(
         self,
