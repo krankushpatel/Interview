@@ -369,7 +369,11 @@ class ZoomBotService:
             session["advance_event"].clear()
             session["skip"] = False
 
-            # Update Admin live view
+            # Update DB and Admin live view
+            db.active_meetings.update_one(
+                {"meeting_baas_bot_id": bot_id},
+                {"$set": {"mb_current_index": idx}}
+            )
             update_exam_progress(username, idx, idx, q)
 
             # Post Question to Zoom In-Meeting Chat
