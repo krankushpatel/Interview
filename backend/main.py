@@ -10,8 +10,8 @@ os.environ["TORCH_ENABLE_ONEDNN_OPT"] = "0"  # Optional: disable oneDNN warnings
 
 from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parent
-load_dotenv(BACKEND_DIR / ".env")
-load_dotenv()
+load_dotenv(BACKEND_DIR / ".env", override=True)
+load_dotenv(override=True)
 
 gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip()
 gemini_model = (os.getenv("GEMINI_MODEL") or "").strip()
