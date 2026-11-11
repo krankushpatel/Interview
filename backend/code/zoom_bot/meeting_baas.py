@@ -8,7 +8,7 @@ import httpx
 
 log = logging.getLogger("zoom_bot.meeting_baas")
 
-MEETING_BAAS_API_BASE = "https://api.meetingbaas.com"
+MEETING_BAAS_API_BASE = "https://api.meetingbaas.com/v2"
 
 
 class MeetingBaaSClient:
@@ -93,3 +93,4 @@ class MeetingBaaSClient:
                 headers=self._headers()
             )
             return resp.json() if resp.status_code < 400 else {}
+
