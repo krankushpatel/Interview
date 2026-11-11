@@ -162,6 +162,26 @@ async def recall_webhook(request: Request, token: str = "", interview_id: str = 
     return {"ok": True}
 
 
+@router.post("/webhook/meeting-baas")
+async def meeting_baas_webhook(request: Request) -> dict[str, Any]:
+    try:
+        ev = await request.json()
+    except Exception:
+        raise HTTPException(400, "invalid json")
+    
+    event_type = ev.get("event", "")
+    data = ev.get("data", {})
+    log.info("[MeetingBaaS] Webhook event received: %s", event_type)
+
+    try:
+        from code.services.zoom_bot_service import zoom_bot_service
+        await zoom_bot_service.handle_meeting_baas_event(event_type, data)
+    except Exception as e:
+        log.warning("[MeetingBaaS] Webhook handler notice: %s", e)
+
+    return {"ok": True}
+
+
 # ------------------------------------------------------------- WebSocket
 @router.websocket("/ws/admin")
 async def ws_admin(ws: WebSocket, interview_id: str = Query(default=""), key: str = Query(default="")) -> None:

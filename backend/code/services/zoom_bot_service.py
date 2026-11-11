@@ -78,6 +78,34 @@ class ZoomBotService:
                     {"$set": {"bot_interview_id": bot_id}}
                 )
 
+                # Deploy Meeting BaaS bot to real Zoom call if key is set
+                import os
+                mb_key = os.getenv("MEETING_BAAS_API_KEY", "").strip()
+                if mb_key and meeting_url and meeting_url.startswith("http"):
+                    try:
+                        from code.zoom_bot.meeting_baas import MeetingBaaSClient
+                        mb_client = MeetingBaaSClient(mb_key)
+                        q_list_text = "\n".join([f"Q{i+1}: {q[0]}" for i, q in enumerate(payload_questions)])
+                        entry_msg = (
+                            f"👋 Welcome {candidate_name or username}! I am your AI Interviewer.\n\n"
+                            f"📝 Your Questions:\n{q_list_text}\n\n"
+                            f"Please speak your answers clearly into your Zoom microphone."
+                        )
+                        mb_res = await mb_client.create_bot(
+                            meeting_url=meeting_url,
+                            bot_name="Interviewer",
+                            entry_message=entry_msg
+                        )
+                        mb_bot_id = mb_res.get("bot_id") or mb_res.get("id")
+                        if mb_bot_id:
+                            db.active_meetings.update_one(
+                                {"candidate_username": username},
+                                {"$set": {"meeting_baas_bot_id": mb_bot_id}}
+                            )
+                            log.info(f"[ZoomBot] Meeting BaaS bot deployed to Zoom: {mb_bot_id}")
+                    except Exception as mb_err:
+                        log.warning(f"[ZoomBot] Meeting BaaS deployment notice: {mb_err}")
+
                 register_active_exam(username, f"zoom_bot_{bot_id}", len(payload_questions))
                 log.info(f"[ZoomBot] In-memory registered bot interview {bot_id} for {username}")
                 return bot_session
@@ -138,6 +166,77 @@ class ZoomBotService:
             })
         elif ev_type == "completed":
             update_exam_status(username, "completed")
+
+    async def handle_meeting_baas_event(self, event_type: str, data: Dict[str, Any]):
+        """Handle status and transcript webhooks from Meeting BaaS."""
+        bot_id = data.get("bot_id")
+        record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id}) or \
+                 db.active_meetings.find_one({"bot_interview_id": bot_id})
+        username = record.get("candidate_username") or "Candidate" if record else "Candidate"
+
+        if event_type == "bot.status_change":
+            status_code = (data.get("status") or {}).get("code")
+            if status_code == "in_call":
+                update_exam_status(username, "active")
+            elif status_code == "call_ended":
+                update_exam_status(username, "completed")
+                # Trigger transcript extraction
+                asyncio.create_task(self._process_meeting_baas_transcript(bot_id, username))
+
+        elif event_type == "complete":
+            update_exam_status(username, "completed")
+            asyncio.create_task(self._process_meeting_baas_transcript(bot_id, username))
+
+    async def _process_meeting_baas_transcript(self, bot_id: str, username: str):
+        """Fetch transcript from Meeting BaaS, save answers and trigger evaluation."""
+        import os
+        mb_key = os.getenv("MEETING_BAAS_API_KEY", "").strip()
+        if not mb_key:
+            return
+        try:
+            from code.zoom_bot.meeting_baas import MeetingBaaSClient
+            client = MeetingBaaSClient(mb_key)
+            meeting_data = await client.get_meeting_data(bot_id)
+            transcripts = (meeting_data.get("data") or {}).get("transcripts") or []
+            
+            # Format combined transcript as answer
+            combined_text = " ".join([t.get("words", "") or t.get("text", "") for t in transcripts]).strip()
+            session_id = f"mb_{bot_id}"
+            
+            formatted_answers = [{
+                "question_id": "0",
+                "question": "Candidate Zoom Spoken Responses",
+                "answer": combined_text or "Spoken response recorded in Zoom.",
+                "status": "submitted",
+                "duration_sec": 300,
+                "word_count": len(combined_text.split())
+            }]
+
+            db.submissions.update_one(
+                {"session_id": session_id},
+                {"$set": {
+                    "username": username,
+                    "candidate_name": username,
+                    "session_id": session_id,
+                    "provider": "meeting_baas",
+                    "answers": formatted_answers,
+                    "total_questions": 1,
+                    "status": "completed"
+                }},
+                upsert=True
+            )
+
+            # Trigger AI Evaluation
+            from code.evaluation.routes import _run_final_evaluation
+            asyncio.create_task(_run_final_evaluation(
+                username=username,
+                answers=formatted_answers,
+                events=[],
+                session_id=session_id
+            ))
+            log.info(f"[MeetingBaaS] Evaluation started for {username} via Meeting BaaS transcript.")
+        except Exception as e:
+            log.error(f"[MeetingBaaS] Error processing transcript for {bot_id}: {e}")
 
     async def handle_bot_completion(self, completion_data: Dict[str, Any]):
         """

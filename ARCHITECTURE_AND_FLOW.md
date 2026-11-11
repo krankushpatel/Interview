@@ -262,3 +262,4 @@ backend\.venv\Scripts\python.exe interview-zoom-bot\simulate.py
   - `/submit`, `/skip`, `/clear`, `/show` commands.
   - Per-question timers, warning prompts, and auto-submit.
   - Admin WebSocket fan-out and completion handoff.
+
