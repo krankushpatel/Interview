@@ -162,6 +162,12 @@ async def recall_webhook(request: Request, token: str = "", interview_id: str = 
     return {"ok": True}
 
 
+@router.get("/webhook/health")
+async def webhook_health() -> dict[str, Any]:
+    """Health check endpoint - used to verify tunnel is working."""
+    return {"status": "ok", "service": "interview-bot", "webhook_path": "/zoom-bot/webhook/meeting-baas"}
+
+
 @router.post("/webhook/meeting-baas")
 async def meeting_baas_webhook(request: Request) -> dict[str, Any]:
     try:
@@ -171,13 +177,19 @@ async def meeting_baas_webhook(request: Request) -> dict[str, Any]:
     
     event_type = ev.get("event", "")
     data = ev.get("data", {})
-    log.info("[MeetingBaaS] Webhook event received: %s", event_type)
+    bot_id = ev.get("bot_id", "")
+    log.info("[MeetingBaaS] Webhook event received: type=%s bot=%s payload_keys=%s",
+             event_type, bot_id, list(ev.keys()))
+
+    # Merge top-level bot_id into data so handler can always find it
+    if bot_id and "bot_id" not in data:
+        data["bot_id"] = bot_id
 
     try:
         from code.services.zoom_bot_service import zoom_bot_service
         await zoom_bot_service.handle_meeting_baas_event(event_type, data)
     except Exception as e:
-        log.warning("[MeetingBaaS] Webhook handler notice: %s", e)
+        log.warning("[MeetingBaaS] Webhook handler notice: %s", e, exc_info=True)
 
     return {"ok": True}
 

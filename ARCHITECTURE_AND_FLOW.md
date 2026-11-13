@@ -77,7 +77,7 @@
 
 ## 3. End-to-End Interview Workflows
 
-### Flow A: Native Zoom Bot Flow (100% In-Meeting Chat)
+### Flow A: Native Zoom Bot Flow (100% In-Meeting Chat via Meeting BaaS & Deepgram)
 > Student operates exclusively inside the Zoom application without opening external web portals.
 
 ```mermaid
@@ -85,28 +85,35 @@ sequenceDiagram
     autonumber
     actor Candidate as Candidate (Zoom App)
     participant Zoom as Zoom Cloud / Meeting
-    participant Bot as Interview Bot (Recall.ai)
+    participant Bot as Interviewer Bot (Meeting BaaS v2)
+    participant Cloudflare as Cloudflare Tunnel
     participant Backend as Unified Backend (8001)
-    participant Admin as Admin Live Tracking
+    participant Deepgram as Deepgram Nova-3 STT
+    participant AI as Gemini 3.5 AI Evaluation
+    participant Admin as Admin Dashboard (3000)
 
     Admin->>Backend: Schedule Zoom Interview (Topics, Date/Time)
     Backend->>Zoom: Create Type-2 Scheduled Meeting (JBH=True)
-    Backend->>Bot: Register candidate questions in engine
-    Candidate->>Zoom: Joins meeting via zoommtg:// (Auto-entry)
-    Bot->>Zoom: Joins meeting as participant
-    Bot->>Candidate: Sends Welcome message in Zoom Chat
-    Candidate->>Zoom: Types "/start" in Zoom Chat
-    Bot->>Candidate: Displays Question 1/5 with 3:00 timer
-    Backend->>Admin: Card moves to "Taking Exam" in Live Tracking
+    Backend->>Bot: Deploy Bot with webhook_url via Cloudflare
+    Candidate->>Zoom: Joins meeting via zoommtg://
+    Bot->>Zoom: Joins meeting as participant "Interviewer"
+    Bot->>Candidate: Sends Welcome & Question 1/5 with 5:00 timer
+    Backend->>Admin: Live Tracking updates to "Taking Exam"
     Candidate->>Zoom: Speaks answer into microphone
-    Zoom->>Bot: Streams audio to Deepgram STT
-    Bot->>Bot: Buffers transcript in memory
-    Candidate->>Zoom: Types "/submit" in Zoom Chat
-    Bot->>Candidate: Echoes "✅ Saved Q1" & posts Question 2
-    Note over Candidate,Bot: Repeats for all questions or auto-submits on timer
-    Bot->>Backend: Triggers /zoom-bot/complete with answers
-    Backend->>Backend: Evaluates via Gemini / OpenAI
-    Backend->>Admin: Final score and report ready
+    Candidate->>Zoom: Types "/submit" or "/skip" in Zoom Chat
+    Zoom->>Bot: In-Meeting Chat message
+    Bot->>Cloudflare: Webhook event (bot.chat_message)
+    Cloudflare->>Backend: POST /zoom-bot/webhook/meeting-baas
+    Backend->>Bot: Acknowledges in chat & posts Question 2
+    Note over Candidate,Bot: Repeats for all questions or auto-advances on timer
+    Bot->>Backend: Completes interview & exits meeting
+    Backend->>Deepgram: Transcribes recorded audio (output.flac)
+    Deepgram->>Backend: High-accuracy sentences with timestamps
+    Backend->>Backend: Maps spoken answers & skips to individual questions
+    Backend->>Backend: Saves Q1..Q5 into MongoDB submissions collection
+    Backend->>AI: Triggers _run_final_evaluation (Evidence-based scoring)
+    AI->>Backend: Scores, feedback & recommendations saved to evaluations collection
+    Backend->>Admin: Attempt #N Report & Preview ready with full Q&A and scores
 ```
 
 #### Available Zoom Chat Commands:

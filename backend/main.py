@@ -114,6 +114,14 @@ async def startup_event():
         print(f"[SYSTEM] ❌ Dipstick auto-sync error: {e}")
         print("[SYSTEM] ⚠️ Continuing with local questions.json")
 
+    # 4. ✅ Resume active Meeting BaaS interview sessions
+    try:
+        from code.services.zoom_bot_service import zoom_bot_service
+        await zoom_bot_service.resume_active_sessions()
+        print("[SYSTEM] ✅ Meeting BaaS session resume check complete")
+    except Exception as e:
+        print(f"[SYSTEM] ⚠️ Meeting BaaS resume error: {e}")
+
 # ✅ Public routes (no auth required)
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(questions_router, prefix="/questions", tags=["Questions"])
