@@ -152,6 +152,17 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  launchGoogleMeet() {
+    const url = this.examSchedule?.meet_url || this.examSchedule?.meeting_url || this.examSchedule?.join_url;
+    if (url) {
+      window.open(url, '_blank');
+      this.instructionsAccepted = true;
+      this.showToast('🚀 Google Meet launched!', 'primary');
+    } else {
+      this.showToast('Google Meet URL not found.', 'warning');
+    }
+  }
+
   openZoomExamWindow() {
     this.navCtrl.navigateForward('/zoom-app');
   }
