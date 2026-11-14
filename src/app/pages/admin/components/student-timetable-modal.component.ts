@@ -12,6 +12,8 @@ export interface StudentTimetablePayload {
   endAmPm: string;
   timetableTopics: string;
   isZoomSchedule?: boolean;
+  isGoogleMeetSchedule?: boolean;
+  googleMeetUrl?: string;
 }
 
 @Component({
@@ -65,17 +67,68 @@ export interface StudentTimetablePayload {
               ></textarea>
             </div>
 
-            <!-- 📹 Zoom Schedule Toggle -->
-            <div class="modal-field" style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.25); border-radius: 8px; padding: 12px 14px; margin-top: 10px;">
-              <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
-                <input type="checkbox" [(ngModel)]="isZoomSchedule" style="width: 18px; height: 18px; accent-color: #2563eb; margin-top: 2px;" />
-                <div>
-                  <span style="font-weight: 700; font-size: 13px; color: #1e40af; display: block;">📹 Schedule as Zoom Video Interview</span>
-                  <span style="font-size: 11px; color: #64748b; line-height: 1.4; display: block; margin-top: 2px;">
-                    Automatically provisions Zoom meeting, locks candidate time window, and sends 1-Click Zoom App Launcher & Passcode via email.
-                  </span>
+            <!-- 🎯 Interview Mode / Platform Selection -->
+            <div class="modal-field" style="margin-top: 12px; border-top: 1px solid var(--dip-border, #e2e8f0); padding-top: 12px;">
+              <span class="field-label" style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 8px; display: block;">
+                🎯 Interview Mode / Platform:
+              </span>
+
+              <!-- Mode Selection Buttons -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <button
+                  type="button"
+                  (click)="interviewMode = 'portal'"
+                  [style.border-color]="interviewMode === 'portal' ? '#2563eb' : '#cbd5e1'"
+                  [style.background]="interviewMode === 'portal' ? 'rgba(37, 99, 235, 0.08)' : '#f8fafc'"
+                  style="padding: 10px 8px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; color: #1e293b;"
+                >
+                  💻 Portal Exam
+                </button>
+                <button
+                  type="button"
+                  (click)="interviewMode = 'zoom'"
+                  [style.border-color]="interviewMode === 'zoom' ? '#2563eb' : '#cbd5e1'"
+                  [style.background]="interviewMode === 'zoom' ? 'rgba(37, 99, 235, 0.08)' : '#f8fafc'"
+                  style="padding: 10px 8px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; color: #1e40af;"
+                >
+                  📹 Zoom Call
+                </button>
+                <button
+                  type="button"
+                  (click)="interviewMode = 'meet'"
+                  [style.border-color]="interviewMode === 'meet' ? '#059669' : '#cbd5e1'"
+                  [style.background]="interviewMode === 'meet' ? 'rgba(5, 150, 105, 0.08)' : '#f8fafc'"
+                  style="padding: 10px 8px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; color: #065f46;"
+                >
+                  🌐 Google Meet
+                </button>
+              </div>
+
+              <!-- Portal Info Box -->
+              <div *ngIf="interviewMode === 'portal'" style="background: rgba(100, 116, 139, 0.06); border: 1px solid rgba(100, 116, 139, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #475569; line-height: 1.4;">
+                💻 <strong>Browser Portal:</strong> Student logs into <code>/student</code> portal during scheduled time window with web camera & mic.
+              </div>
+
+              <!-- Zoom Info Box -->
+              <div *ngIf="interviewMode === 'zoom'" style="background: rgba(37, 99, 235, 0.06); border: 1px solid rgba(37, 99, 235, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #1e40af; line-height: 1.4;">
+                📹 <strong>Zoom Bot Interview:</strong> Auto-provisions meeting with passcode, locks timetable, sends 1-Click Zoom App launcher, and dispatches in-meeting AI bot.
+              </div>
+
+              <!-- Google Meet Info Box + Optional URL Input -->
+              <div *ngIf="interviewMode === 'meet'" style="background: rgba(5, 150, 105, 0.06); border: 1px solid rgba(5, 150, 105, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #065f46; line-height: 1.4;">
+                🌐 <strong>Google Meet Bot Interview:</strong> Candidate joins directly in any browser (Chrome/Edge/Mobile). In-meeting AI bot conducts interview & records responses.
+                <div style="margin-top: 8px;">
+                  <label style="font-weight: 700; font-size: 11px; color: #047857; display: block; margin-bottom: 4px;">
+                    Custom Meet URL (Optional):
+                  </label>
+                  <input
+                    type="text"
+                    [(ngModel)]="googleMeetUrl"
+                    placeholder="https://meet.google.com/abc-defg-hij (Leave blank to auto-create)"
+                    style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #a7f3d0; border-radius: 6px; background: #ffffff;"
+                  />
                 </div>
-              </label>
+              </div>
             </div>
             <div class="modal-actions">
               <button
@@ -119,6 +172,8 @@ export class StudentTimetableModalComponent {
   @Input() timetableTopics: string = '';
   @Input() hasCurrentTimetable: boolean = false;
   @Input() isSaving: boolean = false;
+  interviewMode: 'portal' | 'zoom' | 'meet' = 'portal';
+  googleMeetUrl: string = '';
   isZoomSchedule: boolean = false;
 
   @Output() dismiss = new EventEmitter<void>();
@@ -138,7 +193,9 @@ export class StudentTimetableModalComponent {
       endTimeOnly: this.endTimeOnly,
       endAmPm: this.endAmPm,
       timetableTopics: this.timetableTopics,
-      isZoomSchedule: this.isZoomSchedule
+      isZoomSchedule: this.interviewMode === 'zoom' || this.isZoomSchedule,
+      isGoogleMeetSchedule: this.interviewMode === 'meet',
+      googleMeetUrl: this.googleMeetUrl
     });
   }
 

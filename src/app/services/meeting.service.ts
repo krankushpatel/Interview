@@ -110,5 +110,20 @@ export class MeetingService {
       this.http.post<any>(`${this.apiUrl}/meetings/zoom/schedule`, data)
     );
   }
+
+  // 9. Schedule Google Meet Interview & Email Candidate Invite
+  async scheduleGoogleMeetInterview(data: {
+    username: string;
+    start_time: string;
+    end_time: string;
+    meeting_url?: string;
+    topics?: string[];
+    custom_message?: string;
+    send_email?: boolean;
+  }): Promise<any> {
+    return firstValueFrom(
+      this.http.post<any>(`${this.apiUrl}/meetings/meet/schedule`, data)
+    );
+  }
 }
 

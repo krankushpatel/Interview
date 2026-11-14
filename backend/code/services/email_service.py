@@ -344,6 +344,150 @@ Eklakhya AI Interview Platform
     except Exception as e:
         print(f"[EMAIL] Failed to send Zoom schedule invite to {to_email}: {e}")
         return False
+
+
+def send_google_meet_schedule_email(
+    to_email: str,
+    name: str,
+    username: str,
+    start_time: str,
+    end_time: str,
+    meet_url: str,
+    topics: list = None,
+    custom_message: str = ""
+) -> bool:
+    """Send formal Google Meet interview appointment with 1-click launcher."""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("[EMAIL] SMTP not configured, skipping Google Meet invite email")
+        return False
+
+    formatted_start = format_schedule_datetime(start_time)
+    formatted_end = format_schedule_datetime(end_time)
+    topics_str = ', '.join(topics) if topics else 'Comprehensive Technical Assessment'
+
+    subject = f"📅 Google Meet Interview Scheduled: {name} ({formatted_start})"
+
+    msg_section = ""
+    if custom_message and custom_message.strip():
+        msg_section = f"""
+        <div style="background: #f1f5f9; border-left: 4px solid #059669; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+            <strong style="color: #065f46; font-size: 13px;">📝 SPECIAL INSTRUCTIONS:</strong>
+            <p style="margin: 4px 0 0 0; color: #475569; font-size: 14px;">{custom_message.strip()}</p>
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }}
+            .header {{ background: linear-gradient(135deg, #065f46 0%, #059669 100%); color: #ffffff; padding: 24px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }}
+            .header p {{ margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; }}
+            .content {{ padding: 24px; }}
+            .schedule-box {{ background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin: 16px 0; }}
+            .schedule-label {{ color: #047857; font-weight: 600; }}
+            .schedule-value {{ color: #064e3b; font-weight: 700; }}
+            .btn-group {{ margin: 24px 0; text-align: center; }}
+            .btn-meet {{ display: inline-block; background: #059669; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 16px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35); }}
+            .footer {{ background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🌐 Video Interview Scheduled via Google Meet</h1>
+                <p>Eklakhya AI Interview Platform</p>
+            </div>
+            <div class="content">
+                <p style="font-size: 15px;">Dear <strong>{name}</strong>,</p>
+                <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+                    Your upcoming technical interview has been scheduled on <strong>Google Meet</strong>. You can join directly from any web browser (Chrome, Edge, Brave, or mobile browser) with 1 click:
+                </p>
+
+                <div class="schedule-box">
+                    <div style="font-size: 13px; font-weight: 700; color: #059669; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">📅 APPOINTMENT WINDOW</div>
+                    <div style="margin-bottom: 6px;"><span class="schedule-label">Start Time:</span> <span class="schedule-value">{formatted_start}</span></div>
+                    <div style="margin-bottom: 6px;"><span class="schedule-label">End Time:</span> <span class="schedule-value">{formatted_end}</span></div>
+                    <div><span class="schedule-label">Topics:</span> <span class="schedule-value">{topics_str}</span></div>
+                </div>
+
+                {msg_section}
+
+                <div class="btn-group">
+                    <a href="{meet_url}" class="btn-meet">
+                        🌐 Join Google Meet Interview
+                    </a>
+                    <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
+                        Direct Link: <a href="{meet_url}" style="color: #059669;">{meet_url}</a>
+                    </div>
+                </div>
+
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #166534;">
+                    <strong>ℹ️ How the Interview Works in Google Meet:</strong>
+                    <ul style="margin: 6px 0 0 0; padding-left: 20px; line-height: 1.5;">
+                        <li>Join the Google Meet call at your scheduled time.</li>
+                        <li>An AI bot named <strong>Interviewer</strong> will join the call and post questions in the <strong>In-Meeting Chat</strong>.</li>
+                        <li>Speak your answers clearly into your microphone.</li>
+                        <li>Type <code>/submit</code> in chat when finished with a question, or <code>/skip</code> to skip to the next.</li>
+                        <li>Ensure a stable internet connection and quiet environment.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer">
+                © Eklakhya Interview Platform • Automated Appointment Dispatcher
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_body = f"""
+Dear {name},
+
+Your technical interview has been scheduled on Google Meet.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 APPOINTMENT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Start Time: {formatted_start}
+End Time: {formatted_end}
+Topics: {topics_str}
+
+🌐 Google Meet Link: {meet_url}
+
+ℹ️ Instructions:
+- Join at your scheduled time.
+- The AI Interviewer bot will post questions one by one in the in-meeting chat.
+- Speak your answers clearly into your mic.
+- Type '/submit' in chat when done with each question.
+
+Best regards,
+Eklakhya AI Interview Platform
+"""
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['From'] = FROM_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(plain_body, 'plain'))
+        msg.attach(MIMEText(html_content, 'html'))
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+
+        print(f"[EMAIL] Google Meet schedule invite successfully emailed to {to_email} for {username}")
+        return True
+    except Exception as e:
+        print(f"[EMAIL] Failed to send Google Meet schedule invite to {to_email}: {e}")
+        return False
     
 def send_custom_email(to_email: str, name: str, subject: str, message: str) -> bool:
     """Send custom email to student"""

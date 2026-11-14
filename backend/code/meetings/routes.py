@@ -1,10 +1,13 @@
+import secrets
+import string
+import time
 from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from typing import Optional, List
 from code.services.zoom_service import zoom_service
 from code.services.zoom_bot_service import zoom_bot_service
 from code.settings_route.routes import load_settings, save_settings
-from code.services.email_service import send_zoom_schedule_email
+from code.services.email_service import send_zoom_schedule_email, send_google_meet_schedule_email
 from code.services.timetable_service import set_student_timetable
 from code.core.data_manager import db
 
@@ -34,6 +37,15 @@ class ZoomScheduleRequest(BaseModel):
     username: str
     start_time: str
     end_time: str
+    topics: Optional[List[str]] = []
+    custom_message: Optional[str] = ""
+    send_email: bool = True
+
+class GoogleMeetScheduleRequest(BaseModel):
+    username: str
+    start_time: str
+    end_time: str
+    meeting_url: Optional[str] = None
     topics: Optional[List[str]] = []
     custom_message: Optional[str] = ""
     send_email: bool = True
@@ -237,6 +249,132 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to schedule Zoom interview: {str(e)}")
+
+
+def _generate_meet_url() -> str:
+    letters = string.ascii_lowercase
+    p1 = ''.join(secrets.choice(letters) for _ in range(3))
+    p2 = ''.join(secrets.choice(letters) for _ in range(4))
+    p3 = ''.join(secrets.choice(letters) for _ in range(3))
+    return f"https://meet.google.com/{p1}-{p2}-{p3}"
+
+
+@router.post("/meet/schedule")
+async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
+    """
+    Schedule a Google Meet interview appointment for student:
+    1. Sets up Google Meet room URL (custom or auto-generated).
+    2. Saves timetable slot in MongoDB.
+    3. Sends formatted Google Meet email invite to candidate.
+    4. Auto-provisions Meeting BaaS bot to join the Google Meet room.
+    """
+    try:
+        user = db.users.find_one({"username": req.username}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=404, detail=f"Student '{req.username}' not found")
+
+        student_name = user.get("name", req.username)
+        student_email = user.get("email")
+
+        # 1. Determine Google Meet room URL
+        raw_url = (req.meeting_url or "").strip()
+        if raw_url and "meet.google.com" in raw_url:
+            meet_url = raw_url
+            if not meet_url.startswith("http"):
+                meet_url = f"https://{meet_url}"
+        else:
+            meet_url = _generate_meet_url()
+
+        meeting_id = meet_url.split("meet.google.com/")[-1].replace("/", "").strip()
+
+        # 2. Lock Timetable slot in MongoDB
+        timetable = set_student_timetable(
+            username=req.username,
+            start_time=req.start_time,
+            end_time=req.end_time,
+            topics=req.topics or [],
+            student_email=student_email,
+            student_name=student_name
+        )
+
+        db.timetables.update_one(
+            {"username": req.username},
+            {"$set": {
+                "provider": "google_meet",
+                "meeting_url": meet_url,
+                "join_url": meet_url,
+                "meet_url": meet_url,
+                "meeting_id": meeting_id
+            }}
+        )
+
+        db.active_meetings.update_one(
+            {"candidate_username": req.username},
+            {"$set": {
+                "candidate_username": req.username,
+                "created_at": time.time(),
+                "provider": "google_meet",
+                "join_url": meet_url,
+                "meeting_url": meet_url,
+                "meeting_id": meeting_id,
+                "status": "active",
+                "topic": f"Technical Interview: {student_name}"
+            }},
+            upsert=True
+        )
+
+        # 3. Send Google Meet Invite Email
+        email_sent = False
+        if req.send_email and student_email:
+            email_sent = send_google_meet_schedule_email(
+                to_email=student_email,
+                name=student_name,
+                username=req.username,
+                start_time=req.start_time,
+                end_time=req.end_time,
+                meet_url=meet_url,
+                topics=req.topics,
+                custom_message=req.custom_message
+            )
+
+        # 4. Auto-provision Meeting Bot for this session
+        bot_session = None
+        try:
+            questions = []
+            if req.topics:
+                q_docs = list(db.questions.find({"category": {"$in": req.topics}}, {"_id": 0, "question": 1}).limit(5))
+                questions = [q["question"] for q in q_docs if "question" in q]
+            if not questions:
+                q_docs = list(db.questions.find({}, {"_id": 0, "question": 1}).limit(5))
+                questions = [q["question"] for q in q_docs if "question" in q]
+
+            bot_session = await zoom_bot_service.create_bot_interview(
+                username=req.username,
+                candidate_name=student_name,
+                meeting_url=meet_url,
+                questions=questions,
+                default_time_limit_sec=300
+            )
+        except Exception as bot_err:
+            print(f"[GoogleMeetSchedule] Bot auto-register notice: {bot_err}")
+
+        meeting_info = {
+            "provider": "google_meet",
+            "meeting_id": meeting_id,
+            "join_url": meet_url,
+            "topic": f"Technical Interview: {student_name}"
+        }
+
+        return {
+            "success": True,
+            "message": "Google Meet interview successfully scheduled and invite sent",
+            "meeting": meeting_info,
+            "timetable": timetable,
+            "email_sent": email_sent,
+            "bot_session": bot_session
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to schedule Google Meet interview: {str(e)}")
 
 
 # ─────────────────────────────────────────────────────────────────

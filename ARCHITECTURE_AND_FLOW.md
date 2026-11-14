@@ -127,7 +127,26 @@ sequenceDiagram
 
 ---
 
-### Flow B: In-Client / Dual-Screen Portal Flow
+### Flow B: Google Meet In-Browser Interview Flow (100% Zero-Install)
+> Candidate operates exclusively inside Google Meet in any modern browser without installing desktop software.
+
+1. **Admin Scheduling:**
+   - Admin selects student, chooses 🌐 **Google Meet**, and optionally enters or auto-generates `https://meet.google.com/xxx-yyyy-zzz`.
+   - Candidate receives an email invite with direct 1-click Google Meet link and interview window details.
+2. **In-Call Interaction:**
+   - Candidate opens the Google Meet link in Chrome/Edge/Mobile browser.
+   - Autonomous bot **"Interviewer"** joins the room.
+   - Bot posts Question 1, 2, ... N in the Meet chat.
+   - Candidate speaks answer and types `/submit` or `/skip`.
+3. **Audio & AI Scoring Pipeline:**
+   - On interview completion, bot leaves and exports call audio (`output.flac`).
+   - Deepgram Nova-3 transcribes spoken responses.
+   - Gemini 3.5 AI performs batch evaluation and saves scores and feedback directly to MongoDB.
+   - Admin instantly views attempt report in Admin Dashboard.
+
+---
+
+### Flow C: In-Client / Dual-Screen Portal Flow
 > For candidates using the Portal with AI Video Proctoring and Screen Mirroring alongside Zoom.
 
 1. **Auto-Launch & Hardware Pre-check:**

@@ -2512,7 +2512,40 @@ export class AdminPage implements OnInit, OnDestroy {
     this.endAmPm = payload.endAmPm;
     this.timetableTopics = payload.timetableTopics;
 
-    if (payload.isZoomSchedule && this.selectedStudentForTimetable) {
+    if (payload.isGoogleMeetSchedule && this.selectedStudentForTimetable) {
+      try {
+        const { startIso, endIso } = this.buildScheduleWindow(
+          this.startDateOnly,
+          this.startTimeOnly,
+          this.startAmPm,
+          this.endDateOnly,
+          this.endTimeOnly,
+          this.endAmPm
+        );
+        this.timetableSaving = true;
+        const parsedTopics = this.timetableTopics
+          ? this.timetableTopics.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0)
+          : [];
+
+        await this.meetingService.scheduleGoogleMeetInterview({
+          username: this.selectedStudentForTimetable,
+          start_time: startIso,
+          end_time: endIso,
+          meeting_url: payload.googleMeetUrl || undefined,
+          topics: parsedTopics,
+          custom_message: this.timetableTopics,
+          send_email: true
+        });
+
+        this.showToast(`✅ Google Meet Interview Scheduled & Email Sent to ${this.selectedStudentForTimetable}!`, 'success');
+        this.showTimetableModal = false;
+        await this.loadTimetable(this.selectedStudentForTimetable);
+      } catch (err: any) {
+        this.showToast(err?.message || 'Failed to schedule Google Meet interview', 'danger');
+      } finally {
+        this.timetableSaving = false;
+      }
+    } else if (payload.isZoomSchedule && this.selectedStudentForTimetable) {
       try {
         const { startIso, endIso } = this.buildScheduleWindow(
           this.startDateOnly,
