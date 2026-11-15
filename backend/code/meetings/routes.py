@@ -251,19 +251,11 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
         raise HTTPException(status_code=500, detail=f"Failed to schedule Zoom interview: {str(e)}")
 
 
-def _generate_meet_url() -> str:
-    letters = string.ascii_lowercase
-    p1 = ''.join(secrets.choice(letters) for _ in range(3))
-    p2 = ''.join(secrets.choice(letters) for _ in range(4))
-    p3 = ''.join(secrets.choice(letters) for _ in range(3))
-    return f"https://meet.google.com/{p1}-{p2}-{p3}"
-
-
 @router.post("/meet/schedule")
 async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
     """
     Schedule a Google Meet interview appointment for student:
-    1. Sets up Google Meet room URL (custom or auto-generated).
+    1. Validates real Google Meet room URL.
     2. Saves timetable slot in MongoDB.
     3. Sends formatted Google Meet email invite to candidate.
     4. Auto-provisions Meeting BaaS bot to join the Google Meet room.
@@ -276,16 +268,21 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
         student_name = user.get("name", req.username)
         student_email = user.get("email")
 
-        # 1. Determine Google Meet room URL
+        # 1. Validate Google Meet room URL
         raw_url = (req.meeting_url or "").strip()
-        if raw_url and "meet.google.com" in raw_url:
-            meet_url = raw_url
-            if not meet_url.startswith("http"):
-                meet_url = f"https://{meet_url}"
-        else:
-            meet_url = _generate_meet_url()
+        if not raw_url or "meet.google.com" not in raw_url:
+            raise HTTPException(
+                status_code=400,
+                detail="A valid Google Meet URL is required (e.g. https://meet.google.com/abc-defg-hij). Please create a room at https://meet.google.com/new and provide the link."
+            )
 
-        meeting_id = meet_url.split("meet.google.com/")[-1].replace("/", "").strip()
+        meet_url = raw_url
+        if not meet_url.startswith("http"):
+            meet_url = f"https://{meet_url}"
+
+        base_meet = meet_url.split("?")[0].rstrip("/")
+        meeting_id = base_meet.split("meet.google.com/")[-1].strip()
+        meet_url = base_meet
 
         # 2. Lock Timetable slot in MongoDB
         timetable = set_student_timetable(
@@ -373,6 +370,8 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
             "email_sent": email_sent,
             "bot_session": bot_session
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to schedule Google Meet interview: {str(e)}")
 

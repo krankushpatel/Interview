@@ -2541,7 +2541,8 @@ export class AdminPage implements OnInit, OnDestroy {
         this.showTimetableModal = false;
         await this.loadTimetable(this.selectedStudentForTimetable);
       } catch (err: any) {
-        this.showToast(err?.message || 'Failed to schedule Google Meet interview', 'danger');
+        const msg = err?.error?.detail || err?.message || 'Failed to schedule Google Meet interview';
+        this.showToast(msg, 'danger');
       } finally {
         this.timetableSaving = false;
       }

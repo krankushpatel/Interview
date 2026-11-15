@@ -114,19 +114,29 @@ export interface StudentTimetablePayload {
                 📹 <strong>Zoom Bot Interview:</strong> Auto-provisions meeting with passcode, locks timetable, sends 1-Click Zoom App launcher, and dispatches in-meeting AI bot.
               </div>
 
-              <!-- Google Meet Info Box + Optional URL Input -->
+              <!-- Google Meet Info Box + Required Real URL Input -->
               <div *ngIf="interviewMode === 'meet'" style="background: rgba(5, 150, 105, 0.06); border: 1px solid rgba(5, 150, 105, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #065f46; line-height: 1.4;">
-                🌐 <strong>Google Meet Bot Interview:</strong> Candidate joins directly in any browser (Chrome/Edge/Mobile). In-meeting AI bot conducts interview & records responses.
+                🌐 <strong>Google Meet AI Interview:</strong> Google Meet requires a real room created from your Google account. Click below to generate one in 2 seconds, then paste it here:
+                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <button type="button" (click)="openGoogleMeetNew()" style="background: #059669; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    <span>➕ Open Google Meet to Create Room</span>
+                  </button>
+                  <span style="font-size: 10px; color: #047857;">(Opens meet.google.com/new in new tab)</span>
+                </div>
                 <div style="margin-top: 8px;">
                   <label style="font-weight: 700; font-size: 11px; color: #047857; display: block; margin-bottom: 4px;">
-                    Custom Meet URL (Optional):
+                    Paste Google Meet Link here (Required):
                   </label>
                   <input
                     type="text"
                     [(ngModel)]="googleMeetUrl"
-                    placeholder="https://meet.google.com/abc-defg-hij (Leave blank to auto-create)"
+                    (input)="meetUrlError = ''"
+                    placeholder="https://meet.google.com/abc-defg-hij"
                     style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #a7f3d0; border-radius: 6px; background: #ffffff;"
                   />
+                  <div *ngIf="meetUrlError" style="color: #dc2626; font-size: 11px; margin-top: 4px; font-weight: 600;">
+                    ⚠️ {{ meetUrlError }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -174,17 +184,36 @@ export class StudentTimetableModalComponent {
   @Input() isSaving: boolean = false;
   interviewMode: 'portal' | 'zoom' | 'meet' = 'portal';
   googleMeetUrl: string = '';
+  meetUrlError: string = '';
   isZoomSchedule: boolean = false;
 
   @Output() dismiss = new EventEmitter<void>();
   @Output() save = new EventEmitter<StudentTimetablePayload>();
   @Output() delete = new EventEmitter<void>();
 
+  openGoogleMeetNew() {
+    window.open('https://meet.google.com/new', '_blank');
+  }
+
   onDismiss() {
+    this.meetUrlError = '';
     this.dismiss.emit();
   }
 
   onSave() {
+    this.meetUrlError = '';
+    if (this.interviewMode === 'meet') {
+      const url = (this.googleMeetUrl || '').trim();
+      if (!url) {
+        this.meetUrlError = 'Google Meet link paste karna zaroori hai. Upar diye button par click karke link banayein!';
+        return;
+      }
+      if (!url.includes('meet.google.com/')) {
+        this.meetUrlError = 'Valid Google Meet link daalein (e.g. https://meet.google.com/abc-defg-hij)';
+        return;
+      }
+    }
+
     this.save.emit({
       startDateOnly: this.startDateOnly,
       startTimeOnly: this.startTimeOnly,
@@ -195,7 +224,7 @@ export class StudentTimetableModalComponent {
       timetableTopics: this.timetableTopics,
       isZoomSchedule: this.interviewMode === 'zoom' || this.isZoomSchedule,
       isGoogleMeetSchedule: this.interviewMode === 'meet',
-      googleMeetUrl: this.googleMeetUrl
+      googleMeetUrl: this.googleMeetUrl.trim()
     });
   }
 

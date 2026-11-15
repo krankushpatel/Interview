@@ -14,6 +14,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
+import httpx
 
 from . import db
 from .config import Settings
