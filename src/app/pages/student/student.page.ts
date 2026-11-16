@@ -124,27 +124,35 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   launchZoomApp() {
-    // 1. Launch Zoom Meeting directly as Host / Auto-Start so candidate NEVER waits for host
-    if (this.examSchedule?.zoom_host_url) {
-      window.open(this.examSchedule.zoom_host_url, '_blank');
+    const candidateUser = this.userName || sessionStorage.getItem('username') || 'Candidate';
+    const uname = encodeURIComponent(candidateUser);
+
+    // 1. Dispatch AI bot on-demand at the exact moment candidate joins
+    this.meetingService.dispatchBot(candidateUser);
+
+    // 2. Launch Zoom as candidate (NEVER as host, so candidate's own name is shown)
+    if (this.examSchedule?.participant_app_url) {
+      window.location.href = this.examSchedule.participant_app_url;
     } else if (this.examSchedule?.zoom_app_url) {
       window.location.href = this.examSchedule.zoom_app_url;
     } else if (this.examSchedule?.zoom_meeting_id) {
-      const uname = encodeURIComponent(sessionStorage.getItem('username') || 'Candidate');
       const pwd = this.examSchedule?.zoom_passcode || '';
       window.location.href = `zoommtg://zoom.us/join?confno=${this.examSchedule.zoom_meeting_id}&pwd=${pwd}&uname=${uname}`;
+    } else if (this.examSchedule?.zoom_join_url) {
+      window.open(this.examSchedule.zoom_join_url, '_blank');
     }
 
-    // 2. Automatically accept instructions & advance to full proctoring pipeline
-    // (Mic Check -> Camera Check with AI Face Baseline -> Screen Share to Admin -> Active Exam with Skip/Clear/Submit & Multiple Face Detection)
+    // 3. Automatically advance setup
     this.instructionsAccepted = true;
-    this.showToast('🚀 Zoom launched! Proceeding to setup...', 'primary');
+    this.showToast('🚀 Zoom launched! Bot is joining...', 'primary');
     setTimeout(() => {
       this.nextStep();
     }, 1000);
   }
 
   openZoomWeb() {
+    const candidateUser = this.userName || sessionStorage.getItem('username') || 'Candidate';
+    this.meetingService.dispatchBot(candidateUser);
     if (this.examSchedule?.zoom_join_url) {
       window.open(this.examSchedule.zoom_join_url, '_blank');
     } else {
@@ -153,11 +161,16 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   launchGoogleMeet() {
+    const candidateUser = this.userName || sessionStorage.getItem('username') || 'Candidate';
     const url = this.examSchedule?.meet_url || this.examSchedule?.meeting_url || this.examSchedule?.join_url;
     if (url) {
+      // 1. Dispatch AI bot on-demand at the exact moment candidate joins
+      this.meetingService.dispatchBot(candidateUser);
+
+      // 2. Open Google Meet call
       window.open(url, '_blank');
       this.instructionsAccepted = true;
-      this.showToast('🚀 Google Meet launched!', 'primary');
+      this.showToast('🚀 Google Meet launched! Bot is joining...', 'primary');
     } else {
       this.showToast('Google Meet URL not found.', 'warning');
     }

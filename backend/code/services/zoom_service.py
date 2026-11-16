@@ -251,19 +251,18 @@ class ZoomService:
         if "zak=" in start_url:
             zak_token = start_url.split("zak=")[1].split("&")[0]
 
-        # If ZAK is present, launch with start action so candidate NEVER waits for host!
-        if zak_token:
-            app_url = f"zoommtg://zoom.us/start?confno={meeting_id}&zak={zak_token}&uname={candidate_username}"
-        else:
-            app_url = f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={candidate_username}"
+        # Candidate joins as themselves (join_before_host is enabled, so no host zak token needed)
+        candidate_app_url = f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={candidate_username}"
+        host_app_url = f"zoommtg://zoom.us/start?confno={meeting_id}&zak={zak_token}&uname=Host" if zak_token else candidate_app_url
 
         meeting_record = {
             "meeting_id": meeting_id,
             "topic": meeting.get("topic"),
             "host_url": start_url,
-            "join_url": meeting.get("join_url"),
-            "app_url": app_url,
-            "participant_app_url": f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={candidate_username}",
+            "host_app_url": host_app_url,
+            "join_url": f"{meeting.get('join_url')}?uname={candidate_username}",
+            "app_url": candidate_app_url,
+            "participant_app_url": candidate_app_url,
             "password": password,
             "candidate_username": candidate_username,
             "provider": "zoom",

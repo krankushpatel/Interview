@@ -2,6 +2,7 @@ import secrets
 import string
 import time
 from fastapi import APIRouter, HTTPException, Depends, Body
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from code.services.zoom_service import zoom_service
@@ -219,20 +220,15 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
                 custom_message=req.custom_message
             )
 
-        # 4. Auto-provision Zoom Interview Bot for this session
-        bot_session = None
-        try:
-            questions = select_exam_questions_for_student(req.username, req.topics)
-
-            bot_session = await zoom_bot_service.create_bot_interview(
-                username=req.username,
-                candidate_name=student_name,
-                meeting_url=meeting.get("join_url", ""),
-                questions=questions,
-                default_time_limit_sec=300
-            )
-        except Exception as bot_err:
-            print(f"[ZoomSchedule] Bot auto-register notice: {bot_err}")
+        # 4. Save question set & prepare for On-Demand Bot Dispatch (bot joins only when student joins)
+        questions = select_exam_questions_for_student(req.username, req.topics)
+        db.active_meetings.update_one(
+            {"candidate_username": req.username},
+            {"$set": {
+                "questions": questions,
+                "bot_status": "ready_to_dispatch"
+            }}
+        )
 
         return {
             "success": True,
@@ -240,7 +236,7 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
             "meeting": meeting,
             "timetable": timetable,
             "email_sent": email_sent,
-            "bot_session": bot_session
+            "bot_status": "ready_to_dispatch"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to schedule Zoom interview: {str(e)}")
@@ -329,20 +325,15 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
                 custom_message=req.custom_message
             )
 
-        # 4. Auto-provision Meeting Bot for this session
-        bot_session = None
-        try:
-            questions = select_exam_questions_for_student(req.username, req.topics)
-
-            bot_session = await zoom_bot_service.create_bot_interview(
-                username=req.username,
-                candidate_name=student_name,
-                meeting_url=meet_url,
-                questions=questions,
-                default_time_limit_sec=300
-            )
-        except Exception as bot_err:
-            print(f"[GoogleMeetSchedule] Bot auto-register notice: {bot_err}")
+        # 4. Save question set & prepare for On-Demand Bot Dispatch (bot joins only when student joins)
+        questions = select_exam_questions_for_student(req.username, req.topics)
+        db.active_meetings.update_one(
+            {"candidate_username": req.username},
+            {"$set": {
+                "questions": questions,
+                "bot_status": "ready_to_dispatch"
+            }}
+        )
 
         meeting_info = {
             "provider": "google_meet",
@@ -357,12 +348,90 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
             "meeting": meeting_info,
             "timetable": timetable,
             "email_sent": email_sent,
-            "bot_session": bot_session
+            "bot_status": "ready_to_dispatch"
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to schedule Google Meet interview: {str(e)}")
+
+
+class DispatchBotRequest(BaseModel):
+    username: str
+
+
+@router.post("/dispatch-bot")
+async def dispatch_meeting_bot(req: DispatchBotRequest):
+    """
+    Dispatches the AI Interviewer bot on-demand when the student actually joins the meeting.
+    Idempotent: if already deployed/in-call, returns current status without re-spawning.
+    """
+    record = db.active_meetings.find_one({"candidate_username": req.username})
+    if not record:
+        raise HTTPException(status_code=404, detail=f"No scheduled meeting found for '{req.username}'")
+
+    # Check if already deployed
+    mb_id = record.get("meeting_baas_bot_id")
+    mb_status = record.get("mb_status")
+    if mb_id and mb_status in ("deploying", "in_progress", "in_call"):
+        return {"success": True, "message": "Bot already active", "bot_id": mb_id}
+
+    meeting_url = record.get("join_url") or record.get("meeting_url")
+    if not meeting_url:
+        raise HTTPException(status_code=400, detail="Meeting URL missing for this candidate")
+
+    questions = record.get("questions") or select_exam_questions_for_student(req.username)
+    user = db.users.find_one({"username": req.username}, {"_id": 0}) or {}
+    student_name = user.get("name", req.username)
+
+    bot_session = await zoom_bot_service.create_bot_interview(
+        username=req.username,
+        candidate_name=student_name,
+        meeting_url=meeting_url,
+        questions=questions,
+        default_time_limit_sec=300
+    )
+    return {"success": True, "message": "Bot dispatched successfully", "bot_session": bot_session}
+
+
+@router.get("/launch")
+async def launch_meeting_from_email(username: str):
+    """
+    1-click meeting launcher from candidate email.
+    Dispatches the AI Interviewer bot at the exact moment the student clicks,
+    then instantly redirects the student's browser to the live meeting.
+    """
+    record = db.active_meetings.find_one({"candidate_username": username})
+    if not record:
+        raise HTTPException(status_code=404, detail="Meeting not found or schedule expired")
+
+    # Target URL: prefer participant app/join url
+    meeting_url = (
+        record.get("participant_app_url")
+        or record.get("join_url")
+        or record.get("meeting_url")
+    )
+    if not meeting_url:
+        raise HTTPException(status_code=400, detail="Meeting join URL not found")
+
+    # Dispatch bot on-demand if not already running
+    try:
+        mb_id = record.get("meeting_baas_bot_id")
+        mb_status = record.get("mb_status")
+        if not (mb_id and mb_status in ("deploying", "in_progress", "in_call")):
+            questions = record.get("questions") or select_exam_questions_for_student(username)
+            user = db.users.find_one({"username": username}, {"_id": 0}) or {}
+            await zoom_bot_service.create_bot_interview(
+                username=username,
+                candidate_name=user.get("name", username),
+                meeting_url=record.get("join_url") or record.get("meeting_url"),
+                questions=questions,
+                default_time_limit_sec=300
+            )
+    except Exception as e:
+        print(f"[MeetingLaunch] On-demand dispatch warning: {e}")
+
+    return RedirectResponse(url=meeting_url)
 
 
 # ─────────────────────────────────────────────────────────────────

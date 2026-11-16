@@ -125,5 +125,17 @@ export class MeetingService {
       this.http.post<any>(`${this.apiUrl}/meetings/meet/schedule`, data)
     );
   }
+
+  // 10. Dispatch AI Bot On-Demand when candidate joins meeting
+  async dispatchBot(username: string): Promise<any> {
+    try {
+      return await firstValueFrom(
+        this.http.post<any>(`${this.apiUrl}/meetings/dispatch-bot`, { username })
+      );
+    } catch (e) {
+      console.warn('[MeetingService] Bot dispatch notice:', e);
+      return null;
+    }
+  }
 }
 
