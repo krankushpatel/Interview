@@ -226,7 +226,11 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
             {"candidate_username": req.username},
             {"$set": {
                 "questions": questions,
-                "bot_status": "ready_to_dispatch"
+                "bot_status": "ready_to_dispatch",
+                "meeting_baas_bot_id": None,
+                "mb_status": None,
+                "mb_current_index": -1,
+                "mb_question_logs": []
             }}
         )
 
@@ -331,7 +335,11 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
             {"candidate_username": req.username},
             {"$set": {
                 "questions": questions,
-                "bot_status": "ready_to_dispatch"
+                "bot_status": "ready_to_dispatch",
+                "meeting_baas_bot_id": None,
+                "mb_status": None,
+                "mb_current_index": -1,
+                "mb_question_logs": []
             }}
         )
 
@@ -370,11 +378,19 @@ async def dispatch_meeting_bot(req: DispatchBotRequest):
     if not record:
         raise HTTPException(status_code=404, detail=f"No scheduled meeting found for '{req.username}'")
 
-    # Check if already deployed
+    # Check if already deployed and alive
     mb_id = record.get("meeting_baas_bot_id")
     mb_status = record.get("mb_status")
     if mb_id and mb_status in ("deploying", "in_progress", "in_call"):
-        return {"success": True, "message": "Bot already active", "bot_id": mb_id}
+        try:
+            from code.zoom_bot.meeting_baas import MeetingBaaSClient
+            client = MeetingBaaSClient()
+            b = await client.get_bot(mb_id)
+            st = ((b.get("data") or {}).get("status") or "").lower()
+            if "in_call" in st or "recording" in st or "joining" in st:
+                return {"success": True, "message": "Bot already active", "bot_id": mb_id}
+        except Exception:
+            pass
 
     meeting_url = record.get("join_url") or record.get("meeting_url")
     if not meeting_url:
