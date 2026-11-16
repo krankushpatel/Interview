@@ -9,6 +9,7 @@ from code.services.zoom_bot_service import zoom_bot_service
 from code.settings_route.routes import load_settings, save_settings
 from code.services.email_service import send_zoom_schedule_email, send_google_meet_schedule_email
 from code.services.timetable_service import set_student_timetable
+from code.services.exam_question_selector import select_exam_questions_for_student
 from code.core.data_manager import db
 
 router = APIRouter()
@@ -221,13 +222,7 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
         # 4. Auto-provision Zoom Interview Bot for this session
         bot_session = None
         try:
-            questions = []
-            if req.topics:
-                q_docs = list(db.questions.find({"category": {"$in": req.topics}}, {"_id": 0, "question": 1}).limit(5))
-                questions = [q["question"] for q in q_docs if "question" in q]
-            if not questions:
-                q_docs = list(db.questions.find({}, {"_id": 0, "question": 1}).limit(5))
-                questions = [q["question"] for q in q_docs if "question" in q]
+            questions = select_exam_questions_for_student(req.username, req.topics)
 
             bot_session = await zoom_bot_service.create_bot_interview(
                 username=req.username,
@@ -337,13 +332,7 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
         # 4. Auto-provision Meeting Bot for this session
         bot_session = None
         try:
-            questions = []
-            if req.topics:
-                q_docs = list(db.questions.find({"category": {"$in": req.topics}}, {"_id": 0, "question": 1}).limit(5))
-                questions = [q["question"] for q in q_docs if "question" in q]
-            if not questions:
-                q_docs = list(db.questions.find({}, {"_id": 0, "question": 1}).limit(5))
-                questions = [q["question"] for q in q_docs if "question" in q]
+            questions = select_exam_questions_for_student(req.username, req.topics)
 
             bot_session = await zoom_bot_service.create_bot_interview(
                 username=req.username,
