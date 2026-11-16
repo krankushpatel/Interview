@@ -399,14 +399,17 @@ class ZoomBotService:
                 cmd = "/skip"
             elif text in ("/end", "end", "/exit"):
                 cmd = "/end"
-            elif text in ("/repeat", "repeat"):
-                # Repeat doesn't advance — handle inline
+            elif text in ("/repeat", "repeat", "start", "/start", "hi", "hello", "ready"):
+                # Re-display question inline in chat
                 if record:
                     idx = record.get("mb_current_index", 0)
                     qs = record.get("mb_questions", [])
                     if 0 <= idx < len(qs):
                         client = self._mb_client()
-                        await client.send_chat_message(bot_id, f"🔁 Repeating Question {idx+1}:\n\n{qs[idx]}")
+                        await client.send_chat_message(
+                            bot_id,
+                            f"📝 Question {idx+1} of {len(qs)}:\n\n{qs[idx]}\n\n⏱️ Speak into mic, then type '/submit' when done (or '/skip')."
+                        )
                 return
 
             if cmd:

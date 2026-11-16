@@ -14,6 +14,13 @@ MEETING_BAAS_API_BASE = "https://api.meetingbaas.com/v2"
 class MeetingBaaSClient:
     def __init__(self, api_key: str = "") -> None:
         self.api_key = api_key or os.getenv("MEETING_BAAS_API_KEY", "").strip()
+        if not self.api_key:
+            from pathlib import Path
+            from dotenv import load_dotenv
+            env_file = Path(__file__).resolve().parents[2] / ".env"
+            if env_file.exists():
+                load_dotenv(env_file, override=False)
+            self.api_key = os.getenv("MEETING_BAAS_API_KEY", "").strip()
         self.base_url = MEETING_BAAS_API_BASE
 
     def _headers(self) -> Dict[str, str]:
