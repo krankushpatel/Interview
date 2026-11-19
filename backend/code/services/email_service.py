@@ -434,11 +434,13 @@ def send_google_meet_schedule_email(
                 {msg_section}
 
                 <div class="btn-group">
-                    <a href="{meet_url}" class="btn-meet">
-                        🌐 Join Google Meet Interview
+                    <a href="{launcher_url}" class="btn-meet" style="display: inline-block; background: #059669; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 16px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);">
+                        🚀 Join Google Meet Interview
                     </a>
-                    <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
-                        Meeting Link: <a href="{meet_url}" style="color: #059669;">{meet_url}</a>
+                    <div style="margin-top: 14px;">
+                        <a href="{meet_url}" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 10px 18px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px;">
+                            🌐 Direct Meet Link (Backup)
+                        </a>
                     </div>
                 </div>
 

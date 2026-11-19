@@ -387,6 +387,10 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
                     "topic": f"Technical Interview: {student_name}",
                     "questions": questions,
                     "bot_status": "ready_to_dispatch",
+                    "bot_interview_id": None,
+                    "self_hosted_session_id": None,
+                    "shb_status": "ready_to_dispatch",
+                    "shb_current_index": -1,
                     "meeting_baas_bot_id": None,
                     "mb_status": None,
                     "mb_current_index": -1,
@@ -428,31 +432,7 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
             "topic": f"Technical Interview: {student_name}",
         }
 
-        # 5. Auto-dispatch the Self-Hosted Interviewer Bot immediately so it joins the meeting!
-        bot_dispatched = False
-        try:
-            from code.self_hosted_bot.bridge import should_use_self_hosted
-            if should_use_self_hosted():
-                bot_meeting_url = await _resolve_bot_meeting_url({
-                    "provider": "google_meet",
-                    "meet_url": meet_url,
-                    "join_url": meet_url,
-                })
-                asyncio.create_task(
-                    zoom_bot_service.create_bot_interview(
-                        username=req.username,
-                        candidate_name=student_name,
-                        meeting_url=bot_meeting_url,
-                        questions=questions,
-                        default_time_limit_sec=300,
-                        provider_hint="google_meet",
-                    )
-                )
-                bot_dispatched = True
-                print(f"[ScheduleMeet] Auto-dispatched self-hosted bot for {req.username} at {meet_url}")
-        except Exception as bot_err:
-            print(f"[ScheduleMeet] Auto-dispatch notice: {bot_err}")
-
+        # 5. Option 2: On-Demand Bot Dispatch (bot joins only when student clicks launcher link)
         return {
             "success": True,
             "message": (
@@ -463,7 +443,7 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
             "meeting": meeting_info,
             "timetable": timetable,
             "email_sent": email_sent,
-            "bot_status": "dispatched" if bot_dispatched else "ready_to_dispatch",
+            "bot_status": "ready_to_dispatch",
         }
     except HTTPException:
         raise
