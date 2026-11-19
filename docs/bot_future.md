@@ -152,3 +152,29 @@ In `backend/code/self_hosted_bot/adapters/google_meet.py`:
 - Add a debounce / cooldown (e.g. at least 5 seconds between `open_chat()` attempts) so the bot does not fight with user interactions if they open "Meeting details".
 - Explicitly check if another panel like `div[aria-label*="Meeting details" i]` is open before blindly re-triggering chat toggle clicks.
 - Prioritize targeting the exact Chat tab button `button[aria-label*="Chat with everyone" i]` directly rather than generic drawer selectors.
+
+
+---
+
+## 🌐 Research & Architecture: Permanent Static Tunnel Comparison (Ngrok vs Cloudflare)
+
+### 📌 The Problem
+Currently, Cloudflare Quick Tunnel (`cloudflared tunnel --url http://localhost:8001`) generates a new random subdomain on every restart (e.g., `https://wife-struggle-elected-everywhere.trycloudflare.com`).
+As a result, `PUBLIC_BASE_URL` in `backend/.env` has to be updated manually every time the tunnel restarts.
+
+### 🔍 Solution Comparison: Ngrok vs Cloudflare
+
+| Feature | **Ngrok Free Static Domain** (Recommended for Zero-Domain Setup) | **Cloudflare Named Tunnel** (Recommended for Custom Domain) | **Cloudflare Quick Tunnel** (Current Setup) |
+|---|---|---|---|
+| **URL Stability** | **100% Permanent Static Domain** (`*.ngrok-free.app`) | **100% Permanent Static Subdomain** (`api.yourdomain.com`) | Random on every restart (`*.trycloudflare.com`) |
+| **Need to update `.env`?** | **NO — Set once forever** | **NO — Set once forever** | **YES — Update on every restart** |
+| **Cost** | **₹0 Free** (1 static domain included in free account) | **₹0 Free** | **₹0 Free** |
+| **Domain Requirement** | No custom domain needed (assigned by ngrok) | Requires owning any domain connected to Cloudflare | None |
+| **Browser Warning Page** | Free tier shows a 1-time "Visit Site" interstitial banner in browser | None (seamless enterprise experience) | None |
+| **Command** | `ngrok http 8001 --domain=your-name.ngrok-free.app` | `cloudflared tunnel run <tunnel-name>` | `cloudflared tunnel --url http://localhost:8001` |
+
+### 🎯 Recommendation
+1. **If you want zero-configuration permanent URL without buying a domain:**  
+   Use **Ngrok Free Static Domain**. Claim 1 free static domain from your ngrok dashboard, configure it once in `backend/.env`, and you will never need to update `.env` again.
+2. **If you have a custom domain:**  
+   Configure a **Cloudflare Named Tunnel** for permanent static routing with zero warning pages.
