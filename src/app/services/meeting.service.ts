@@ -11,7 +11,7 @@ export interface ZoomMeetingDetails {
   app_url?: string;
   password?: string;
   candidate_username: string;
-  provider: 'zoom' | 'google_meet' | 'webrtc';
+  provider: 'zoom' | 'google_meet' | 'teams' | 'webrtc';
   created_at: number;
   status: 'active' | 'ended';
 }
@@ -126,7 +126,22 @@ export class MeetingService {
     );
   }
 
-  // 10. Dispatch AI Bot On-Demand when candidate joins meeting
+  // 10. Schedule Microsoft Teams Interview & Email Candidate Invite
+  async scheduleTeamsInterview(data: {
+    username: string;
+    start_time: string;
+    end_time: string;
+    meeting_url?: string;
+    topics?: string[];
+    custom_message?: string;
+    send_email?: boolean;
+  }): Promise<any> {
+    return firstValueFrom(
+      this.http.post<any>(`${this.apiUrl}/meetings/teams/schedule`, data)
+    );
+  }
+
+  // 11. Dispatch AI Bot On-Demand when candidate joins meeting
   async dispatchBot(username: string): Promise<any> {
     try {
       return await firstValueFrom(

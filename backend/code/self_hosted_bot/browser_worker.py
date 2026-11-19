@@ -1,0 +1,345 @@
+"""Playwright Browser Worker for the Self-Hosted AI Interviewer Bot.
+
+Manages:
+- Chromium/Chrome launch with media-stream and anti-automation flags.
+- Automatic injection of `canvas_renderer.js` (1280x720 virtual Question Card stream)
+  and `audio_tap.js` (WebRTC incoming audio interceptor + per-question recorder).
+- High-level Python API to update the on-screen display and record per-question audio files.
+"""
+from __future__ import annotations
+
+import base64
+import logging
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
+
+from .config import SelfHostedBotConfig, load_bot_config
+
+log = logging.getLogger("self_hosted_bot.browser_worker")
+
+_INJECTED_DIR = Path(__file__).resolve().parent / "injected"
+
+
+class BrowserWorker:
+    def __init__(self, config: Optional[SelfHostedBotConfig] = None) -> None:
+        self.config = config or load_bot_config()
+        self._pw: Optional[Playwright] = None
+        self._browser: Optional[Browser] = None
+        self._context: Optional[BrowserContext] = None
+        self.page: Optional[Page] = None
+
+    def _build_launch_args(self) -> list[str]:
+        return [
+            "--use-fake-ui-for-media-stream",
+            "--autoplay-policy=no-user-gesture-required",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-infobars",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--window-size=1280,720",
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+        ]
+
+    async def start(self) -> Page:
+        """Launch browser, inject virtual camera & audio tap scripts, and open a clean page."""
+        if self.page:
+            return self.page
+
+        self._pw = await async_playwright().start()
+        args = self._build_launch_args()
+
+        canvas_js = (_INJECTED_DIR / "canvas_renderer.js").read_text(encoding="utf-8")
+        audio_js = (_INJECTED_DIR / "audio_tap.js").read_text(encoding="utf-8")
+
+        channels_to_try = []
+        if self.config.browser_channel and self.config.browser_channel != "chromium":
+            channels_to_try.append(self.config.browser_channel)
+        for fallback in ("chrome", "msedge", None):
+            if fallback not in channels_to_try:
+                channels_to_try.append(fallback)
+
+        last_err: Optional[Exception] = None
+        for channel in channels_to_try:
+            try:
+                launch_kwargs: Dict[str, Any] = {
+                    "headless": self.config.headless,
+                    "args": args,
+                    "ignore_default_args": ["--mute-audio"],
+                }
+                if channel:
+                    launch_kwargs["channel"] = channel
+
+                if self.config.use_persistent_profile:
+                    self._context = await self._pw.chromium.launch_persistent_context(
+                        user_data_dir=str(self.config.profile_dir),
+                        viewport={"width": 1280, "height": 720},
+                        permissions=["camera", "microphone"],
+                        **launch_kwargs,
+                    )
+                    self._browser = self._context.browser
+                else:
+                    self._browser = await self._pw.chromium.launch(**launch_kwargs)
+                    self._context = await self._browser.new_context(
+                        viewport={"width": 1280, "height": 720},
+                        permissions=["camera", "microphone"],
+                        user_agent=(
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/131.0.0.0 Safari/537.36"
+                        ),
+                    )
+
+                log.info("[BrowserWorker] Launched Chromium successfully (channel=%s, headless=%s)",
+                         channel or "bundled", self.config.headless)
+                break
+            except Exception as exc:
+                last_err = exc
+                log.warning("[BrowserWorker] Failed channel=%s: %s", channel or "bundled", exc)
+
+        if not self._context:
+            await self.stop()
+            raise RuntimeError(f"Could not launch any Chromium browser: {last_err}")
+
+        # Inject scripts BEFORE any meeting page loads
+        await self._context.add_init_script(canvas_js)
+        await self._context.add_init_script(audio_js)
+
+        if self._context.pages:
+            self.page = self._context.pages[0]
+        else:
+            self.page = await self._context.new_page()
+
+        return self.page
+
+    async def open_url(self, url: str, wait_until: str = "domcontentloaded", timeout_ms: int = 45000) -> None:
+        if not self.page:
+            await self.start()
+        assert self.page is not None
+        await self.page.goto(url, wait_until=wait_until, timeout=timeout_ms)
+
+    # ------------------------------------------------------------------
+    # Virtual On-Screen Question Display API (broadcasts to main + iframes)
+    # ------------------------------------------------------------------
+    async def update_display(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.page:
+            raise RuntimeError("BrowserWorker has not been started")
+        last_ok: Dict[str, Any] = {"ok": False}
+        for frame in self.page.frames:
+            try:
+                res = await frame.evaluate(
+                    "(patch) => window.__AI_INTERVIEWER_DISPLAY__ ? window.__AI_INTERVIEWER_DISPLAY__.update(patch) : {ok: false}",
+                    payload,
+                )
+                if isinstance(res, dict) and res.get("ok"):
+                    last_ok = res
+            except Exception:
+                continue
+        return last_ok
+
+    async def show_welcome(self, candidate_name: str, total_questions: int, topic: str = "Technical Interview") -> Dict[str, Any]:
+        return await self.update_display({
+            "mode": "welcome",
+            "brandTitle": self.config.brand_title,
+            "candidateName": candidate_name,
+            "totalQuestions": total_questions,
+            "topic": topic,
+            "statusText": "Waiting to begin interview...",
+        })
+
+    async def show_question(
+        self,
+        *,
+        candidate_name: str,
+        q_index: int,
+        total_questions: int,
+        question_text: str,
+        time_limit_sec: int = 300,
+        topic: str = "Technical Assessment",
+    ) -> Dict[str, Any]:
+        return await self.update_display({
+            "mode": "question",
+            "brandTitle": self.config.brand_title,
+            "candidateName": candidate_name,
+            "questionIndex": q_index,
+            "totalQuestions": total_questions,
+            "questionText": question_text,
+            "timeLimitSec": time_limit_sec,
+            "resetTimer": True,
+            "topic": topic,
+            "statusText": "Listening to your answer... Type /submit when done.",
+        })
+
+    async def show_transition(
+        self,
+        title: str,
+        subtitle: str = "Preparing next question...",
+        icon: str = "✅",
+        color: str = "#10b981",
+    ) -> Dict[str, Any]:
+        return await self.update_display({
+            "mode": "transition",
+            "questionText": title,
+            "subtitle": subtitle,
+            "transitionIcon": icon,
+            "transitionColor": color,
+            "statusText": title,
+        })
+
+    async def show_completed(self, candidate_name: str, final_score: Optional[str] = None) -> Dict[str, Any]:
+        return await self.update_display({
+            "mode": "completed",
+            "candidateName": candidate_name,
+            "finalScore": final_score,
+            "statusText": "Interview finished. Disconnecting safely...",
+        })
+
+    async def save_canvas_snapshot(self, output_path: Path) -> Path:
+        """Save the exact 1280x720 virtual camera canvas frame to disk as PNG."""
+        if not self.page:
+            raise RuntimeError("BrowserWorker has not been started")
+        data_url: Optional[str] = await self.page.evaluate(
+            "() => window.__AI_INTERVIEWER_DISPLAY__ ? window.__AI_INTERVIEWER_DISPLAY__.snapshotDataUrl() : null"
+        )
+        if not data_url or "," not in data_url:
+            raise RuntimeError("Failed to capture canvas snapshot")
+        raw_bytes = base64.b64decode(data_url.split(",", 1)[1])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(raw_bytes)
+        return output_path
+
+    # ------------------------------------------------------------------
+    # Per-Question Audio Capture API (works across main frame + Zoom iframes!)
+    # ------------------------------------------------------------------
+    async def start_audio_segment(self, q_index: int) -> Dict[str, Any]:
+        if not self.page:
+            raise RuntimeError("BrowserWorker has not been started")
+        best: Dict[str, Any] = {"ok": False, "tappedTracks": 0, "wasmTapCount": 0}
+        total_tracks = 0
+        total_wasm = 0
+        for frame in self.page.frames:
+            try:
+                res = await frame.evaluate(
+                    "(idx) => window.__AI_INTERVIEWER_AUDIO__ ? window.__AI_INTERVIEWER_AUDIO__.startSegment(idx) : {ok: false}",
+                    q_index,
+                )
+                if isinstance(res, dict) and res.get("ok"):
+                    total_tracks += int(res.get("tappedTracks") or 0)
+                    total_wasm += int(res.get("wasmTapCount") or 0)
+                    best = res
+            except Exception:
+                continue
+        best["tappedTracks"] = total_tracks
+        best["wasmTapCount"] = total_wasm
+        return best
+
+    async def stop_audio_segment(self, save_path: Optional[Path] = None) -> Dict[str, Any]:
+        if not self.page:
+            raise RuntimeError("BrowserWorker has not been started")
+        candidates: list[Dict[str, Any]] = []
+        for frame in self.page.frames:
+            try:
+                res = await frame.evaluate(
+                    "async () => window.__AI_INTERVIEWER_AUDIO__ ? await window.__AI_INTERVIEWER_AUDIO__.stopSegment() : {ok: false}"
+                )
+                if isinstance(res, dict) and res.get("ok"):
+                    candidates.append(res)
+            except Exception:
+                continue
+
+        if not candidates:
+            return {"ok": False, "saved_path": None, "sizeBytes": 0}
+
+        # Pick the frame that captured real candidate audio:
+        # prioritize highest RMS speech energy > tappedTracks > wasmTapCount > sizeBytes
+        def _rank(item: Dict[str, Any]) -> tuple:
+            has_b64 = 1 if item.get("base64") else 0
+            max_rms = float(item.get("maxRms") or 0.0)
+            tracks = int(item.get("tappedTracks") or 0)
+            wasm = int(item.get("wasmTapCount") or 0)
+            size = int(item.get("sizeBytes") or 0)
+            return (has_b64, 1 if max_rms > 0.005 else 0, max_rms, tracks, wasm, size)
+
+        best = max(candidates, key=_rank)
+        b64 = best.pop("base64", "")
+        saved_file: Optional[str] = None
+        if save_path and b64:
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            save_path.write_bytes(base64.b64decode(b64))
+            saved_file = str(save_path)
+        best["saved_path"] = saved_file
+        log.info(
+            "[BrowserWorker] Stopped Q%s audio: size=%s bytes, maxRms=%.4f, tracks=%s, wasmTaps=%s",
+            best.get("qIndex"),
+            best.get("sizeBytes"),
+            float(best.get("maxRms") or 0.0),
+            best.get("tappedTracks"),
+            best.get("wasmTapCount"),
+        )
+        return best
+
+    async def get_audio_status(self) -> Dict[str, Any]:
+        if not self.page:
+            return {"tappedTracks": 0, "wasmTapCount": 0, "recording": False}
+        agg_tracks = 0
+        agg_wasm = 0
+        max_rms = 0.0
+        latest_speech = 0
+        recording = False
+        cur_idx = -1
+        for frame in self.page.frames:
+            try:
+                st = await frame.evaluate(
+                    "() => window.__AI_INTERVIEWER_AUDIO__ ? window.__AI_INTERVIEWER_AUDIO__.getStatus() : null"
+                )
+                if not isinstance(st, dict):
+                    continue
+                agg_tracks += int(st.get("tappedTracks") or 0)
+                agg_wasm += int(st.get("wasmTapCount") or 0)
+                max_rms = max(max_rms, float(st.get("rmsLevel") or 0.0))
+                if int(st.get("lastSpeechAt") or 0) > latest_speech:
+                    latest_speech = int(st.get("lastSpeechAt") or 0)
+                if st.get("recording"):
+                    recording = True
+                    cur_idx = int(st.get("currentSegmentIndex", -1))
+            except Exception:
+                continue
+        import time as _t
+        ms_since = int(_t.time() * 1000) - latest_speech if latest_speech else None
+        return {
+            "tappedTracks": agg_tracks,
+            "wasmTapCount": agg_wasm,
+            "recording": recording,
+            "currentSegmentIndex": cur_idx,
+            "rmsLevel": max_rms,
+            "lastSpeechAt": latest_speech,
+            "msSinceSpeech": ms_since,
+        }
+
+    async def screenshot(self, path: Path) -> Path:
+        if not self.page:
+            raise RuntimeError("BrowserWorker has not been started")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        await self.page.screenshot(path=str(path))
+        return path
+
+    async def stop(self) -> None:
+        """Cleanly tear down page, context, browser, and Playwright."""
+        for obj, method in (
+            (self.page, "close"),
+            (self._context, "close"),
+            (self._browser, "close"),
+            (self._pw, "stop"),
+        ):
+            if obj is not None:
+                try:
+                    await getattr(obj, method)()
+                except Exception:
+                    pass
+        self.page = None
+        self._context = None
+        self._browser = None
+        self._pw = None

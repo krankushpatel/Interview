@@ -1,3 +1,9 @@
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -114,13 +120,26 @@ async def startup_event():
         print(f"[SYSTEM] ❌ Dipstick auto-sync error: {e}")
         print("[SYSTEM] ⚠️ Continuing with local questions.json")
 
-    # 4. ✅ Resume active Meeting BaaS interview sessions
+    # 4. ✅ Resume active Meeting BaaS interview sessions (if using Meeting BaaS)
     try:
-        from code.services.zoom_bot_service import zoom_bot_service
-        await zoom_bot_service.resume_active_sessions()
-        print("[SYSTEM] ✅ Meeting BaaS session resume check complete")
+        from code.self_hosted_bot.bridge import should_use_self_hosted
+        if should_use_self_hosted():
+            print("[SYSTEM] 🤖 BOT_PROVIDER=self_hosted (100% Free Self-Hosted Bot Mode ACTIVE)")
+        else:
+            from code.services.zoom_bot_service import zoom_bot_service
+            await zoom_bot_service.resume_active_sessions()
+            print("[SYSTEM] ✅ Meeting BaaS session resume check complete")
     except Exception as e:
-        print(f"[SYSTEM] ⚠️ Meeting BaaS resume error: {e}")
+        print(f"[SYSTEM] ⚠️ Bot startup notice: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    try:
+        from code.self_hosted_bot.bridge import self_hosted_bot_bridge
+        await self_hosted_bot_bridge.stop_all()
+    except Exception as e:
+        print(f"[SYSTEM] ⚠️ Self-hosted bot shutdown notice: {e}")
 
 # ✅ Public routes (no auth required)
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])

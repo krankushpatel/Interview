@@ -136,4 +136,5 @@ backend/recordings/
 /backend/recordings/**
 *.db
 /data/
-/backend/data/*.db
+/backend/data/**
+!/backend/data/.gitkeep

@@ -169,6 +169,8 @@ async def webhook_health() -> dict[str, Any]:
 
 
 @router.post("/webhook/meeting-baas")
+@router.post("/webhook/meetingbaas")
+@router.post("/webhook")
 async def meeting_baas_webhook(request: Request) -> dict[str, Any]:
     try:
         ev = await request.json()
@@ -176,18 +178,22 @@ async def meeting_baas_webhook(request: Request) -> dict[str, Any]:
         raise HTTPException(400, "invalid json")
     
     event_type = ev.get("event", "")
-    data = ev.get("data", {})
-    bot_id = ev.get("bot_id", "")
-    log.info("[MeetingBaaS] Webhook event received: type=%s bot=%s payload_keys=%s",
-             event_type, bot_id, list(ev.keys()))
+    data = ev.get("data")
+    
+    # Merge top-level and nested data fields so no keys are missed
+    merged_data: Dict[str, Any] = dict(ev)
+    if isinstance(data, dict):
+        merged_data.update(data)
+    
+    bot_id = merged_data.get("bot_id") or merged_data.get("id") or ""
+    merged_data["bot_id"] = bot_id
 
-    # Merge top-level bot_id into data so handler can always find it
-    if bot_id and "bot_id" not in data:
-        data["bot_id"] = bot_id
+    log.info("[MeetingBaaS] Webhook event received: type=%s bot=%s payload=%s",
+             event_type, bot_id, merged_data)
 
     try:
         from code.services.zoom_bot_service import zoom_bot_service
-        await zoom_bot_service.handle_meeting_baas_event(event_type, data)
+        await zoom_bot_service.handle_meeting_baas_event(event_type, merged_data)
     except Exception as e:
         log.warning("[MeetingBaaS] Webhook handler notice: %s", e, exc_info=True)
 

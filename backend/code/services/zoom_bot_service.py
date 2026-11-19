@@ -36,6 +36,12 @@ class ZoomBotService:
     def __init__(self):
         # bot_id → asyncio.Task  (so we can cancel on shutdown or avoid duplicates)
         self._controller_tasks: Dict[str, asyncio.Task] = {}
+        self._controller_events: Dict[str, asyncio.Event] = {}
+        self._controller_commands: Dict[str, str] = {}
+        self._processed_msg_ids: set = set()
+        self._question_start_times: Dict[str, float] = {}
+        self._bot_advance_locks: Dict[str, asyncio.Lock] = {}
+        self._bot_last_advance: Dict[str, float] = {}
 
     # ------------------------------------------------------------------ helpers
     def _get_engine(self):
@@ -59,8 +65,26 @@ class ZoomBotService:
         candidate_name: str,
         meeting_url: str,
         questions: List[Dict[str, Any]],
-        default_time_limit_sec: int = 300
+        default_time_limit_sec: int = 300,
+        provider_hint: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
+        # Check if 100% Free Self-Hosted Bot is enabled (BOT_PROVIDER=self_hosted or no Meeting BaaS key)
+        try:
+            from code.self_hosted_bot.bridge import self_hosted_bot_bridge, should_use_self_hosted
+            if should_use_self_hosted() and meeting_url:
+                log.info("[ZoomBot] Routing interview for %s to 100%% Free Self-Hosted Bot", username)
+                return await self_hosted_bot_bridge.launch_interview(
+                    username=username,
+                    candidate_name=candidate_name or username,
+                    meeting_url=meeting_url,
+                    questions=questions,
+                    default_time_limit_sec=default_time_limit_sec,
+                    provider_hint=provider_hint,
+                )
+        except Exception as shb_err:
+            log.error("[ZoomBot] Self-hosted bot launch error: %s", shb_err, exc_info=True)
+            raise
+
         payload_questions: List[tuple[str, Optional[int]]] = []
         for q in questions:
             if isinstance(q, str):
@@ -166,6 +190,8 @@ class ZoomBotService:
         if existing and not existing.done():
             log.info("[Controller] Already running for %s — skipping duplicate", bot_id)
             return
+        if bot_id not in self._controller_events:
+            self._controller_events[bot_id] = asyncio.Event()
         task = asyncio.create_task(
             self._controller_loop(
                 bot_id=bot_id,
@@ -197,6 +223,9 @@ class ZoomBotService:
             in_call = await self._wait_for_join(client, bot_id)
             if not in_call:
                 log.warning("[Controller] Bot %s never joined — aborting", bot_id)
+                self._controller_tasks.pop(bot_id, None)
+                self._controller_events.pop(bot_id, None)
+                self._controller_commands.pop(bot_id, None)
                 return
             await asyncio.sleep(3)  # settle
             start_idx = 0
@@ -225,6 +254,12 @@ class ZoomBotService:
             )
             await client.send_chat_message(bot_id, msg)
             log.info("[Controller] Posted Q%d/%d to %s", idx + 1, total, bot_id)
+
+            # Record question post time and clear any stale command/events
+            self._question_start_times[bot_id] = time.time()
+            self._controller_commands.pop(bot_id, None)
+            if bot_id in self._controller_events:
+                self._controller_events[bot_id].clear()
 
             # ---- wait for /submit OR timer ----
             command = await self._poll_for_command(
@@ -274,6 +309,8 @@ class ZoomBotService:
         )
         update_exam_status(username, "completed")
         self._controller_tasks.pop(bot_id, None)
+        self._controller_events.pop(bot_id, None)
+        self._controller_commands.pop(bot_id, None)
 
         # Fetch transcript & trigger evaluation
         await asyncio.sleep(8)
@@ -296,12 +333,18 @@ class ZoomBotService:
         return False
 
     async def _is_bot_alive(self, client, bot_id: str) -> bool:
-        try:
-            b = await client.get_bot(bot_id)
-            st = ((b.get("data") or {}).get("status") or "").lower()
-            return "in_call" in st or "recording" in st or "paused" in st
-        except Exception:
-            return False
+        for attempt in range(2):
+            try:
+                b = await client.get_bot(bot_id)
+                st = ((b.get("data") or {}).get("status") or "").lower()
+                if not st:
+                    return True
+                if any(x in st for x in ("call_ended", "done", "failed")):
+                    return False
+                return True
+            except Exception:
+                await asyncio.sleep(1)
+        return True
 
     async def _poll_for_command(
         self, client, bot_id: str, timeout_sec: int
@@ -309,45 +352,87 @@ class ZoomBotService:
         """
         Poll Meeting BaaS for new chat messages. Return the first command found,
         or None when the timer expires.
-
-        Meeting BaaS returns chat_messages artifact AFTER the call ends, so during
-        an active call we also accept webhook-driven signals (via asyncio.Event
-        stored in _controller_tasks). But the PRIMARY mechanism is a periodic
-        GET /v2/bots/{bot_id} check and — most importantly — the timer fallback.
         """
-        event = asyncio.Event()
-        # Store event so webhook handler can signal it
-        record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id})
-        last_chat_id = (record or {}).get("mb_last_chat_id")
-
-        # Register event for webhook-based early advance
-        self._controller_tasks[f"{bot_id}_event"] = event  # type: ignore[assignment]
-        self._controller_tasks[f"{bot_id}_cmd"] = None  # type: ignore[assignment]
+        event = self._controller_events.get(bot_id)
+        if not event:
+            event = asyncio.Event()
+            self._controller_events[bot_id] = event
+        event.clear()
 
         deadline = time.time() + timeout_sec
+        q_start = self._question_start_times.get(bot_id, time.time())
+
         while time.time() < deadline:
             remaining = max(0.5, deadline - time.time())
             try:
                 await asyncio.wait_for(event.wait(), timeout=min(_POLL_CHAT_INTERVAL, remaining))
                 # Event was set by webhook handler
-                cmd = self._controller_tasks.pop(f"{bot_id}_cmd", None)
-                self._controller_tasks.pop(f"{bot_id}_event", None)
-                return cmd or "/submit"
+                cmd = self._controller_commands.pop(bot_id, None)
+                event.clear()
+                if cmd:
+                    return cmd
             except asyncio.TimeoutError:
-                pass  # normal — check bot status periodically
+                # Active fallback: poll Meeting BaaS directly for /submit, /skip, /end
+                try:
+                    b = await client.get_bot(bot_id)
+                    b_data = b.get("data") or {}
+                    cm = b_data.get("chat_messages")
+                    msgs = []
+                    if isinstance(cm, list):
+                        msgs = cm
+                    elif isinstance(cm, str) and cm.startswith("http"):
+                        async with httpx.AsyncClient(timeout=4.0) as http_c:
+                            cm_resp = await http_c.get(cm)
+                            if cm_resp.status_code == 200:
+                                msgs = cm_resp.json()
+
+                    for m in msgs:
+                        m_id = m.get("message_id") or m.get("id") or ""
+                        if not m_id or m_id in self._processed_msg_ids:
+                            continue
+
+                        # Skip bot's own questions
+                        s_name = (m.get("sender_name") or m.get("sender") or "").lower()
+                        if "interviewer" in s_name or m.get("sender_id") == 1:
+                            continue
+
+                        # Check message timestamp: must be after this question was posted
+                        sent_at_str = m.get("sent_at") or m.get("created_at") or ""
+                        if sent_at_str:
+                            try:
+                                from datetime import datetime, timezone
+                                dt = datetime.fromisoformat(sent_at_str.replace("Z", "+00:00"))
+                                if dt.timestamp() < q_start:
+                                    continue
+                            except Exception:
+                                pass
+
+                        m_text = (m.get("text") or m.get("message") or "").strip().lower()
+                        clean_m = m_text.rstrip(".,! ")
+                        detected_cmd = None
+                        if clean_m in ("/submit", "submit") or clean_m.startswith("/submit"):
+                            detected_cmd = "/submit"
+                        elif clean_m in ("/skip", "skip") or clean_m.startswith("/skip"):
+                            detected_cmd = "/skip"
+                        elif clean_m in ("/end", "end") or clean_m.startswith("/end"):
+                            detected_cmd = "/end"
+
+                        if detected_cmd:
+                            self._processed_msg_ids.add(m_id)
+                            db.active_meetings.update_one({"meeting_baas_bot_id": bot_id}, {"$set": {"mb_last_chat_id": m_id}})
+                            log.info("[Controller] ✅ Detected %s via chat poll for %s", detected_cmd, bot_id)
+                            return detected_cmd
+                except Exception as e:
+                    log.debug("[Controller] Chat poll check notice: %s", e)
 
             # Optional: check if bot left unexpectedly
             try:
                 alive = await self._is_bot_alive(client, bot_id)
                 if not alive:
-                    self._controller_tasks.pop(f"{bot_id}_event", None)
-                    self._controller_tasks.pop(f"{bot_id}_cmd", None)
                     return "/end"
             except Exception:
                 pass
 
-        self._controller_tasks.pop(f"{bot_id}_event", None)
-        self._controller_tasks.pop(f"{bot_id}_cmd", None)
         return None  # timer expired
 
     # ======================================================================
@@ -368,7 +453,6 @@ class ZoomBotService:
 
         if event_type == "bot.status_change":
             status_code = ""
-            # Handle both nested {"status": {"code": ...}} and flat {"status": "..."}
             st = data.get("status")
             if isinstance(st, dict):
                 status_code = st.get("code", "")
@@ -382,24 +466,35 @@ class ZoomBotService:
                 asyncio.create_task(self._process_meeting_baas_transcript(bot_id, username))
 
         elif event_type in ("bot.chat_message", "bot.chatmessage", "chat_message"):
+            msg_id = data.get("message_id") or data.get("id") or ""
+            if msg_id and msg_id in self._processed_msg_ids:
+                log.info("[Webhook] Duplicate message_id '%s' ignored", msg_id)
+                return
+            if msg_id:
+                self._processed_msg_ids.add(msg_id)
+                if len(self._processed_msg_ids) > 1000:
+                    self._processed_msg_ids.clear()
+
             # Meeting BaaS sends: data.sender, data.message (or data.text, data.sender_name)
             text = (data.get("message") or data.get("text") or "").strip().lower()
             sender = (data.get("sender") or data.get("sender_name") or "").strip()
             log.info("[Webhook] Chat from '%s': '%s' (all data keys: %s)", sender, text, list(data.keys()))
 
             # Don't react to our own bot's messages
-            if sender.lower() == _BOT_SENDER.lower():
+            s_low = sender.lower()
+            if "interviewer" in s_low or s_low == _BOT_SENDER.lower() or data.get("sender_id") == 1 or data.get("is_bot") or data.get("from_bot"):
                 return
 
             # Signal the controller if it's waiting
             cmd = None
-            if text in ("/submit", "/next", "submit", "next"):
+            clean_t = text.strip().lower().rstrip(".,! ")
+            if clean_t in ("/submit", "/next", "submit", "next") or clean_t.startswith("/submit") or clean_t == "submit":
                 cmd = "/submit"
-            elif text in ("/skip", "skip"):
+            elif clean_t in ("/skip", "skip") or clean_t.startswith("/skip") or clean_t == "skip":
                 cmd = "/skip"
-            elif text in ("/end", "end", "/exit"):
+            elif clean_t in ("/end", "end", "/exit", "exit") or clean_t.startswith("/end"):
                 cmd = "/end"
-            elif text in ("/repeat", "repeat", "start", "/start", "hi", "hello", "ready"):
+            elif clean_t in ("/repeat", "repeat", "start", "/start", "hi", "hello", "ready") or clean_t.startswith("/repeat"):
                 # Re-display question inline in chat
                 if record:
                     idx = record.get("mb_current_index", 0)
@@ -413,9 +508,18 @@ class ZoomBotService:
                 return
 
             if cmd:
-                event_obj = self._controller_tasks.get(f"{bot_id}_event")
-                if event_obj and isinstance(event_obj, asyncio.Event):
-                    self._controller_tasks[f"{bot_id}_cmd"] = cmd
+                # Minimum 1.0 second elapsed since current question was posted
+                q_start = self._question_start_times.get(bot_id, 0.0)
+                now = time.time()
+                if now - q_start < 1.0:
+                    log.info("[Webhook] ⚠️ Ignored '%s' for bot %s: arrived only %.2fs after question posted (residual/duplicate)", cmd, bot_id, now - q_start)
+                    return
+
+                event_obj = self._controller_events.get(bot_id)
+                ctrl_task = self._controller_tasks.get(bot_id)
+                if event_obj and ctrl_task and not ctrl_task.done():
+                    log.info("[Webhook] ✅ Signaled controller for bot %s with cmd: %s", bot_id, cmd)
+                    self._controller_commands[bot_id] = cmd
                     event_obj.set()
                 else:
                     # Controller not running — use DB fallback
@@ -435,44 +539,61 @@ class ZoomBotService:
     #  DB-FALLBACK: advance without running controller
     # ======================================================================
     async def _advance_via_db(self, bot_id: str, skip: bool = False):
-        client = self._mb_client()
-        record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id})
-        if not record:
-            return
-        username = record.get("candidate_username", "Candidate")
-        questions = record.get("mb_questions", [])
-        curr_idx = record.get("mb_current_index", 0)
-        next_idx = curr_idx + 1
+        if bot_id not in self._bot_advance_locks:
+            self._bot_advance_locks[bot_id] = asyncio.Lock()
 
-        label = "Skipped" if skip else "Recorded & Submitted"
-        q_logs = record.get("mb_question_logs", [])
-        q_logs.append({"index": curr_idx, "status": "skipped" if skip else "submitted"})
-        await client.send_chat_message(bot_id, f"✅ Question {curr_idx + 1} {label}!")
-        await asyncio.sleep(1)
+        async with self._bot_advance_locks[bot_id]:
+            now = time.time()
+            last_adv = self._bot_last_advance.get(bot_id, 0.0)
+            if now - last_adv < 2.0:
+                log.info("[DBAdvance] Ignored duplicate/burst advance for bot %s (%.2fs since last)", bot_id, now - last_adv)
+                return
+            self._bot_last_advance[bot_id] = now
 
-        if next_idx < len(questions):
-            db.active_meetings.update_one(
-                {"_id": record["_id"]},
-                {"$set": {"mb_current_index": next_idx, "mb_question_logs": q_logs}}
-            )
-            update_exam_progress(username, next_idx, next_idx, questions[next_idx])
-            msg = (
-                f"📝 Question {next_idx + 1} of {len(questions)}:\n\n"
-                f"{questions[next_idx]}\n\n"
-                f"⏱️ Speak clearly into your microphone!\n"
-                f"👉 Type '/submit' when done."
-            )
-            await client.send_chat_message(bot_id, msg)
-        else:
-            await client.send_chat_message(
-                bot_id,
-                f"🎉 All {len(questions)} questions completed! Generating evaluation..."
-            )
-            await asyncio.sleep(2)
-            await client.leave_bot(bot_id)
-            update_exam_status(username, "completed")
-            await asyncio.sleep(5)
-            await self._process_meeting_baas_transcript(bot_id, username)
+            client = self._mb_client()
+            record = db.active_meetings.find_one({"meeting_baas_bot_id": bot_id})
+            if not record:
+                return
+            username = record.get("candidate_username", "Candidate")
+            questions = record.get("mb_questions", [])
+            curr_idx = record.get("mb_current_index", 0)
+            next_idx = curr_idx + 1
+
+            label = "Skipped" if skip else "Recorded & Submitted"
+            q_logs = record.get("mb_question_logs", [])
+            q_logs.append({"index": curr_idx, "status": "skipped" if skip else "submitted"})
+
+            if next_idx < len(questions):
+                db.active_meetings.update_one(
+                    {"_id": record["_id"]},
+                    {"$set": {"mb_current_index": next_idx, "mb_question_logs": q_logs}}
+                )
+                update_exam_progress(username, next_idx, next_idx, questions[next_idx])
+                log.info("[DBAdvance] Candidate %s advanced to Q%d/%d", username, next_idx + 1, len(questions))
+
+                # Send acknowledgment and next question to Zoom chat
+                await client.send_chat_message(bot_id, f"✅ Question {curr_idx + 1} {label}!")
+                msg = (
+                    f"📝 Question {next_idx + 1} of {len(questions)}:\n\n"
+                    f"{questions[next_idx]}\n\n"
+                    f"⏱️ Speak clearly into your microphone!\n"
+                    f"👉 Type '/submit' when done (or '/skip')."
+                )
+                await client.send_chat_message(bot_id, msg)
+            else:
+                db.active_meetings.update_one(
+                    {"_id": record["_id"]},
+                    {"$set": {"mb_current_index": next_idx, "mb_question_logs": q_logs, "mb_status": "completed"}}
+                )
+                update_exam_status(username, "completed")
+                await client.send_chat_message(
+                    bot_id,
+                    f"🎉 All {len(questions)} questions completed! Generating evaluation..."
+                )
+                await asyncio.sleep(2)
+                await client.leave_bot(bot_id)
+                await asyncio.sleep(5)
+                await self._process_meeting_baas_transcript(bot_id, username)
 
     async def _end_via_db(self, bot_id: str):
         client = self._mb_client()

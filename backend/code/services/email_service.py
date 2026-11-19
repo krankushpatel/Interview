@@ -23,6 +23,18 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 
 
+def _get_fresh_public_url() -> str:
+    """Reload PUBLIC_BASE_URL from backend/.env so live Cloudflare tunnel updates apply immediately."""
+    try:
+        from pathlib import Path
+        env_path = Path(__file__).resolve().parents[2] / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
+    except Exception:
+        pass
+    return os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+
+
 def validate_email(email: str) -> bool:
     """Validate email format"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -204,6 +216,10 @@ def send_zoom_schedule_email(
     formatted_end = format_schedule_datetime(end_time)
     topics_str = ', '.join(topics) if topics else 'Comprehensive Technical Assessment'
 
+    public_url = _get_fresh_public_url()
+    launcher_url = f"{public_url}/meetings/launch?username={username}" if public_url else (zoom_app_url or zoom_join_url)
+    direct_zoom_url = zoom_app_url or zoom_join_url
+
     subject = f"📅 Zoom Interview Scheduled: {name} ({formatted_start})"
 
     msg_section = ""
@@ -267,15 +283,12 @@ def send_zoom_schedule_email(
                 </div>
 
                 <div class="btn-group">
-                    <a href="{zoom_app_url or zoom_join_url}" class="btn-zoom" style="background: #2563eb; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; display: inline-block;">
-                        🚀 1-Click Launch Zoom Meeting
+                    <a href="{launcher_url}" class="btn-zoom" style="background: #2563eb; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; display: inline-block;">
+                        🚀 Join Zoom Interview
                     </a>
                     <div style="margin-top: 14px;">
-                        <a href="https://dipstickdev.eklakshya.com/zoom-app?username={username}&launch_zoom=true" class="btn-web" style="display: inline-block; background: #0f172a; color: #38bdf8 !important; padding: 10px 18px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 13px; margin-right: 8px;">
-                            📝 Open In-Client Question Window
-                        </a>
                         <a href="{zoom_join_url}" class="btn-web" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 10px 18px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px;">
-                            🌐 Web Browser Join
+                            🌐 Direct Zoom Link (Backup)
                         </a>
                     </div>
                 </div>
@@ -365,6 +378,9 @@ def send_google_meet_schedule_email(
     formatted_end = format_schedule_datetime(end_time)
     topics_str = ', '.join(topics) if topics else 'Comprehensive Technical Assessment'
 
+    public_url = _get_fresh_public_url()
+    launcher_url = f"{public_url}/meetings/launch?username={username}" if public_url else meet_url
+
     subject = f"📅 Google Meet Interview Scheduled: {name} ({formatted_start})"
 
     msg_section = ""
@@ -422,7 +438,7 @@ def send_google_meet_schedule_email(
                         🌐 Join Google Meet Interview
                     </a>
                     <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
-                        Direct Link: <a href="{meet_url}" style="color: #059669;">{meet_url}</a>
+                        Meeting Link: <a href="{meet_url}" style="color: #059669;">{meet_url}</a>
                     </div>
                 </div>
 
@@ -430,7 +446,7 @@ def send_google_meet_schedule_email(
                     <strong>ℹ️ How the Interview Works in Google Meet:</strong>
                     <ul style="margin: 6px 0 0 0; padding-left: 20px; line-height: 1.5;">
                         <li>Join the Google Meet call at your scheduled time.</li>
-                        <li>An AI bot named <strong>Interviewer</strong> will join the call and post questions in the <strong>In-Meeting Chat</strong>.</li>
+                        <li>Your <strong>Interviewer</strong> will join the call and display questions on screen &amp; in the <strong>In-Meeting Chat</strong>.</li>
                         <li>Speak your answers clearly into your microphone.</li>
                         <li>Type <code>/submit</code> in chat when finished with a question, or <code>/skip</code> to skip to the next.</li>
                         <li>Ensure a stable internet connection and quiet environment.</li>
@@ -461,7 +477,7 @@ Topics: {topics_str}
 
 ℹ️ Instructions:
 - Join at your scheduled time.
-- The AI Interviewer bot will post questions one by one in the in-meeting chat.
+- Your Interviewer will display and post questions one by one in the meeting.
 - Speak your answers clearly into your mic.
 - Type '/submit' in chat when done with each question.
 
@@ -487,6 +503,154 @@ Eklakhya AI Interview Platform
         return True
     except Exception as e:
         print(f"[EMAIL] Failed to send Google Meet schedule invite to {to_email}: {e}")
+        return False
+
+
+def send_teams_schedule_email(
+    to_email: str,
+    name: str,
+    username: str,
+    start_time: str,
+    end_time: str,
+    teams_url: str,
+    topics: list = None,
+    custom_message: str = ""
+) -> bool:
+    """Send formal Microsoft Teams interview appointment with 1-click launcher."""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("[EMAIL] SMTP not configured, skipping Microsoft Teams invite email")
+        return False
+
+    formatted_start = format_schedule_datetime(start_time)
+    formatted_end = format_schedule_datetime(end_time)
+    topics_str = ', '.join(topics) if topics else 'Comprehensive Technical Assessment'
+
+    public_url = _get_fresh_public_url()
+    launcher_url = f"{public_url}/meetings/launch?username={username}" if public_url else teams_url
+
+    subject = f"📅 Microsoft Teams Interview Scheduled: {name} ({formatted_start})"
+
+    msg_section = ""
+    if custom_message and custom_message.strip():
+        msg_section = f"""
+        <div style="background: #f5f3ff; border-left: 4px solid #5b5fc7; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+            <strong style="color: #4338ca; font-size: 13px;">📝 SPECIAL INSTRUCTIONS:</strong>
+            <p style="margin: 4px 0 0 0; color: #475569; font-size: 14px;">{custom_message.strip()}</p>
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }}
+            .header {{ background: linear-gradient(135deg, #464eb8 0%, #5b5fc7 100%); color: #ffffff; padding: 24px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }}
+            .header p {{ margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; }}
+            .content {{ padding: 24px; }}
+            .schedule-box {{ background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 16px; margin: 16px 0; }}
+            .schedule-label {{ color: #5b21b6; font-weight: 600; }}
+            .schedule-value {{ color: #4c1d95; font-weight: 700; }}
+            .btn-group {{ margin: 24px 0; text-align: center; }}
+            .btn-teams {{ display: inline-block; background: #5b5fc7; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 16px; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.35); }}
+            .footer {{ background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🟣 Video Interview Scheduled via Microsoft Teams</h1>
+                <p>Eklakhya AI Interview Platform</p>
+            </div>
+            <div class="content">
+                <p style="font-size: 15px;">Dear <strong>{name}</strong>,</p>
+                <p style="font-size: 14px; line-height: 1.5; color: #475569;">
+                    Your upcoming technical interview has been scheduled on <strong>Microsoft Teams</strong>. You can join directly from any web browser or the Teams app with 1 click:
+                </p>
+
+                <div class="schedule-box">
+                    <div style="font-size: 13px; font-weight: 700; color: #5b5fc7; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">📅 APPOINTMENT WINDOW</div>
+                    <div style="margin-bottom: 6px;"><span class="schedule-label">Start Time:</span> <span class="schedule-value">{formatted_start}</span></div>
+                    <div style="margin-bottom: 6px;"><span class="schedule-label">End Time:</span> <span class="schedule-value">{formatted_end}</span></div>
+                    <div><span class="schedule-label">Topics:</span> <span class="schedule-value">{topics_str}</span></div>
+                </div>
+
+                {msg_section}
+
+                <div class="btn-group">
+                    <a href="{teams_url}" class="btn-teams">
+                        🟣 Join Microsoft Teams Interview
+                    </a>
+                    <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
+                        Direct Link: <a href="{teams_url}" style="color: #5b5fc7;">{teams_url}</a>
+                    </div>
+                </div>
+
+                <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #4c1d95;">
+                    <strong>ℹ️ How the Interview Works in Microsoft Teams:</strong>
+                    <ul style="margin: 6px 0 0 0; padding-left: 20px; line-height: 1.5;">
+                        <li>Join the Microsoft Teams call at your scheduled time.</li>
+                        <li>Your <strong>Interviewer</strong> will join the call and display questions on screen &amp; in the <strong>In-Meeting Chat</strong>.</li>
+                        <li>Speak your answers clearly into your microphone.</li>
+                        <li>Type <code>/submit</code> in chat when finished with a question, or <code>/skip</code> to skip to the next.</li>
+                        <li>Ensure a stable internet connection and quiet environment.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer">
+                © Eklakhya Interview Platform • Automated Appointment Dispatcher
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_body = f"""
+Dear {name},
+
+Your technical interview has been scheduled on Microsoft Teams.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 APPOINTMENT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Start Time: {formatted_start}
+End Time: {formatted_end}
+Topics: {topics_str}
+
+🟣 Microsoft Teams Link: {teams_url}
+🚀 1-Click Launcher: {launcher_url}
+
+ℹ️ Instructions:
+- Join at your scheduled time.
+- Your Interviewer will display and post questions one by one in the meeting.
+- Speak your answers clearly into your mic.
+- Type '/submit' in chat when done with each question.
+
+Best regards,
+Eklakhya AI Interview Platform
+"""
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['From'] = FROM_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(plain_body, 'plain'))
+        msg.attach(MIMEText(html_content, 'html'))
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+
+        print(f"[EMAIL] Microsoft Teams schedule invite successfully emailed to {to_email} for {username}")
+        return True
+    except Exception as e:
+        print(f"[EMAIL] Failed to send Microsoft Teams schedule invite to {to_email}: {e}")
         return False
     
 def send_custom_email(to_email: str, name: str, subject: str, message: str) -> bool:

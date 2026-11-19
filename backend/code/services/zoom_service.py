@@ -183,6 +183,24 @@ class ZoomService:
         else:
             raise Exception(f"Failed to fetch Zoom user profile: {resp.text}")
 
+    async def get_fresh_start_url(self, meeting_id: str) -> Optional[str]:
+        """Fetch a fresh Host start_url (with new 2-hour ZAK token) using existing meeting:read scope."""
+        try:
+            token = await self.get_access_token()
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"https://api.zoom.us/v2/meetings/{meeting_id}",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+            if resp.status_code == 200:
+                start_url = (resp.json() or {}).get("start_url")
+                if start_url and "zak=" in start_url:
+                    return start_url
+            print(f"[ZoomService] Warn: Failed to fetch fresh start_url ({resp.status_code}): {resp.text[:160]}")
+        except Exception as e:
+            print(f"[ZoomService] Warn: start_url fetch exception: {e}")
+        return None
+
     async def create_meeting(
         self,
         topic: str = "Candidate Interview",
@@ -246,24 +264,32 @@ class ZoomService:
         meeting_id = str(meeting.get("id"))
         password = meeting.get("password", "")
 
-        # Extract ZAK (Zoom Access Key) from start_url for zero-friction auto-start
+        # Extract ZAK (Zoom Access Key) from start_url for host-only use
+        from urllib.parse import quote
         zak_token = ""
         if "zak=" in start_url:
             zak_token = start_url.split("zak=")[1].split("&")[0]
 
-        # Candidate joins as themselves (join_before_host is enabled, so no host zak token needed)
-        candidate_app_url = f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={candidate_username}"
-        host_app_url = f"zoommtg://zoom.us/start?confno={meeting_id}&zak={zak_token}&uname=Host" if zak_token else candidate_app_url
+        encoded_uname = quote(str(candidate_username or "Candidate"))
+        # Participant app URL: joins as candidate (keeps student's own Zoom name / uname, NEVER host account name!)
+        participant_app_url = f"zoommtg://zoom.us/join?confno={meeting_id}&pwd={password}&uname={encoded_uname}"
+        # Host app URL (for Admin/Host only)
+        host_app_url = (
+            f"zoommtg://zoom.us/start?confno={meeting_id}&zak={zak_token}&uname={encoded_uname}"
+            if zak_token else participant_app_url
+        )
 
+        join_url = meeting.get("join_url", "")
+        sep = "&" if "?" in join_url else "?"
         meeting_record = {
             "meeting_id": meeting_id,
             "topic": meeting.get("topic"),
             "host_url": start_url,
             "host_app_url": host_app_url,
-            "join_url": meeting.get("join_url"),
-            "candidate_web_url": f"{meeting.get('join_url')}&uname={candidate_username}",
-            "app_url": candidate_app_url,
-            "participant_app_url": candidate_app_url,
+            "join_url": join_url,
+            "candidate_web_url": f"{join_url}{sep}uname={encoded_uname}" if join_url else "",
+            "app_url": participant_app_url,
+            "participant_app_url": participant_app_url,
             "password": password,
             "candidate_username": candidate_username,
             "provider": "zoom",

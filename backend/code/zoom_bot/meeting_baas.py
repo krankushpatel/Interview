@@ -52,6 +52,8 @@ class MeetingBaaSClient:
             payload["entry_message"] = entry_message
         if webhook_url:
             payload["webhook_url"] = webhook_url
+            payload["callback_url"] = webhook_url
+            payload["callback_config"] = {"url": webhook_url}
         if extra:
             payload["extra"] = extra
 

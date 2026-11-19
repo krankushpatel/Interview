@@ -130,11 +130,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
     // 1. Dispatch AI bot on-demand at the exact moment candidate joins
     this.meetingService.dispatchBot(candidateUser);
 
-    // 2. Launch Zoom as candidate (NEVER as host, so candidate's own name is shown)
-    if (this.examSchedule?.participant_app_url) {
-      window.location.href = this.examSchedule.participant_app_url;
+    // 2. Launch Zoom with Auto-Start host URL to completely bypass the waiting screen!
+    if (this.examSchedule?.zoom_host_url) {
+      window.open(this.examSchedule.zoom_host_url, '_blank');
     } else if (this.examSchedule?.zoom_app_url) {
       window.location.href = this.examSchedule.zoom_app_url;
+    } else if (this.examSchedule?.participant_app_url) {
+      window.location.href = this.examSchedule.participant_app_url;
     } else if (this.examSchedule?.zoom_meeting_id) {
       const pwd = this.examSchedule?.zoom_passcode || '';
       window.location.href = `zoommtg://zoom.us/join?confno=${this.examSchedule.zoom_meeting_id}&pwd=${pwd}&uname=${uname}`;
@@ -144,7 +146,7 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 
     // 3. Automatically advance setup
     this.instructionsAccepted = true;
-    this.showToast('🚀 Zoom launched! Bot is joining...', 'primary');
+    this.showToast('🚀 Zoom launched! Your Interviewer is joining...', 'primary');
     setTimeout(() => {
       this.nextStep();
     }, 1000);
@@ -170,9 +172,25 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
       // 2. Open Google Meet call
       window.open(url, '_blank');
       this.instructionsAccepted = true;
-      this.showToast('🚀 Google Meet launched! Bot is joining...', 'primary');
+      this.showToast('🚀 Google Meet launched! Your Interviewer is joining...', 'primary');
     } else {
       this.showToast('Google Meet URL not found.', 'warning');
+    }
+  }
+
+  launchTeams() {
+    const candidateUser = this.userName || sessionStorage.getItem('username') || 'Candidate';
+    const url = this.examSchedule?.teams_url || this.examSchedule?.meeting_url || this.examSchedule?.join_url;
+    if (url) {
+      // 1. Dispatch AI bot on-demand at the exact moment candidate joins
+      this.meetingService.dispatchBot(candidateUser);
+
+      // 2. Open Microsoft Teams call
+      window.open(url, '_blank');
+      this.instructionsAccepted = true;
+      this.showToast('🚀 Microsoft Teams launched! Your Interviewer is joining...', 'primary');
+    } else {
+      this.showToast('Microsoft Teams URL not found.', 'warning');
     }
   }
 

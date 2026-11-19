@@ -2578,6 +2578,40 @@ export class AdminPage implements OnInit, OnDestroy {
       } finally {
         this.timetableSaving = false;
       }
+    } else if (payload.isTeamsSchedule && this.selectedStudentForTimetable) {
+      try {
+        const { startIso, endIso } = this.buildScheduleWindow(
+          this.startDateOnly,
+          this.startTimeOnly,
+          this.startAmPm,
+          this.endDateOnly,
+          this.endTimeOnly,
+          this.endAmPm
+        );
+        this.timetableSaving = true;
+        const parsedTopics = this.timetableTopics
+          ? this.timetableTopics.split(',').map((t: string) => t.trim()).filter((t: string) => t.length > 0)
+          : [];
+
+        await this.meetingService.scheduleTeamsInterview({
+          username: this.selectedStudentForTimetable,
+          start_time: startIso,
+          end_time: endIso,
+          meeting_url: payload.teamsUrl || undefined,
+          topics: parsedTopics,
+          custom_message: this.timetableTopics,
+          send_email: true
+        });
+
+        this.showToast(`✅ Microsoft Teams Interview Scheduled & Email Sent to ${this.selectedStudentForTimetable}!`, 'success');
+        this.showTimetableModal = false;
+        await this.loadTimetable(this.selectedStudentForTimetable);
+      } catch (err: any) {
+        const msg = err?.error?.detail || err?.message || 'Failed to schedule Microsoft Teams interview';
+        this.showToast(msg, 'danger');
+      } finally {
+        this.timetableSaving = false;
+      }
     } else {
       await this.setTimetableStrict12Hour();
     }

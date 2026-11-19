@@ -14,6 +14,8 @@ export interface StudentTimetablePayload {
   isZoomSchedule?: boolean;
   isGoogleMeetSchedule?: boolean;
   googleMeetUrl?: string;
+  isTeamsSchedule?: boolean;
+  teamsUrl?: string;
 }
 
 @Component({
@@ -74,33 +76,42 @@ export interface StudentTimetablePayload {
               </span>
 
               <!-- Mode Selection Buttons -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px;">
                 <button
                   type="button"
                   (click)="interviewMode = 'portal'"
                   [style.border-color]="interviewMode === 'portal' ? '#2563eb' : '#cbd5e1'"
                   [style.background]="interviewMode === 'portal' ? 'rgba(37, 99, 235, 0.08)' : '#f8fafc'"
-                  style="padding: 10px 8px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; color: #1e293b;"
+                  style="padding: 10px 4px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; text-align: center; color: #1e293b;"
                 >
-                  💻 Portal Exam
+                  💻 Portal
                 </button>
                 <button
                   type="button"
                   (click)="interviewMode = 'zoom'"
                   [style.border-color]="interviewMode === 'zoom' ? '#2563eb' : '#cbd5e1'"
                   [style.background]="interviewMode === 'zoom' ? 'rgba(37, 99, 235, 0.08)' : '#f8fafc'"
-                  style="padding: 10px 8px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; color: #1e40af;"
+                  style="padding: 10px 4px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; text-align: center; color: #1e40af;"
                 >
-                  📹 Zoom Call
+                  📹 Zoom
                 </button>
                 <button
                   type="button"
                   (click)="interviewMode = 'meet'"
                   [style.border-color]="interviewMode === 'meet' ? '#059669' : '#cbd5e1'"
                   [style.background]="interviewMode === 'meet' ? 'rgba(5, 150, 105, 0.08)' : '#f8fafc'"
-                  style="padding: 10px 8px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; text-align: center; color: #065f46;"
+                  style="padding: 10px 4px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; text-align: center; color: #065f46;"
                 >
-                  🌐 Google Meet
+                  🌐 Meet
+                </button>
+                <button
+                  type="button"
+                  (click)="interviewMode = 'teams'"
+                  [style.border-color]="interviewMode === 'teams' ? '#5b5fc7' : '#cbd5e1'"
+                  [style.background]="interviewMode === 'teams' ? 'rgba(91, 95, 199, 0.08)' : '#f8fafc'"
+                  style="padding: 10px 4px; border: 2px solid; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; text-align: center; color: #4338ca;"
+                >
+                  🟣 Teams
                 </button>
               </div>
 
@@ -114,28 +125,54 @@ export interface StudentTimetablePayload {
                 📹 <strong>Zoom Bot Interview:</strong> Auto-provisions meeting with passcode, locks timetable, sends 1-Click Zoom App launcher, and dispatches in-meeting AI bot.
               </div>
 
-              <!-- Google Meet Info Box + Required Real URL Input -->
+              <!-- Google Meet Info Box + Optional URL (Auto-Creates OPEN Room via Workspace API!) -->
               <div *ngIf="interviewMode === 'meet'" style="background: rgba(5, 150, 105, 0.06); border: 1px solid rgba(5, 150, 105, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #065f46; line-height: 1.4;">
-                🌐 <strong>Google Meet AI Interview:</strong> Google Meet requires a real room created from your Google account. Click below to generate one in 2 seconds, then paste it here:
-                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                  <button type="button" (click)="openGoogleMeetNew()" style="background: #059669; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                    <span>➕ Open Google Meet to Create Room</span>
-                  </button>
-                  <span style="font-size: 10px; color: #047857;">(Opens meet.google.com/new in new tab)</span>
-                </div>
+                🌐 <strong>Google Meet Auto-Entry (Workspace Enterprise):</strong> Leave the link blank to <strong>auto-create an OPEN Google Meet room</strong> (students with personal Gmail enter directly without knocking!), OR paste a custom link below:
                 <div style="margin-top: 8px;">
                   <label style="font-weight: 700; font-size: 11px; color: #047857; display: block; margin-bottom: 4px;">
-                    Paste Google Meet Link here (Required):
+                    Google Meet Link (Optional — leave blank to Auto-Create):
                   </label>
                   <input
                     type="text"
                     [(ngModel)]="googleMeetUrl"
                     (input)="meetUrlError = ''"
-                    placeholder="https://meet.google.com/abc-defg-hij"
+                    placeholder="Leave blank for Auto-Create, or paste https://meet.google.com/abc-defg-hij"
                     style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #a7f3d0; border-radius: 6px; background: #ffffff;"
                   />
+                  <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <button type="button" (click)="openGoogleMeetNew()" style="background: #059669; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer;">
+                      ➕ Manual Meet Room
+                    </button>
+                    <span style="font-size: 10px; color: #047857;">(Optional fallback if not using Workspace API)</span>
+                  </div>
                   <div *ngIf="meetUrlError" style="color: #dc2626; font-size: 11px; margin-top: 4px; font-weight: 600;">
                     ⚠️ {{ meetUrlError }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Microsoft Teams Info Box + Required Real URL Input -->
+              <div *ngIf="interviewMode === 'teams'" style="background: rgba(91, 95, 199, 0.06); border: 1px solid rgba(91, 95, 199, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #4338ca; line-height: 1.4;">
+                🟣 <strong>Microsoft Teams AI Interview:</strong> Copy a meeting link from Microsoft Teams or click below to open Teams, then paste it here:
+                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <button type="button" (click)="openTeamsNew()" style="background: #5b5fc7; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    <span>➕ Open Microsoft Teams</span>
+                  </button>
+                  <span style="font-size: 10px; color: #5b5fc7;">(Opens teams.microsoft.com in new tab)</span>
+                </div>
+                <div style="margin-top: 8px;">
+                  <label style="font-weight: 700; font-size: 11px; color: #4338ca; display: block; margin-bottom: 4px;">
+                    Paste Microsoft Teams Link here (Required):
+                  </label>
+                  <input
+                    type="text"
+                    [(ngModel)]="teamsUrl"
+                    (input)="teamsUrlError = ''"
+                    placeholder="https://teams.microsoft.com/l/meetup-join/..."
+                    style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #ddd6fe; border-radius: 6px; background: #ffffff;"
+                  />
+                  <div *ngIf="teamsUrlError" style="color: #dc2626; font-size: 11px; margin-top: 4px; font-weight: 600;">
+                    ⚠️ {{ teamsUrlError }}
                   </div>
                 </div>
               </div>
@@ -182,9 +219,11 @@ export class StudentTimetableModalComponent {
   @Input() timetableTopics: string = '';
   @Input() hasCurrentTimetable: boolean = false;
   @Input() isSaving: boolean = false;
-  interviewMode: 'portal' | 'zoom' | 'meet' = 'portal';
+  interviewMode: 'portal' | 'zoom' | 'meet' | 'teams' = 'portal';
   googleMeetUrl: string = '';
   meetUrlError: string = '';
+  teamsUrl: string = '';
+  teamsUrlError: string = '';
   isZoomSchedule: boolean = false;
 
   @Output() dismiss = new EventEmitter<void>();
@@ -195,21 +234,35 @@ export class StudentTimetableModalComponent {
     window.open('https://meet.google.com/new', '_blank');
   }
 
+  openTeamsNew() {
+    window.open('https://teams.microsoft.com', '_blank');
+  }
+
   onDismiss() {
     this.meetUrlError = '';
+    this.teamsUrlError = '';
     this.dismiss.emit();
   }
 
   onSave() {
     this.meetUrlError = '';
+    this.teamsUrlError = '';
     if (this.interviewMode === 'meet') {
       const url = (this.googleMeetUrl || '').trim();
-      if (!url) {
-        this.meetUrlError = 'Google Meet link paste karna zaroori hai. Upar diye button par click karke link banayein!';
+      if (url && !url.includes('meet.google.com/')) {
+        this.meetUrlError = 'Valid Google Meet link daalein (e.g. https://meet.google.com/abc-defg-hij), ya Auto-Create ke liye khali chhod dein.';
         return;
       }
-      if (!url.includes('meet.google.com/')) {
-        this.meetUrlError = 'Valid Google Meet link daalein (e.g. https://meet.google.com/abc-defg-hij)';
+    }
+
+    if (this.interviewMode === 'teams') {
+      const url = (this.teamsUrl || '').trim();
+      if (!url) {
+        this.teamsUrlError = 'Microsoft Teams meeting link paste karna zaroori hai!';
+        return;
+      }
+      if (!url.includes('teams.microsoft.com') && !url.includes('teams.live.com')) {
+        this.teamsUrlError = 'Valid Microsoft Teams link daalein (e.g. https://teams.microsoft.com/l/meetup-join/...)';
         return;
       }
     }
@@ -224,7 +277,9 @@ export class StudentTimetableModalComponent {
       timetableTopics: this.timetableTopics,
       isZoomSchedule: this.interviewMode === 'zoom' || this.isZoomSchedule,
       isGoogleMeetSchedule: this.interviewMode === 'meet',
-      googleMeetUrl: this.googleMeetUrl.trim()
+      googleMeetUrl: this.googleMeetUrl.trim(),
+      isTeamsSchedule: this.interviewMode === 'teams',
+      teamsUrl: this.teamsUrl.trim()
     });
   }
 
