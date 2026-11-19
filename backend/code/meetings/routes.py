@@ -1,3 +1,4 @@
+import re
 import secrets
 import string
 import time
@@ -248,6 +249,10 @@ async def schedule_zoom_interview(req: ZoomScheduleRequest):
                     "meeting_id": meeting.get("meeting_id"),
                     "questions": questions,
                     "bot_status": "ready_to_dispatch",
+                    "bot_interview_id": None,
+                    "self_hosted_session_id": None,
+                    "shb_status": "ready_to_dispatch",
+                    "shb_current_index": -1,
                     "meeting_baas_bot_id": None,
                     "mb_status": None,
                     "mb_current_index": -1,
@@ -336,15 +341,18 @@ async def schedule_google_meet_interview(req: GoogleMeetScheduleRequest):
                     ),
                 )
         else:
-            if "meet.google.com" not in raw_url.lower():
+            match = re.search(r'https?://meet\.google\.com/[a-zA-Z0-9_\-]+', raw_url, re.IGNORECASE)
+            if match:
+                meet_url = match.group(0)
+            elif "meet.google.com" in raw_url.lower():
+                meet_url = raw_url if raw_url.startswith("http") else f"https://{raw_url}"
+                meet_url = meet_url.split("?")[0].rstrip("/")
+            else:
                 raise HTTPException(
                     status_code=400,
                     detail="A valid Google Meet URL is required (e.g. https://meet.google.com/abc-defg-hij).",
                 )
-            meet_url = raw_url if raw_url.startswith("http") else f"https://{raw_url}"
-            base_meet = meet_url.split("?")[0].rstrip("/")
-            meeting_id = base_meet.split("meet.google.com/")[-1].strip()
-            meet_url = base_meet
+            meeting_id = meet_url.split("meet.google.com/")[-1].strip()
 
         # 2. Lock Timetable slot in MongoDB
         timetable = set_student_timetable(
@@ -468,17 +476,22 @@ async def schedule_teams_interview(req: TeamsScheduleRequest):
         student_name = user.get("name", req.username)
         student_email = user.get("email")
 
-        # 1. Validate Microsoft Teams room URL
-        raw_url = (req.meeting_url or "").strip()
-        if not raw_url or not any(x in raw_url.lower() for x in ("teams.microsoft.com", "teams.live.com")):
+        # 1. Validate & extract Microsoft Teams room URL (handles bare links OR full pasted invite messages)
+        raw_text = (req.meeting_url or "").strip()
+        teams_url = ""
+        match = re.search(r'https?://(?:teams\.microsoft\.com|teams\.live\.com)[^\s\)"\'>\]]+', raw_text, re.IGNORECASE)
+        if match:
+            teams_url = match.group(0).rstrip(".,;")
+        elif any(x in raw_text.lower() for x in ("teams.microsoft.com", "teams.live.com")):
+            scheme_match = re.search(r'(?:teams\.microsoft\.com|teams\.live\.com)[^\s\)"\'>\]]+', raw_text, re.IGNORECASE)
+            if scheme_match:
+                teams_url = f"https://{scheme_match.group(0).rstrip('.,;')}"
+
+        if not teams_url:
             raise HTTPException(
                 status_code=400,
-                detail="A valid Microsoft Teams URL is required (e.g. https://teams.microsoft.com/l/meetup-join/...). Please create a meeting in Teams and provide the link."
+                detail="A valid Microsoft Teams URL is required (e.g. https://teams.microsoft.com/l/meetup-join/... or https://teams.live.com/meet/...). Please paste a Teams link or meeting invitation."
             )
-
-        teams_url = raw_url
-        if not teams_url.startswith("http"):
-            teams_url = f"https://{teams_url}"
 
         # Extract meeting ID or slug if present
         meeting_id = "teams_meeting"
@@ -530,6 +543,10 @@ async def schedule_teams_interview(req: TeamsScheduleRequest):
                     "topic": f"Technical Interview: {student_name}",
                     "questions": questions,
                     "bot_status": "ready_to_dispatch",
+                    "bot_interview_id": None,
+                    "self_hosted_session_id": None,
+                    "shb_status": "ready_to_dispatch",
+                    "shb_current_index": -1,
                     "meeting_baas_bot_id": None,
                     "mb_status": None,
                     "mb_current_index": -1,
@@ -568,38 +585,14 @@ async def schedule_teams_interview(req: TeamsScheduleRequest):
             "topic": f"Technical Interview: {student_name}"
         }
 
-        # 5. Auto-dispatch the Self-Hosted Interviewer Bot immediately for Teams!
-        bot_dispatched = False
-        try:
-            from code.self_hosted_bot.bridge import should_use_self_hosted
-            if should_use_self_hosted():
-                bot_meeting_url = await _resolve_bot_meeting_url({
-                    "provider": "teams",
-                    "teams_url": teams_url,
-                    "join_url": teams_url,
-                })
-                asyncio.create_task(
-                    zoom_bot_service.create_bot_interview(
-                        username=req.username,
-                        candidate_name=student_name,
-                        meeting_url=bot_meeting_url,
-                        questions=questions,
-                        default_time_limit_sec=300,
-                        provider_hint="teams",
-                    )
-                )
-                bot_dispatched = True
-                print(f"[ScheduleTeams] Auto-dispatched self-hosted bot for {req.username} at {teams_url}")
-        except Exception as bot_err:
-            print(f"[ScheduleTeams] Auto-dispatch notice: {bot_err}")
-
+        # 5. Option 2: On-Demand Bot Dispatch (bot joins only when student clicks launcher link)
         return {
             "success": True,
             "message": "Microsoft Teams interview successfully scheduled and invite sent",
             "meeting": meeting_info,
             "timetable": timetable,
             "email_sent": email_sent,
-            "bot_status": "dispatched" if bot_dispatched else "ready_to_dispatch"
+            "bot_status": "ready_to_dispatch"
         }
     except HTTPException:
         raise

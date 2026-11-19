@@ -103,3 +103,52 @@ Allow running multiple concurrent self-hosted interviews on a single laptop/serv
      ```
    - Restart FastAPI backend (`uvicorn`), then test scheduling **🌐 Meet** with a blank URL in Admin Dashboard!
 
+
+
+---
+
+## 🐛 Backlog / Future Fix: Zoom Bot Sidebar Split View (Auto-Close "Participants (1)" Panel)
+
+### 📌 Problem Description (Reported with Screenshot)
+When the AI Interviewer bot launches and joins the Zoom Web Client (`app.zoom.us/wc/...`):
+1. Zoom Web Client automatically opens **both** the **Participants Panel** and the **Chat Panel** stacked vertically in the right-hand sidebar.
+2. **Top Half:** `Participants (1)` panel (showing host/bot name, Invite, Mute All, More).
+3. **Bottom Half:** `Chat Panel` (compressed into the remaining 50% height).
+4. **Impact:**
+   - Because the chat is compressed into a tiny vertical viewport, Zoom's React virtualized list has restricted height, causing new incoming messages from the candidate not to mount or refresh smoothly.
+   - When the user manually clicks the **`✕` (Close)** button on the top-right of the **Participants (1)** header, the Participants panel closes.
+   - The Chat Panel then instantly expands to the **full 100% sidebar height**, allowing messages to render and refresh perfectly!
+
+### 💡 Planned Solution (To Implement in Future)
+In `backend/code/self_hosted_bot/adapters/zoom_web.py` (inside `open_chat()` or post-join):
+- Add a quick check to detect if the Participants panel is currently open in split view:
+  ```javascript
+  // Close the Participants panel so Chat gets 100% full height
+  const closePartBtn = document.querySelector('.participants-header__close, button[aria-label*="close participants" i], .participants-wrapper button.close');
+  if (closePartBtn) closePartBtn.click();
+  ```
+- Alternatively, ensure only the Chat button on the bottom toolbar is active, automatically giving Chat 100% sidebar height.
+
+
+---
+
+## 🐛 Backlog / Future Fix: Google Meet "Meeting Details" Side Drawer Toggle Loop
+
+### 📌 Problem Description (Reported with Screenshot)
+In Google Meet (`meet.google.com/...`):
+1. The right sidebar drawer is a **single shared panel** that can show only ONE tab at a time:
+   - **Meeting details** (info tab / `ℹ️`)
+   - **People** (participant list / `👥`)
+   - **Chat with everyone** (in-call messages / `💬`)
+   - **Activities** (whiteboard, polls, etc.)
+2. If the "Meeting details" panel is opened (by default upon meeting start or accidental click):
+   - The Chat panel is inactive/hidden, so `is_chat_open()` in `google_meet.py` returns `False`.
+   - In `read_new_messages()`, the bot detects that chat is closed and attempts to call `open_chat()`.
+   - If user/host tries to close or switch the panel while the bot calls `open_chat()`, the drawer can toggle open/close repeatedly between "Meeting details" and "Chat".
+3. Once the user closed it or the bot secured the chat panel, it settled and worked normally.
+
+### 💡 Planned Solution (To Implement in Future)
+In `backend/code/self_hosted_bot/adapters/google_meet.py`:
+- Add a debounce / cooldown (e.g. at least 5 seconds between `open_chat()` attempts) so the bot does not fight with user interactions if they open "Meeting details".
+- Explicitly check if another panel like `div[aria-label*="Meeting details" i]` is open before blindly re-triggering chat toggle clicks.
+- Prioritize targeting the exact Chat tab button `button[aria-label*="Chat with everyone" i]` directly rather than generic drawer selectors.

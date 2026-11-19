@@ -583,11 +583,13 @@ def send_teams_schedule_email(
                 {msg_section}
 
                 <div class="btn-group">
-                    <a href="{teams_url}" class="btn-teams">
-                        🟣 Join Microsoft Teams Interview
+                    <a href="{launcher_url}" class="btn-teams" style="display: inline-block; background: #5b5fc7; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 16px; box-shadow: 0 4px 12px rgba(91, 95, 199, 0.35);">
+                        🚀 Join Microsoft Teams Interview
                     </a>
-                    <div style="margin-top: 10px; font-size: 13px; color: #64748b;">
-                        Direct Link: <a href="{teams_url}" style="color: #5b5fc7;">{teams_url}</a>
+                    <div style="margin-top: 14px;">
+                        <a href="{teams_url}" style="display: inline-block; background: #f1f5f9; color: #334155 !important; padding: 10px 18px; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 13px;">
+                            🌐 Direct Teams Link (Backup)
+                        </a>
                     </div>
                 </div>
 

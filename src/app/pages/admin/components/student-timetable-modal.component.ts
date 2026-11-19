@@ -248,7 +248,10 @@ export class StudentTimetableModalComponent {
     this.meetUrlError = '';
     this.teamsUrlError = '';
     if (this.interviewMode === 'meet') {
-      const url = (this.googleMeetUrl || '').trim();
+      const raw = (this.googleMeetUrl || '').trim();
+      const match = raw.match(/https?:\/\/meet\.google\.com\/[a-zA-Z0-9_\-]+/i);
+      const url = match ? match[0] : raw;
+      this.googleMeetUrl = url;
       if (url && !url.includes('meet.google.com/')) {
         this.meetUrlError = 'Valid Google Meet link daalein (e.g. https://meet.google.com/abc-defg-hij), ya Auto-Create ke liye khali chhod dein.';
         return;
@@ -256,11 +259,14 @@ export class StudentTimetableModalComponent {
     }
 
     if (this.interviewMode === 'teams') {
-      const url = (this.teamsUrl || '').trim();
-      if (!url) {
+      const raw = (this.teamsUrl || '').trim();
+      if (!raw) {
         this.teamsUrlError = 'Microsoft Teams meeting link paste karna zaroori hai!';
         return;
       }
+      const match = raw.match(/https?:\/\/(?:teams\.microsoft\.com|teams\.live\.com)[^\s\)"'>\]]+/i);
+      const url = match ? match[0].replace(/[.,;]+$/, '') : raw;
+      this.teamsUrl = url;
       if (!url.includes('teams.microsoft.com') && !url.includes('teams.live.com')) {
         this.teamsUrlError = 'Valid Microsoft Teams link daalein (e.g. https://teams.microsoft.com/l/meetup-join/...)';
         return;
