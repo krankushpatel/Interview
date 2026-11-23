@@ -142,6 +142,14 @@ def get_student_full_profile(username: str) -> dict:
         mongo_logs = list(db.session_logs.find({"username": username}))
         for m in mongo_logs:
             if "_id" in m: m["_id"] = str(m["_id"])
+
+        mongo_exam_recs = list(db.exam_recordings.find({"username": username}))
+        for m in mongo_exam_recs:
+            if "_id" in m: m["_id"] = str(m["_id"])
+
+        mongo_screen_recs = list(db.screen_recordings.find({"username": username}))
+        for m in mongo_screen_recs:
+            if "_id" in m: m["_id"] = str(m["_id"])
             
     except Exception as e:
         print(f"[WARN] Failed to fetch MongoDB data: {e}")
@@ -154,8 +162,13 @@ def get_student_full_profile(username: str) -> dict:
     all_proctoring = data.get("session_proctoring_logs", {}).get(username, []) + mongo_proctoring
     all_session_logs = [log for log in data.get("session_logs", []) if log.get("username") == username] + mongo_logs
 
-    student_exam_recs = [r for r in data.get("exam_recordings", []) if r.get("username") == username]
-    student_screen_recs = [r for r in data.get("screen_recordings", []) if r.get("username") == username]
+    json_exam_recs = [r for r in data.get("exam_recordings", []) if r.get("username") == username]
+    merged_exam_recs = {r.get("video_file", str(idx)): r for idx, r in enumerate(json_exam_recs + mongo_exam_recs)}
+    student_exam_recs = list(merged_exam_recs.values())
+
+    json_screen_recs = [r for r in data.get("screen_recordings", []) if r.get("username") == username]
+    merged_screen_recs = {r.get("video_file", str(idx)): r for idx, r in enumerate(json_screen_recs + mongo_screen_recs)}
+    student_screen_recs = list(merged_screen_recs.values())
 
     # 🟢 2. FIND ALL REAL EXAM SESSIONS (Evaluations, Submissions, Recordings, Exam Sessions)
     def is_valid_sid(sid):

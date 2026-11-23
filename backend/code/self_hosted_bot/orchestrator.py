@@ -57,23 +57,38 @@ class InterviewResult:
     started_at: float = 0.0
     finished_at: float = 0.0
     error: Optional[str] = None
+    video_file: Optional[str] = None
+    video_path: Optional[str] = None
 
     def to_formatted_answers(self) -> List[Dict[str, Any]]:
         """Format answers matching the existing platform's `_run_final_evaluation` contract."""
-        return [
-            {
-                "question_id": a.question_id,
-                "question": a.question,
-                "question_text": a.question,
-                "answer": a.answer,
-                "category": a.category,
-                "status": a.status,
-                "duration_sec": a.duration_sec,
-                "word_count": a.word_count,
-                "audio_path": a.audio_path,
-            }
-            for a in self.answers
-        ]
+        out = []
+        for a in self.answers:
+            if isinstance(a, dict):
+                out.append({
+                    "question_id": a.get("question_id", 1),
+                    "question": a.get("question", a.get("question_text", "")),
+                    "question_text": a.get("question_text", a.get("question", "")),
+                    "answer": a.get("answer", ""),
+                    "category": a.get("category", "Technical"),
+                    "status": a.get("status", "submitted"),
+                    "duration_sec": a.get("duration_sec", 0),
+                    "word_count": a.get("word_count", 0),
+                    "audio_path": a.get("audio_path"),
+                })
+            else:
+                out.append({
+                    "question_id": a.question_id,
+                    "question": a.question,
+                    "question_text": a.question,
+                    "answer": a.answer,
+                    "category": a.category,
+                    "status": a.status,
+                    "duration_sec": a.duration_sec,
+                    "word_count": a.word_count,
+                    "audio_path": a.audio_path,
+                })
+        return out
 
 
 def normalize_questions(
@@ -166,7 +181,7 @@ class InterviewOrchestrator:
         self.min_submit_debounce_sec = min_submit_debounce_sec
         self.transition_pause_sec = transition_pause_sec
 
-        self.worker = BrowserWorker(self.config)
+        self.worker = BrowserWorker(self.config, username=self.username)
         self.adapter: Optional[BasePlatformAdapter] = None
         self._abort_requested: bool = False
         self._state_lock: Optional[asyncio.Lock] = None
@@ -293,6 +308,18 @@ class InterviewOrchestrator:
             # Give candidate's chat & audio UI a brief settle moment so greeting is 100% visible
             if self.config.candidate_settle_sec > 0:
                 await asyncio.sleep(self.config.candidate_settle_sec)
+
+            # Start continuous candidate face video recording (Admin Live View + Post-Interview Playback)
+            try:
+                from code.config.settings import UPLOADS_DIR
+                ts_ms = int(time.time() * 1000)
+                rec_filename = f"exam_{self.username}_{ts_ms}.webm"
+                rec_target = UPLOADS_DIR / rec_filename
+                self._current_video_filename = rec_filename
+                self._current_video_path = str(rec_target)
+                await self.worker.start_candidate_video_recording(self.candidate_name, save_path=rec_target)
+            except Exception as vid_start_err:
+                log.warning("[Orchestrator:%s] Candidate video recording start notice: %s", self.session_id, vid_start_err)
 
             # Send greeting AFTER candidate has joined so they never miss it!
             ready_sec = max(0, int(self.config.ready_buffer_sec))
@@ -446,6 +473,28 @@ class InterviewOrchestrator:
                     f"All questions completed. Thank you for your responses — your interview session is now concluding and your evaluation report is being generated."
                 )
                 await asyncio.sleep(min(2.5, self.transition_pause_sec))
+
+            # Finalize & save candidate face video recording (.webm)
+            saved_video_file = getattr(self, "_current_video_filename", None)
+            saved_video_path = getattr(self, "_current_video_path", None)
+            try:
+                import os
+                rec_target = Path(saved_video_path) if saved_video_path else None
+                vid_res = await self.worker.stop_candidate_video_recording(save_path=rec_target)
+                if vid_res.get("saved_path") and os.path.exists(vid_res["saved_path"]) and os.path.getsize(vid_res["saved_path"]) > 0:
+                    saved_video_file = getattr(self, "_current_video_filename", None) or os.path.basename(vid_res["saved_path"])
+                    saved_video_path = vid_res["saved_path"]
+                    log.info("[Orchestrator:%s] Successfully finalized candidate interview video to %s (%d bytes)", self.session_id, saved_video_path, os.path.getsize(saved_video_path))
+                elif saved_video_path and os.path.exists(saved_video_path) and os.path.getsize(saved_video_path) > 0:
+                    saved_video_file = getattr(self, "_current_video_filename", None) or os.path.basename(saved_video_path)
+                    log.info("[Orchestrator:%s] Preserved streamed candidate interview video at %s (%d bytes)", self.session_id, saved_video_path, os.path.getsize(saved_video_path))
+                else:
+                    saved_video_file = None
+                    saved_video_path = None
+            except Exception as vid_stop_err:
+                log.warning("[Orchestrator:%s] Video recording stop warning: %s", self.session_id, vid_stop_err)
+
+            if await self.adapter.is_in_call():
                 await self.adapter.leave()
 
             # Collect all parallel background transcription results
@@ -471,6 +520,8 @@ class InterviewOrchestrator:
                 answers=records,
                 started_at=started_at,
                 finished_at=time.time(),
+                video_file=saved_video_file,
+                video_path=saved_video_path,
             )
             if self.on_complete:
                 await self.on_complete(result)
@@ -490,6 +541,8 @@ class InterviewOrchestrator:
                 answers=records,
                 started_at=started_at,
                 finished_at=time.time(),
+                video_file=getattr(self, "_current_video_filename", None),
+                video_path=getattr(self, "_current_video_path", None),
                 error=err_msg,
             )
         finally:

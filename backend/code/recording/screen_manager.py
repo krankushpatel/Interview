@@ -67,3 +67,7 @@ class LiveScreenManager:
                     disconnected.append(viewer_ws)
             for ws in disconnected:
                 self.disconnect_camera_viewer(ws, username)
+
+
+# Shared singleton instance for in-process WebSocket broadcasting
+screen_manager = LiveScreenManager()

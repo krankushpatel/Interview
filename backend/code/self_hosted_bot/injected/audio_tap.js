@@ -375,5 +375,15 @@
       tapStream(stream);
       return { tappedTracks: tappedTrackIds.size, wasmTapCount };
     },
+
+    getMixedAudioTrack() {
+      try {
+        if (mixerDest && mixerDest.stream) {
+          const tracks = mixerDest.stream.getAudioTracks();
+          if (tracks.length > 0) return tracks[0];
+        }
+      } catch (e) {}
+      return null;
+    },
   };
 })();

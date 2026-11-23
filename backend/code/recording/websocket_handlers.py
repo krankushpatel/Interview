@@ -1,10 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from code.recording.screen_manager import LiveScreenManager
+from code.recording.screen_manager import screen_manager
 import os
 import aiohttp
 
 router = APIRouter()
-screen_manager = LiveScreenManager()
 
 @router.websocket("/ws/stream-screen/{username}")
 async def stream_screen(websocket: WebSocket, username: str):

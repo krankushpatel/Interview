@@ -12,7 +12,11 @@ import re
 import subprocess
 import aiohttp
 import numpy as np
-from resemblyzer import VoiceEncoder, preprocess_wav
+try:
+    from resemblyzer import VoiceEncoder, preprocess_wav
+except (ImportError, OSError) as _resemblyzer_err:
+    VoiceEncoder = None
+    preprocess_wav = None
 from pathlib import Path
 import io
 import soundfile as sf
@@ -160,7 +164,7 @@ def decode_audio_to_16k_mono(audio_bytes: bytes) -> np.ndarray:
     raise ValueError("Could not decode audio (" + " | ".join(errors) + ")")
 
 enrolled_speakers = {}
-voice_encoder = VoiceEncoder()
+voice_encoder = VoiceEncoder() if VoiceEncoder is not None else None
 
 @router.websocket("/ws/diarize")
 async def websocket_hybrid_diarize(websocket: WebSocket):

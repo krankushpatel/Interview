@@ -23,12 +23,21 @@ _INJECTED_DIR = Path(__file__).resolve().parent / "injected"
 
 
 class BrowserWorker:
-    def __init__(self, config: Optional[SelfHostedBotConfig] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[SelfHostedBotConfig] = None,
+        username: Optional[str] = None,
+    ) -> None:
         self.config = config or load_bot_config()
+        self.username = username
         self._pw: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
         self._context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
+        self._camera_callback_registered: bool = False
+        self._video_chunk_callback_registered: bool = False
+        self._active_video_target: Optional[Path] = None
+        self._active_video_size: int = 0
 
     def _build_launch_args(self) -> list[str]:
         return [
@@ -54,6 +63,8 @@ class BrowserWorker:
 
         canvas_js = (_INJECTED_DIR / "canvas_renderer.js").read_text(encoding="utf-8")
         audio_js = (_INJECTED_DIR / "audio_tap.js").read_text(encoding="utf-8")
+        video_tap_path = _INJECTED_DIR / "candidate_video_tap.js"
+        video_js = video_tap_path.read_text(encoding="utf-8") if video_tap_path.exists() else ""
 
         channels_to_try = []
         if self.config.browser_channel and self.config.browser_channel != "chromium":
@@ -107,13 +118,73 @@ class BrowserWorker:
         # Inject scripts BEFORE any meeting page loads
         await self._context.add_init_script(canvas_js)
         await self._context.add_init_script(audio_js)
+        if video_js:
+            await self._context.add_init_script(video_js)
 
         if self._context.pages:
             self.page = self._context.pages[0]
         else:
             self.page = await self._context.new_page()
 
+        await self._register_live_camera_callback()
+        await self._register_video_chunk_callback()
+
         return self.page
+
+    async def _register_video_chunk_callback(self) -> None:
+        """Register page binding for real-time candidate video recording chunk streaming to disk."""
+        if not self.page or self._video_chunk_callback_registered:
+            return
+
+        async def _on_candidate_video_chunk(chunk_b64: str):
+            if chunk_b64 and self._active_video_target:
+                try:
+                    data = base64.b64decode(chunk_b64)
+                    if data:
+                        with open(self._active_video_target, "ab") as f:
+                            f.write(data)
+                        self._active_video_size += len(data)
+                except Exception as e:
+                    log.debug("[BrowserWorker] Error writing video chunk: %s", e)
+
+        try:
+            await self.page.expose_function("__onCandidateVideoChunk", _on_candidate_video_chunk)
+            self._video_chunk_callback_registered = True
+            log.info("[BrowserWorker] Registered __onCandidateVideoChunk hook for %s", self.username)
+        except Exception as exc:
+            log.debug("[BrowserWorker] expose_function __onCandidateVideoChunk notice: %s", exc)
+
+    async def _register_live_camera_callback(self) -> None:
+        """Register page binding for live candidate camera feed relay to Admin Live View."""
+        if not self.page or self._camera_callback_registered or not self.username:
+            return
+
+        async def _on_candidate_camera_frame(frame_data: str):
+            if self.username and frame_data:
+                try:
+                    from code.recording.screen_manager import screen_manager
+                    await screen_manager.broadcast_camera_frame(self.username, frame_data)
+                except Exception:
+                    pass
+
+        try:
+            await self.page.expose_function("__onCandidateCameraFrame", _on_candidate_camera_frame)
+            self._camera_callback_registered = True
+            log.info("[BrowserWorker] Registered __onCandidateCameraFrame hook for %s", self.username)
+        except Exception as exc:
+            log.debug("[BrowserWorker] expose_function notice: %s", exc)
+
+    def set_username(self, username: str) -> None:
+        """Set or update candidate username for live camera frame broadcasting."""
+        self.username = username
+        if self.page and not self._camera_callback_registered:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(self._register_live_camera_callback())
+            except Exception:
+                pass
 
     async def open_url(self, url: str, wait_until: str = "domcontentloaded", timeout_ms: int = 45000) -> None:
         if not self.page:
@@ -318,6 +389,108 @@ class BrowserWorker:
             "lastSpeechAt": latest_speech,
             "msSinceSpeech": ms_since,
         }
+
+    # ------------------------------------------------------------------
+    # Candidate Face Video Recording & Status API (MediaRecorder WebM)
+    # ------------------------------------------------------------------
+    async def start_candidate_video_recording(
+        self,
+        candidate_name: str,
+        save_path: Optional[Path] = None,
+    ) -> Dict[str, Any]:
+        """Start continuous in-browser recording of candidate's face video + audio stream."""
+        if not self.page:
+            return {"ok": False, "error": "BrowserWorker has not been started"}
+
+        if save_path:
+            self._active_video_target = Path(save_path)
+            self._active_video_size = 0
+            self._active_video_target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                open(self._active_video_target, "wb").close()
+            except Exception as e:
+                log.warning("[BrowserWorker] Failed to create video target %s: %s", save_path, e)
+
+        await self._register_video_chunk_callback()
+
+        best: Dict[str, Any] = {"ok": False}
+        for frame in self.page.frames:
+            try:
+                res = await frame.evaluate(
+                    "(name) => window.__AI_CANDIDATE_VIDEO__ ? window.__AI_CANDIDATE_VIDEO__.startRecording(name) : {ok: false}",
+                    candidate_name,
+                )
+                if isinstance(res, dict) and res.get("ok"):
+                    best = res
+            except Exception:
+                continue
+        log.info("[BrowserWorker] Started candidate video recording for %s (target=%s): %s", candidate_name, save_path, best)
+        return best
+
+    async def stop_candidate_video_recording(self, save_path: Optional[Path] = None) -> Dict[str, Any]:
+        """Stop candidate video recording and ensure the resulting .webm file is on disk."""
+        target = Path(save_path) if save_path else self._active_video_target
+        if not self.page:
+            if target and target.exists() and target.stat().st_size > 0:
+                return {"ok": True, "saved_path": str(target), "sizeBytes": target.stat().st_size}
+            return {"ok": False, "saved_path": None, "sizeBytes": 0}
+
+        candidates: list[Dict[str, Any]] = []
+        for frame in self.page.frames:
+            try:
+                res = await frame.evaluate(
+                    "async () => window.__AI_CANDIDATE_VIDEO__ ? await window.__AI_CANDIDATE_VIDEO__.stopRecording() : {ok: false}"
+                )
+                if isinstance(res, dict) and res.get("ok"):
+                    candidates.append(res)
+            except Exception:
+                continue
+
+        # If live chunk streaming already populated the file on disk, return it!
+        saved_file: Optional[str] = None
+        if target and target.exists() and target.stat().st_size > 0:
+            saved_file = str(target)
+            file_size = target.stat().st_size
+            log.info(
+                "[BrowserWorker] Candidate video recording saved via live stream: %s (size=%d bytes)",
+                saved_file,
+                file_size,
+            )
+            return {"ok": True, "saved_path": saved_file, "sizeBytes": file_size}
+
+        # Fallback to single base64 payload if stream did not capture chunks
+        if candidates:
+            best = max(candidates, key=lambda x: int(x.get("sizeBytes") or 0))
+            b64 = best.pop("base64", "")
+            if target and b64:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(base64.b64decode(b64))
+                saved_file = str(target)
+                log.info(
+                    "[BrowserWorker] Candidate video recording saved from blob: %s (size=%d bytes, duration=%ds)",
+                    saved_file,
+                    int(best.get("sizeBytes") or 0),
+                    int(best.get("durationSec") or 0),
+                )
+                best["saved_path"] = saved_file
+                return best
+
+        return {"ok": False, "saved_path": None, "sizeBytes": 0}
+
+    async def get_candidate_video_status(self) -> Dict[str, Any]:
+        """Query current candidate video status across frames."""
+        if not self.page:
+            return {"recording": False, "hasActiveCandidateStream": False}
+        for frame in self.page.frames:
+            try:
+                st = await frame.evaluate(
+                    "() => window.__AI_CANDIDATE_VIDEO__ ? window.__AI_CANDIDATE_VIDEO__.getStatus() : null"
+                )
+                if isinstance(st, dict) and st.get("recording"):
+                    return st
+            except Exception:
+                continue
+        return {"recording": False, "hasActiveCandidateStream": False}
 
     async def screenshot(self, path: Path) -> Path:
         if not self.page:

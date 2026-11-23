@@ -45,6 +45,9 @@
     canvas = document.createElement("canvas");
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
+    canvas.setAttribute("data-ai-bot-display", "true");
+    canvas.__isAiInterviewerBot = true;
+    canvas.id = "ai-interviewer-display-canvas";
     ctx = canvas.getContext("2d", { alpha: false });
     startRenderLoop();
     return true;
@@ -79,10 +82,13 @@
     renderFrame();
     if (!masterVideoStream) {
       masterVideoStream = canvas.captureStream(FPS);
+      masterVideoStream.__isAiInterviewerBot = true;
     }
     const track = masterVideoStream.getVideoTracks()[0];
     if (!track) return null;
+    track.__isAiInterviewerBot = true;
     const cloned = track.clone();
+    cloned.__isAiInterviewerBot = true;
     // Spoof track settings so WebRTC clients recognize 1280x720@15fps cleanly
     const origGetSettings = cloned.getSettings ? cloned.getSettings.bind(cloned) : () => ({});
     cloned.getSettings = () => ({
@@ -92,6 +98,18 @@
       frameRate: FPS,
       deviceId: "ai-interviewer-virtual-cam",
     });
+    try {
+      Object.defineProperty(cloned, "label", {
+        value: "AI Interviewer Display Camera",
+        writable: false,
+        configurable: true,
+      });
+      Object.defineProperty(cloned, "__isAiInterviewerBot", {
+        value: true,
+        writable: false,
+        configurable: true,
+      });
+    } catch (e) {}
     return cloned;
   }
 
@@ -592,6 +610,28 @@
     const origGetDisplayMedia = (md && typeof md.getDisplayMedia === "function") ? md.getDisplayMedia.bind(md) : null;
     const origEnumerate = (md && typeof md.enumerateDevices === "function") ? md.enumerateDevices.bind(md) : null;
 
+    // Tag local video elements whenever the bot's virtual stream is attached
+    try {
+      const origSrcObjectDesc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "srcObject");
+      if (origSrcObjectDesc && origSrcObjectDesc.set) {
+        Object.defineProperty(HTMLMediaElement.prototype, "srcObject", {
+          set(val) {
+            if (val && (val.__isAiInterviewerBot || (val.getVideoTracks && val.getVideoTracks().some(t => t.__isAiInterviewerBot || (t.label || "").includes("AI Interviewer"))))) {
+              try {
+                this.setAttribute("data-ai-bot-virtual-preview", "true");
+                this.__isAiInterviewerBot = true;
+              } catch (e) {}
+            }
+            return origSrcObjectDesc.set.call(this, val);
+          },
+          get() {
+            return origSrcObjectDesc.get.call(this);
+          },
+          configurable: true,
+        });
+      }
+    } catch (e) {}
+
     md.getUserMedia = async (constraints = {}) => {
       if (!isMeetingPlatform()) {
         if (origGetUserMedia) {
@@ -612,7 +652,9 @@
         const vt = getCanvasVideoTrack();
         if (vt) tracks.push(vt);
       }
-      return new MediaStream(tracks);
+      const ms = new MediaStream(tracks);
+      ms.__isAiInterviewerBot = true;
+      return ms;
     };
 
     md.getDisplayMedia = async (options) => {
@@ -622,7 +664,9 @@
       const tracks = [];
       const vt = getCanvasVideoTrack();
       if (vt) tracks.push(vt);
-      return new MediaStream(tracks);
+      const ms = new MediaStream(tracks);
+      ms.__isAiInterviewerBot = true;
+      return ms;
     };
 
     md.enumerateDevices = async () => {

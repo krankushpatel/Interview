@@ -112,6 +112,8 @@ async def admin_add_student(
 
         return {
             "success": True, 
+            "name": name,
+            "email": email,
             "username": username, 
             "password": plain_password,
             "email_sent": email_sent,

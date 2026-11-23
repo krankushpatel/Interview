@@ -3,14 +3,14 @@ import secrets
 import string
 import time
 from fastapi import APIRouter, HTTPException, Depends, Body
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from code.services.zoom_service import zoom_service
 from code.services.zoom_bot_service import zoom_bot_service
 from code.settings_route.routes import load_settings, save_settings
 from code.services.email_service import send_zoom_schedule_email, send_google_meet_schedule_email, send_teams_schedule_email
-from code.services.timetable_service import set_student_timetable
+from code.services.timetable_service import set_student_timetable, check_exam_eligibility
 from code.services.exam_question_selector import select_exam_questions_for_student
 from code.core.data_manager import db
 
@@ -674,6 +674,64 @@ async def dispatch_meeting_bot(req: DispatchBotRequest):
     return {"success": True, "message": "Bot dispatched successfully", "bot_session": bot_session}
 
 
+def _render_launch_blocked_page(
+    headline: str,
+    message: str,
+    candidate_name: str,
+    username: str,
+    badge: str = "Access Restricted",
+    badge_color: str = "#ef4444",
+    icon: str = "⚠️",
+    status_code: int = 403,
+) -> HTMLResponse:
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{headline} - AI Interview Platform</title>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; margin: 0; padding: 24px; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }}
+            .card {{ max-width: 520px; width: 100%; background: #1e293b; border-radius: 16px; padding: 36px 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid #334155; text-align: center; }}
+            .icon {{ font-size: 52px; margin-bottom: 14px; line-height: 1; }}
+            .badge {{ display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(239, 68, 68, 0.12); color: {badge_color}; border: 1px solid {badge_color}; margin-bottom: 14px; }}
+            h1 {{ font-size: 22px; font-weight: 700; margin: 0 0 12px 0; color: #ffffff; letter-spacing: -0.5px; }}
+            p.desc {{ font-size: 14px; line-height: 1.6; color: #94a3b8; margin: 0 0 24px 0; }}
+            .details-box {{ background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; text-align: left; font-size: 13px; margin-bottom: 24px; }}
+            .details-row {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
+            .details-row:last-child {{ margin-bottom: 0; }}
+            .details-label {{ color: #64748b; }}
+            .details-value {{ color: #e2e8f0; font-weight: 600; }}
+            .help-text {{ font-size: 12px; color: #64748b; line-height: 1.5; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="icon">{icon}</div>
+            <div class="badge">{badge}</div>
+            <h1>{headline}</h1>
+            <p class="desc">{message}</p>
+            <div class="details-box">
+                <div class="details-row">
+                    <span class="details-label">Candidate:</span>
+                    <span class="details-value">{candidate_name}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Username:</span>
+                    <span class="details-value">{username}</span>
+                </div>
+            </div>
+            <div class="help-text">
+                If you believe this is an error or need your interview schedule adjusted, please contact your instructor or administrator.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html, status_code=status_code)
+
+
 @router.get("/launch")
 async def launch_meeting_from_email(username: str):
     """
@@ -687,6 +745,61 @@ async def launch_meeting_from_email(username: str):
 
     user = db.users.find_one({"username": username}, {"_id": 0}) or {}
     student_display_name = (user.get("name") or username).strip()
+
+    # -------------------------------------------------------------
+    # SECURITY GATE 1: Termination Check
+    # -------------------------------------------------------------
+    if user.get("is_terminated") is True:
+        term_reason = user.get("termination_reason") or "Proctoring violation limit exceeded"
+        return _render_launch_blocked_page(
+            headline="Interview Access Terminated",
+            message=f"Your interview access has been revoked by the administrator. Reason: {term_reason}",
+            candidate_name=student_display_name,
+            username=username,
+            badge="Account Terminated",
+            badge_color="#ef4444",
+            icon="🚫",
+            status_code=403,
+        )
+
+    # -------------------------------------------------------------
+    # SECURITY GATE 2: Attempts Limit Check
+    # -------------------------------------------------------------
+    attempts_taken = user.get("attempts_taken", 0)
+    max_attempts = user.get("max_attempts", 1)
+    if attempts_taken >= max_attempts:
+        return _render_launch_blocked_page(
+            headline="All Interview Attempts Used",
+            message=f"You have already completed all allocated interview attempts ({attempts_taken} of {max_attempts}). Please contact your administrator if you require an additional attempt.",
+            candidate_name=student_display_name,
+            username=username,
+            badge="Attempts Exhausted",
+            badge_color="#f59e0b",
+            icon="❌",
+            status_code=403,
+        )
+
+    # -------------------------------------------------------------
+    # SECURITY GATE 3: Timetable Schedule Window Check
+    # -------------------------------------------------------------
+    eligibility = check_exam_eligibility(username)
+    if eligibility and not eligibility.get("can_take_exam", False):
+        sched_msg = eligibility.get("message") or "You can only join during your scheduled interview window."
+        is_early = "not started" in sched_msg.lower()
+        headline = "Interview Not Started Yet" if is_early else "Interview Schedule Expired"
+        badge = "Early Access" if is_early else "Window Closed"
+        badge_color = "#3b82f6" if is_early else "#ef4444"
+        icon = "⏳" if is_early else "⚠️"
+        return _render_launch_blocked_page(
+            headline=headline,
+            message=sched_msg,
+            candidate_name=student_display_name,
+            username=username,
+            badge=badge,
+            badge_color=badge_color,
+            icon=icon,
+            status_code=403,
+        )
 
     provider = record.get("provider", "zoom")
     if provider == "teams":

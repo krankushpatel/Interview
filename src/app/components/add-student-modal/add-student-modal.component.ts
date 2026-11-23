@@ -227,6 +227,9 @@ export class AddStudentModalComponent implements OnInit {
       this.result = await this.adminService.addStudent(this.name, this.email, this.sendEmail, this.maxAttempts);
       
       if (this.result.success) {
+        if (!this.result.name) this.result.name = this.name.trim();
+        if (!this.result.email) this.result.email = this.email.trim();
+
         if (this.targetGroupId) {
           try {
             await this.adminService.addStudentsToBatch(this.targetGroupId, [this.result.username]);
@@ -250,13 +253,15 @@ export class AddStudentModalComponent implements OnInit {
 
   copyCredentials() {
     if (!this.result) return;
+    const loginLink = this.result.login_link || `${window.location.origin}/login`;
     const text = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 LOGIN CREDENTIALS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 Name: ${this.result.name}
+👤 Name: ${this.result.name || this.name}
+📧 Email: ${this.result.email || this.email}
 🔑 Username: ${this.result.username}
 🔒 Password: ${this.result.password}
-🔗 Login Link: ${this.result.login_link}
+🔗 Login Link: ${loginLink}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
     
     navigator.clipboard.writeText(text);

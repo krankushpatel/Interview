@@ -204,6 +204,7 @@ class SelfHostedBotBridge:
         try:
             now_iso = datetime.now().isoformat()
             formatted_answers = result.to_formatted_answers()
+            has_vid = bool(getattr(result, "video_file", None))
 
             db.submissions.delete_many({"session_id": result.session_id})
             for ans in formatted_answers:
@@ -223,7 +224,7 @@ class SelfHostedBotBridge:
                         "word_count": ans["word_count"],
                         "audio_path": ans.get("audio_path"),
                         "submitted_at": now_iso,
-                        "has_video": False,
+                        "has_video": has_vid,
                     }
                 )
 
@@ -238,6 +239,74 @@ class SelfHostedBotBridge:
                 },
             )
             update_exam_status(result.username, "completed")
+
+            # -------------------------------------------------------------
+            # Increment Candidate's Attempt Counter in MongoDB (Matches Portal Exam)
+            # -------------------------------------------------------------
+            db.users.update_one({"username": result.username}, {"$inc": {"attempts_taken": 1}})
+            log.info("[SelfHostedBridge] Incremented attempts_taken for %s", result.username)
+
+            # Check if candidate has attempts remaining (e.g. max_attempts=5)
+            u = db.users.find_one({"username": result.username}, {"attempts_taken": 1, "max_attempts": 1}) or {}
+            new_taken = u.get("attempts_taken", 1)
+            user_max = u.get("max_attempts", 1)
+            if new_taken < user_max:
+                db.active_meetings.update_one(
+                    {"candidate_username": result.username},
+                    {
+                        "$set": {
+                            "bot_status": "ready_to_dispatch",
+                            "shb_status": "ready_to_dispatch",
+                            "bot_interview_id": None,
+                            "self_hosted_session_id": None,
+                            "shb_current_index": -1,
+                        }
+                    }
+                )
+                log.info(
+                    "[SelfHostedBridge] Student %s has %d of %d attempts remaining. Meeting reset to ready_to_dispatch for next attempt.",
+                    result.username,
+                    user_max - new_taken,
+                    user_max,
+                )
+
+            # -------------------------------------------------------------
+            # Save Candidate Interview Video Recording to MongoDB & Memory
+            # -------------------------------------------------------------
+            if getattr(result, "video_file", None):
+                try:
+                    import time
+                    from code.core.data_manager import get_loaded_data, save_exam_recordings
+                    rec_ts = int(time.time() * 1000)
+                    file_size_mb = 0.0
+                    vid_path = getattr(result, "video_path", None)
+                    if vid_path and os.path.exists(vid_path):
+                        file_size_mb = round(os.path.getsize(vid_path) / (1024 * 1024), 2)
+
+                    duration_sec = int(max(1, result.finished_at - result.started_at))
+                    rec_doc = {
+                        "id": str(rec_ts),
+                        "username": result.username,
+                        "session_id": result.session_id,
+                        "video_file": result.video_file,
+                        "duration_sec": duration_sec,
+                        "size_mb": file_size_mb,
+                        "submitted_at": datetime.now().isoformat(),
+                    }
+                    db.exam_recordings.insert_one(rec_doc)
+                    db.submissions.update_many({"session_id": result.session_id}, {"$set": {"has_video": True}})
+                    data = get_loaded_data()
+                    data.setdefault("exam_recordings", []).append(rec_doc)
+                    save_exam_recordings()
+                    log.info(
+                        "[SelfHostedBridge] Registered exam recording in MongoDB: %s (%.2f MB, %ds)",
+                        result.video_file,
+                        file_size_mb,
+                        duration_sec,
+                    )
+                except Exception as rec_err:
+                    log.warning("[SelfHostedBridge] Failed to register exam recording: %s", rec_err)
+
             log.info(
                 "[SelfHostedBridge] Saved %d submissions for %s (session=%s). Triggering Gemini AI evaluation...",
                 len(formatted_answers),

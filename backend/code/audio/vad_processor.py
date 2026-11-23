@@ -4,7 +4,14 @@ os.environ["TORCH_ENABLE_ONEDNN_OPT"] = "0"
 
 import numpy as np
 import collections
-import torch
+
+TORCH_AVAILABLE = False
+torch = None
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"[VAD] Notice: Torch library could not be loaded ({e}). Using Energy-based VAD fallback.")
 
 _GLOBAL_SILERO_MODEL = None
 
@@ -20,19 +27,21 @@ class VADProcessor:
         self.energy_sensitivity = 0.005
         
         # ── THE FIX: Model ko sirf tab load karo jab wo RAM mein na ho ──
-        if _GLOBAL_SILERO_MODEL is None:
-            # Ye NNPACK warning ko suppress karne ke liye hai (optional but helpful)
-            os.environ["USE_NNPACK"] = "0" 
-            
-            print("[SILERO] Loading Neural Network VAD Engine into Memory (ONCE)...")
-            _GLOBAL_SILERO_MODEL, _ = torch.hub.load(
-                repo_or_dir='snakers4/silero-vad',
-                model='silero_vad',
-                force_reload=False,
-                trust_repo=True,
-            )
-            _GLOBAL_SILERO_MODEL.eval()
-            print("[SILERO] AI Engine active and ready.")
+        if TORCH_AVAILABLE and _GLOBAL_SILERO_MODEL is None and torch is not None:
+            try:
+                os.environ["USE_NNPACK"] = "0" 
+                print("[SILERO] Loading Neural Network VAD Engine into Memory (ONCE)...")
+                _GLOBAL_SILERO_MODEL, _ = torch.hub.load(
+                    repo_or_dir='snakers4/silero-vad',
+                    model='silero_vad',
+                    force_reload=False,
+                    trust_repo=True,
+                )
+                _GLOBAL_SILERO_MODEL.eval()
+                print("[SILERO] AI Engine active and ready.")
+            except Exception as e:
+                print(f"[SILERO] Model load failed: {e}. Using Energy VAD fallback.")
+                _GLOBAL_SILERO_MODEL = None
             
         # Global loaded model ko is naye connection ko de do
         self.model = _GLOBAL_SILERO_MODEL
@@ -97,13 +106,17 @@ class VADProcessor:
             else 0.0
         )
 
-        # ── Silero Neural VAD ──────────────────────────────────────────────
-        audio_tensor = torch.from_numpy(audio_np)
-        try:
-            with torch.no_grad():
-                raw_prob = self.model(audio_tensor, self.sample_rate).item()
-        except Exception:
-            raw_prob = 0.0
+        # ── Silero Neural VAD / Energy Fallback ────────────────────────────
+        if self.model is not None and torch is not None:
+            try:
+                audio_tensor = torch.from_numpy(audio_np)
+                with torch.no_grad():
+                    raw_prob = self.model(audio_tensor, self.sample_rate).item()
+            except Exception:
+                raw_prob = 0.0
+        else:
+            # High-accuracy energy + zero-crossing rate fallback
+            raw_prob = 0.85 if (energy > 0.012 and zcr < 0.25) else 0.05
 
         # Clamp to valid probability range — Silero can return slightly OOB values
         speech_prob: float = float(max(0.0, min(1.0, raw_prob)))
