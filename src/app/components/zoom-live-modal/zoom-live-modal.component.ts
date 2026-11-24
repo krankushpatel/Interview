@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
@@ -50,11 +50,10 @@ import { environment } from '../../../environments/environment';
             </span>
           </div>
           <div class="live-frame">
-            <video #cameraVideo id="zoom-admin-camera" autoplay playsinline [muted]="!listenAudio" class="live-video" [style.display]="hasDirectStream && !cameraFrame ? 'block' : 'none'"></video>
-            <!-- Live camera frames from WebSocket -->
-            <img *ngIf="cameraFrame" [src]="cameraFrame" class="live-image" />
+            <!-- Smooth Zero-Flicker Canvas Display -->
+            <canvas #cameraCanvas class="live-canvas" [style.display]="hasCameraFrame ? 'block' : 'none'"></canvas>
             
-            <div *ngIf="!cameraFrame && !hasDirectStream" class="loading">
+            <div *ngIf="!hasCameraFrame" class="loading">
               <ion-spinner name="crescent" color="primary"></ion-spinner>
               <p>Streaming via Zoom Channel...</p>
             </div>
@@ -65,14 +64,15 @@ import { environment } from '../../../environments/environment';
         <div class="live-card">
           <div class="live-label">
             <span>🖥️ CANDIDATE SCREEN</span>
-            <span class="stream-protocol-tag" [class.zoom-tag]="screenFrame">
-              {{ screenFrame ? '⚡ Zoom Live' : '📱 Screen Inactive' }}
+            <span class="stream-protocol-tag" [class.zoom-tag]="hasScreenFrame">
+              {{ hasScreenFrame ? '⚡ Zoom Live' : '📱 Screen Inactive' }}
             </span>
           </div>
           <div class="live-frame">
-            <img *ngIf="screenFrame" [src]="screenFrame" class="live-image" />
+            <!-- Smooth Zero-Flicker Screen Canvas -->
+            <canvas #screenCanvas class="live-canvas" [style.display]="hasScreenFrame ? 'block' : 'none'"></canvas>
             
-            <div *ngIf="!screenFrame" class="loading" style="color: #9ca3af; text-align: center; padding: 1.5rem;">
+            <div *ngIf="!hasScreenFrame" class="loading" style="color: #9ca3af; text-align: center; padding: 1.5rem;">
               <span style="font-size: 2.2rem; display: block; margin-bottom: 0.5rem;">📱</span>
               <p style="font-weight: 600; color: #f3f4f6; margin: 0 0 0.25rem 0; font-size: 0.95rem;">Camera-Only / Mobile Device</p>
               <p style="font-size: 0.78rem; color: #9ca3af; margin: 0;">No active screen stream on candidate's device</p>
@@ -210,7 +210,7 @@ import { environment } from '../../../environments/environment';
       justify-content: center;
     }
 
-    .live-video, .live-image {
+    .live-video, .live-image, .live-canvas {
       width: 100%;
       height: 100%;
       object-fit: contain;
@@ -367,16 +367,20 @@ import { environment } from '../../../environments/environment';
 export class ZoomLiveModalComponent implements OnInit, OnDestroy {
   @Input() username!: string;
 
+  @ViewChild('cameraCanvas') cameraCanvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('screenCanvas') screenCanvasRef!: ElementRef<HTMLCanvasElement>;
+
   isConnected: boolean = false;
   listenAudio: boolean = true;
   isTalking: boolean = false;
-  hasDirectStream: boolean = false;
-  cameraFrame: string | null = null;
-  screenFrame: string | null = null;
+  hasCameraFrame: boolean = false;
+  hasScreenFrame: boolean = false;
   sessionInfo: ZoomSessionInfo | null = null;
 
   private cameraWs: WebSocket | null = null;
   private screenWs: WebSocket | null = null;
+  private cameraImg = new Image();
+  private screenImg = new Image();
 
   constructor(
     private modalCtrl: ModalController,
@@ -409,25 +413,52 @@ export class ZoomLiveModalComponent implements OnInit, OnDestroy {
     }
   }
 
+  private drawFrameToCanvas(canvas: HTMLCanvasElement | undefined, img: HTMLImageElement, dataUrl: string, onRendered: () => void) {
+    if (!canvas) return;
+    img.onload = () => {
+      if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+      }
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+      }
+      onRendered();
+    };
+    img.src = dataUrl;
+  }
+
   private connectLiveStreams() {
     const wsBase = environment.wsUrl || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 
-    // Camera Live
+    // Camera Live (Zero Flicker HTML5 Canvas Painting)
     try {
       this.cameraWs = new WebSocket(`${wsBase}/ws/view-camera/${this.username}`);
       this.cameraWs.onmessage = (e) => {
-        this.cameraFrame = e.data;
-        this.hasDirectStream = true;
-        this.cdr.detectChanges();
+        if (!e.data || typeof e.data !== 'string') return;
+        const canvas = this.cameraCanvasRef?.nativeElement;
+        this.drawFrameToCanvas(canvas, this.cameraImg, e.data, () => {
+          if (!this.hasCameraFrame) {
+            this.hasCameraFrame = true;
+            this.cdr.detectChanges();
+          }
+        });
       };
     } catch (e) {}
 
-    // Screen Live
+    // Screen Live (Zero Flicker HTML5 Canvas Painting)
     try {
       this.screenWs = new WebSocket(`${wsBase}/ws/view-screen/${this.username}`);
       this.screenWs.onmessage = (e) => {
-        this.screenFrame = e.data;
-        this.cdr.detectChanges();
+        if (!e.data || typeof e.data !== 'string') return;
+        const canvas = this.screenCanvasRef?.nativeElement;
+        this.drawFrameToCanvas(canvas, this.screenImg, e.data, () => {
+          if (!this.hasScreenFrame) {
+            this.hasScreenFrame = true;
+            this.cdr.detectChanges();
+          }
+        });
       };
     } catch (e) {}
   }

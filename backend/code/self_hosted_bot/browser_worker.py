@@ -530,13 +530,78 @@ class BrowserWorker:
             self._dbg_log(f"CDP screencast start EXCEPTION: {exc}")
             log.warning("[BrowserWorker] Could not start CDP screencast: %s", exc)
 
+    async def _get_candidate_tile_bbox(self) -> Optional[tuple[int, int, int, int]]:
+        """
+        Locates the candidate's video tile coordinates in Zoom Web Client.
+        Returns (x1, y1, x2, y2) in 1280x720 screen space.
+        """
+        if not self.page:
+            return None
+        try:
+            js_query = """
+            () => {
+                const selectors = [
+                    '[class*="video-avatar"]',
+                    '[class*="video-box"]',
+                    '[class*="gallery-video"]',
+                    '[class*="single-view"]',
+                    '.speaker-view',
+                    '#speaker-view-video',
+                    '[id*="video-canvas"]',
+                    'canvas[id*="speaker"]'
+                ];
+                for (const sel of selectors) {
+                    const els = document.querySelectorAll(sel);
+                    for (const el of els) {
+                        const r = el.getBoundingClientRect();
+                        if (r.width >= 140 && r.height >= 140 && r.x < window.innerWidth * 0.76) {
+                            return { x: r.x, y: r.y, w: r.width, h: r.height };
+                        }
+                    }
+                }
+                const canvases = Array.from(document.querySelectorAll('canvas')).filter(c => {
+                    const r = c.getBoundingClientRect();
+                    return r.width >= 180 && r.height >= 180 && r.x < window.innerWidth * 0.76;
+                });
+                if (canvases.length > 0) {
+                    const r = canvases[0].getBoundingClientRect();
+                    return { x: r.x, y: r.y, w: r.width, h: r.height };
+                }
+                return null;
+            }
+            """
+            bbox = await self.page.evaluate(js_query)
+            if bbox and bbox.get("w", 0) >= 120 and bbox.get("h", 0) >= 120:
+                x = max(0, int(bbox["x"]))
+                y = max(0, int(bbox["y"]))
+                w = min(1280 - x, int(bbox["w"]))
+                h = min(720 - y, int(bbox["h"]))
+                return (x, y, x + w, y + h)
+        except Exception:
+            pass
+        return None
+
     async def _run_continuous_screencast_loop(self) -> None:
         """Continuously capture rendered frames from Chromium compositor at 8-10 FPS."""
         from code.recording.screen_manager import screen_manager
         self._dbg_log(f"Loop running: active={self._screencast_active}, cdp={bool(self._cdp_session)}")
         loop_count = 0
+        last_bbox_check_ts: float = 0.0
+        cached_bbox: Optional[tuple[int, int, int, int]] = None
+
         while self._screencast_active and self._cdp_session and self.page:
             try:
+                # Refresh candidate tile coordinates every 2.0s without stalling the render loop
+                now = time.time()
+                if now - last_bbox_check_ts > 2.0:
+                    last_bbox_check_ts = now
+                    try:
+                        detected_bbox = await self._get_candidate_tile_bbox()
+                        if detected_bbox:
+                            cached_bbox = detected_bbox
+                    except Exception:
+                        pass
+
                 res = await self._cdp_session.send("Page.captureScreenshot", {
                     "format": "jpeg",
                     "quality": 55,
@@ -551,12 +616,25 @@ class BrowserWorker:
                         from PIL import Image
                         raw_bytes = base64.b64decode(data_b64)
                         im = Image.open(io.BytesIO(raw_bytes))
-                        crop_w = int(im.width * 0.74)
-                        if crop_w > 100:
+
+                        if cached_bbox:
+                            scale = 0.55
+                            bx1, by1, bx2, by2 = cached_bbox
+                            sx1 = max(0, int(bx1 * scale))
+                            sy1 = max(0, int(by1 * scale))
+                            sx2 = min(im.width, int(bx2 * scale))
+                            sy2 = min(im.height, int(by2 * scale))
+                            if sx2 - sx1 > 40 and sy2 - sy1 > 40:
+                                cropped = im.crop((sx1, sy1, sx2, sy2))
+                            else:
+                                cropped = im.crop((0, 0, int(im.width * 0.74), im.height))
+                        else:
+                            crop_w = int(im.width * 0.74)
                             cropped = im.crop((0, 0, crop_w, im.height))
-                            out_buf = io.BytesIO()
-                            cropped.save(out_buf, format="JPEG", quality=60)
-                            cam_url = f"data:image/jpeg;base64,{base64.b64encode(out_buf.getvalue()).decode('ascii')}"
+
+                        out_buf = io.BytesIO()
+                        cropped.save(out_buf, format="JPEG", quality=60)
+                        cam_url = f"data:image/jpeg;base64,{base64.b64encode(out_buf.getvalue()).decode('ascii')}"
                     except Exception as crop_err:
                         cam_url = data_url
 
@@ -566,7 +644,10 @@ class BrowserWorker:
                     await screen_manager.broadcast_camera_frame(self.username, cam_url)
                     await screen_manager.broadcast_screen_frame(self.username, data_url)
             except Exception as loop_err:
+                err_str = str(loop_err)
                 self._dbg_log(f"Loop iteration error: {loop_err}")
+                if "Target page" in err_str or "closed" in err_str or "destroyed" in err_str:
+                    break
                 log.debug("[BrowserWorker] screencast loop frame notice: %s", loop_err)
             await asyncio.sleep(0.12)
 
