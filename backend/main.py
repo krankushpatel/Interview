@@ -100,6 +100,13 @@ async def static_cors_headers(request, call_next):
 
 @app.on_event("startup")
 async def startup_event():
+    # 0. Initialize LiveScreenManager main event loop for thread-safe WebSocket streaming
+    try:
+        from code.recording.screen_manager import screen_manager
+        screen_manager._main_loop = asyncio.get_running_loop()
+    except Exception:
+        pass
+
     # 1. Initialize local data
     initialize_data()
     

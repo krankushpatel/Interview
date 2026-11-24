@@ -7,9 +7,9 @@ from code.services.timetable_service import get_student_timetable
 
 def get_live_exams() -> dict:
     """Get all active exams"""
-    cleanup_idle_exams(timeout_minutes=5)
+    cleanup_idle_exams(timeout_minutes=60)
     active = get_active_exams()
-    return {"count": len(active), "exams": active}
+    return {"count": len(active), "exams": active, "liveExams": active}
 
 def get_live_exam_details(username: str) -> dict:
     """Get details of specific active exam"""

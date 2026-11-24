@@ -50,9 +50,9 @@ import { environment } from '../../../environments/environment';
             </span>
           </div>
           <div class="live-frame">
-            <video #cameraVideo id="zoom-admin-camera" autoplay playsinline [muted]="!listenAudio" class="live-video"></video>
-            <!-- Fallback snapshot from websocket/canvas -->
-            <img *ngIf="cameraFrame && !hasDirectStream" [src]="cameraFrame" class="live-image" />
+            <video #cameraVideo id="zoom-admin-camera" autoplay playsinline [muted]="!listenAudio" class="live-video" [style.display]="hasDirectStream && !cameraFrame ? 'block' : 'none'"></video>
+            <!-- Live camera frames from WebSocket -->
+            <img *ngIf="cameraFrame" [src]="cameraFrame" class="live-image" />
             
             <div *ngIf="!cameraFrame && !hasDirectStream" class="loading">
               <ion-spinner name="crescent" color="primary"></ion-spinner>
@@ -381,12 +381,24 @@ export class ZoomLiveModalComponent implements OnInit, OnDestroy {
   constructor(
     private modalCtrl: ModalController,
     private zoomProctor: ZoomProctorService,
+    private meetingService: MeetingService,
     private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
-    await this.initZoomProctor();
+    try {
+      if (this.username) {
+        await this.meetingService.dispatchBot(this.username);
+      }
+    } catch (e) {
+      console.warn('[ZoomLiveModal] Auto dispatch notice:', e);
+    }
     this.connectLiveStreams();
+    try {
+      await this.initZoomProctor();
+    } catch (e) {
+      console.warn('[ZoomLiveModal] Zoom proctor init notice:', e);
+    }
   }
 
   private async initZoomProctor() {
@@ -405,6 +417,7 @@ export class ZoomLiveModalComponent implements OnInit, OnDestroy {
       this.cameraWs = new WebSocket(`${wsBase}/ws/view-camera/${this.username}`);
       this.cameraWs.onmessage = (e) => {
         this.cameraFrame = e.data;
+        this.hasDirectStream = true;
         this.cdr.detectChanges();
       };
     } catch (e) {}

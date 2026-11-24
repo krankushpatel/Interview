@@ -55,6 +55,10 @@ class SelfHostedBotBridge:
         task = self._tasks.get(username)
         if not orch:
             return None
+        worker = getattr(orch, "worker", None)
+        screencast_task_st = str(getattr(worker, "_screencast_task", "NO_ATTR")) if worker else "NO_WORKER"
+        from code.recording.screen_manager import screen_manager
+        key = (username or "").strip().lower()
         return {
             "live": bool(task and not task.done()),
             "provider": "self_hosted",
@@ -64,6 +68,10 @@ class SelfHostedBotBridge:
             "q_index": orch.current_index,
             "total_questions": len(orch.questions),
             "candidate_name": orch.candidate_name,
+            "screencast_active": getattr(worker, "_screencast_active", False) if worker else False,
+            "screencast_task": screencast_task_st,
+            "has_latest_camera_frame": key in screen_manager.latest_camera_frame,
+            "camera_viewers_count": len(screen_manager.camera_viewers.get(key, [])),
         }
 
     def list_active_sessions(self) -> List[Dict[str, Any]]:
@@ -89,6 +97,12 @@ class SelfHostedBotBridge:
             existing = self.get_status(username)
             log.info("[SelfHostedBridge] Bot already active for %s (%s)", username, existing)
             return existing or {"live": True, "provider": "self_hosted", "username": username}
+
+        try:
+            from code.recording.screen_manager import screen_manager
+            screen_manager._main_loop = asyncio.get_running_loop()
+        except Exception:
+            pass
 
         cfg = load_bot_config()
         cfg.default_time_limit_sec = default_time_limit_sec

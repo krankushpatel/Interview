@@ -191,6 +191,11 @@ class InterviewOrchestrator:
         self.current_index: int = -1
         self.platform: str = provider_hint or "unknown"
 
+        # Proctoring & Face Tracking state
+        self._face_missing_warnings: int = 0
+        self._face_missing_since: float = 0.0
+        self._last_face_warning_ts: float = 0.0
+
     def request_abort(self) -> None:
         """Thread-safe signal to wrap up and exit early."""
         self._abort_requested = True
@@ -268,14 +273,21 @@ class InterviewOrchestrator:
                 topic=first_topic,
             )
 
-            # Start full-screen Question Display via Screen Share (falls back gracefully to camera tile)
+            # Start full-screen Question Display via Screen Share (Hooked getDisplayMedia streams 1280x720 Canvas)
             try:
                 shared = await self.adapter.start_screen_share()
                 if shared:
                     await asyncio.sleep(1.0)
-                    await self.adapter.open_chat()
             except Exception as share_err:
                 log.debug("[Orchestrator:%s] Screen share fallback notice: %s", self.session_id, share_err)
+            finally:
+                await self.adapter.open_chat()
+
+            # Start real-time CDP compositor screencast IMMEDIATELY upon entering meeting!
+            try:
+                await self.worker.start_screencast_stream()
+            except Exception as screencast_err:
+                log.debug("[Orchestrator:%s] Screencast start notice: %s", self.session_id, screencast_err)
 
             # ------------------------------------------------------------------
             # CANDIDATE ARRIVAL GATE: Do NOT send Q1 or start timers while room is empty!
@@ -320,6 +332,39 @@ class InterviewOrchestrator:
                 await self.worker.start_candidate_video_recording(self.candidate_name, save_path=rec_target)
             except Exception as vid_start_err:
                 log.warning("[Orchestrator:%s] Candidate video recording start notice: %s", self.session_id, vid_start_err)
+
+            # Start real-time CDP compositor screencast for Admin Live Tracking view
+            try:
+                await self.worker.start_screencast_stream()
+            except Exception as screencast_err:
+                log.debug("[Orchestrator:%s] Screencast stream notice: %s", self.session_id, screencast_err)
+
+            # ------------------------------------------------------------------
+            # MANDATORY CANDIDATE SCREEN SHARE GATE:
+            # Candidate must share Entire Screen before Question 1 starts!
+            # ------------------------------------------------------------------
+            if self.config.require_screen_share:
+                shared_ok = await self._wait_for_candidate_screen_share()
+                if not shared_ok:
+                    final_status = "failed"
+                    err_msg = f"Candidate {self.candidate_name} did not share screen within {self.config.screen_share_wait_timeout_sec}s"
+                    log.warning("[Orchestrator:%s] %s", self.session_id, err_msg)
+                    if await self.adapter.is_in_call():
+                        await self.adapter.leave()
+                    self._emit_status(final_status)
+                    return InterviewResult(
+                        session_id=self.session_id,
+                        username=self.username,
+                        candidate_name=self.candidate_name,
+                        platform=self.platform,
+                        meeting_url=self.meeting_url,
+                        status=final_status,
+                        started_at=started_at,
+                        finished_at=time.time(),
+                        error=err_msg,
+                        video_file=getattr(self, "_current_video_filename", None),
+                        video_path=getattr(self, "_current_video_path", None),
+                    )
 
             # Send greeting AFTER candidate has joined so they never miss it!
             ready_sec = max(0, int(self.config.ready_buffer_sec))
@@ -475,6 +520,10 @@ class InterviewOrchestrator:
                 await asyncio.sleep(min(2.5, self.transition_pause_sec))
 
             # Finalize & save candidate face video recording (.webm)
+            try:
+                await self.worker.stop_screencast_stream()
+            except Exception:
+                pass
             saved_video_file = getattr(self, "_current_video_filename", None)
             saved_video_path = getattr(self, "_current_video_path", None)
             try:
@@ -625,6 +674,92 @@ class InterviewOrchestrator:
 
         return False
 
+    async def _wait_for_candidate_screen_share(self, timeout_sec: Optional[int] = None) -> bool:
+        """
+        Wait until the candidate shares their screen, as a mandatory proctoring requirement.
+        Detects screen share across Google Meet, Microsoft Teams, and Zoom Web.
+        """
+        assert self.adapter is not None
+        timeout = max(1, int(timeout_sec or self.config.screen_share_wait_timeout_sec))
+        self._emit_status("waiting_for_screen_share")
+
+        # 1. Immediate check: Is candidate already sharing screen?
+        if await self.adapter.is_candidate_screen_sharing():
+            log.info("[Orchestrator:%s] Candidate is already sharing screen!", self.session_id)
+            return True
+
+        log.info(
+            "[Orchestrator:%s] Waiting for candidate '%s' to share screen (max %ds)...",
+            self.session_id,
+            self.candidate_name,
+            timeout,
+        )
+
+        # 2. Update Virtual Camera Question Card
+        await self.worker.update_display({
+            "mode": "transition",
+            "questionText": "Screen Sharing Required",
+            "subtitle": "Click 'Share Screen' -> select 'Entire Screen'. (Tip: 📌 Pin this video for full view)",
+            "transitionIcon": "🖥️",
+            "transitionColor": "#3b82f6",
+            "statusText": "Waiting for screen share... (Click 📌 Pin on my video to keep questions in full view!)",
+        })
+
+        # 3. Post clear instruction in meeting chat
+        await self.adapter.send_chat(
+            f"🖥️ MANDATORY PROCTORING REQUIREMENT:\n"
+            f"Please click 'Share Screen' and select 'Entire Screen' to start your interview.\n\n"
+            f"👉 PRO TIP: Click the Pin (📌) icon on my video tile to keep questions in full-screen view!\n"
+            f"Question 1 will start automatically as soon as your screen share is detected."
+        )
+
+        deadline = time.time() + timeout
+        last_reminder_time = time.time()
+
+        while time.time() < deadline:
+            if self._abort_requested:
+                return False
+
+            if not await self.adapter.is_in_call():
+                log.warning("[Orchestrator:%s] Call disconnected while waiting for screen share", self.session_id)
+                return False
+
+            # Check screen share state
+            if await self.adapter.is_candidate_screen_sharing():
+                log.info("[Orchestrator:%s] Candidate screen share detected!", self.session_id)
+                await self.adapter.send_chat("✅ Screen sharing detected! Starting your interview now...")
+                await self.worker.show_transition(
+                    "Screen Share Verified!",
+                    "Starting Question 1... (Remember to Pin 📌 my video!)",
+                    icon="✅",
+                    color="#10b981",
+                )
+                await asyncio.sleep(min(2.0, self.transition_pause_sec))
+                return True
+
+            # Check if candidate sent any chat messages
+            msgs = await self.adapter.read_new_messages()
+            for m in msgs:
+                cmd = parse_chat_command(m.text)
+                if cmd == "/start":
+                    if await self.adapter.is_candidate_screen_sharing():
+                        return True
+                    else:
+                        await self.adapter.send_chat(
+                            "⚠️ Screen sharing not detected yet. Please click 'Share Screen' -> select 'Entire Screen' to proceed."
+                        )
+
+            # Periodic friendly chat reminder every 40 seconds
+            if time.time() - last_reminder_time >= 40.0:
+                last_reminder_time = time.time()
+                await self.adapter.send_chat(
+                    "⏳ Still waiting for screen share. Please click 'Share Screen' -> select 'Entire Screen' to begin Question 1."
+                )
+
+            await asyncio.sleep(1.2)
+
+        return False
+
     async def _wait_for_ready_buffer(self, ready_sec: int) -> None:
         """
         Give the candidate a short breathing buffer (default 15s) to put on headphones & read
@@ -759,6 +894,80 @@ class InterviewOrchestrator:
                 else:
                     candidate_left_since = 0.0
 
+                # Check candidate face presence and issue warning if camera is off / missing
+                await self._check_candidate_face_presence(now)
+
             await asyncio.sleep(0.5)
 
         return "auto_submitted"
+
+    async def _record_proctor_violation(self, event_type: str, detail: str) -> None:
+        """Log a proctoring violation event directly to MongoDB (session_proctoring_logs)."""
+        try:
+            from datetime import datetime
+            from code.core.data_manager import db
+            doc = {
+                "username": self.username,
+                "session_id": self.session_id,
+                "event": event_type,
+                "type": event_type,
+                "detail": detail,
+                "timestamp": time.time(),
+                "created_at": datetime.utcnow(),
+            }
+            db.session_proctoring_logs.insert_one(doc)
+            log.info("[Orchestrator:%s] Recorded proctor violation: %s - %s", self.session_id, event_type, detail)
+        except Exception as exc:
+            log.debug("[Orchestrator:%s] Failed to record proctor violation: %s", self.session_id, exc)
+
+    async def _check_candidate_face_presence(self, now: float) -> None:
+        """Monitor candidate camera and trigger in-meeting chat warning + on-screen alert if face is missing."""
+        if not self.config.track_face_presence or self.platform == "zoom":
+            return
+
+        try:
+            # If native CDP compositor screencast is active in Zoom, candidate visuals are actively captured
+            if self.platform == "zoom" and getattr(self.worker, "_screencast_active", False):
+                if self._face_missing_since > 0.0:
+                    self._face_missing_since = 0.0
+                return
+
+            vid_st = await self.worker.get_candidate_video_status()
+            is_active = vid_st.get("hasActiveCandidateStream", True)
+            ms_since = vid_st.get("msSinceLastActive", 0)
+
+            # Inactive stream or last frame older than 5.5 seconds
+            if not is_active or ms_since >= 5500:
+                if self._face_missing_since == 0.0:
+                    self._face_missing_since = now
+                elif now - self._face_missing_since >= self.config.face_missing_grace_sec:
+                    if now - self._last_face_warning_ts >= self.config.face_warning_cooldown_sec:
+                        self._face_missing_warnings += 1
+                        self._last_face_warning_ts = now
+                        log.warning(
+                            "[Orchestrator:%s] Face missing detected (warning #%d, inactive for %.1fs)",
+                            self.session_id,
+                            self._face_missing_warnings,
+                            now - self._face_missing_since,
+                        )
+                        # 1. Send warning in meeting chat
+                        await self.adapter.send_chat(
+                            f"⚠️ PROCTORING WARNING #{self._face_missing_warnings}: Candidate face / camera is NOT visible!\n"
+                            f"Please ensure your camera is turned ON and your face remains clearly visible on screen."
+                        )
+                        # 2. Flash warning on Question Card status bar
+                        await self.worker.update_display({
+                            "statusText": f"⚠️ Warning #{self._face_missing_warnings}: Camera is OFF! Turn ON camera.",
+                        })
+                        # 3. Log to MongoDB session_proctoring_logs
+                        await self._record_proctor_violation(
+                            "face_missing",
+                            f"Candidate face/camera missing for >{int(self.config.face_missing_grace_sec)}s (Warning #{self._face_missing_warnings})",
+                        )
+            else:
+                # Face is active and visible
+                if self._face_missing_since > 0.0:
+                    self._face_missing_since = 0.0
+                    log.info("[Orchestrator:%s] Candidate face restored and active on camera.", self.session_id)
+        except Exception as e:
+            log.debug("[Orchestrator:%s] Face presence check notice: %s", self.session_id, e)

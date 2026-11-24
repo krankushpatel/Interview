@@ -450,9 +450,36 @@ class ZoomWebAdapter(BasePlatformAdapter):
                 log.debug("[zoom] read_new_messages notice: %s", exc)
         return []
 
+    async def _enable_multiple_screen_sharing(self) -> None:
+        """If host advanced sharing options exist in Zoom, enable multi-participant sharing."""
+        try:
+            for frame in self._candidate_frames():
+                clicked_dropdown = await self._click_first([
+                    'button.sharing-entry-button__dropdown-btn',
+                    'button[aria-label*="advanced sharing options" i]',
+                    'button[aria-label*="share options" i]',
+                    'button[title*="advanced sharing options" i]',
+                    'button[aria-label*="Who can share" i]',
+                ], frame=frame, timeout_ms=800)
+                if clicked_dropdown:
+                    await asyncio.sleep(0.4)
+                    await self._click_first([
+                        '[role="menuitem"]:has-text("Multiple participants")',
+                        'li:has-text("Multiple participants")',
+                        'label:has-text("Multiple participants")',
+                        'button:has-text("Multiple participants")',
+                        ':has-text("Multiple participants can share simultaneously")',
+                    ], frame=frame, timeout_ms=1000)
+                    log.info("[zoom] Enabled multiple participants screen sharing")
+                    return
+        except Exception as e:
+            log.debug("[zoom] Multi-share configuration notice: %s", e)
+
     async def start_screen_share(self) -> bool:
         """Click Zoom's Share button so our hooked getDisplayMedia() streams the 1280x720 Question Card FULL SCREEN!"""
         log.info("[zoom] Triggering full-screen Share for Question Display...")
+        await self._enable_multiple_screen_sharing()
+
         for frame in self._candidate_frames():
             clicked = await self._click_first([
                 'button[aria-label*="Share Screen" i]',

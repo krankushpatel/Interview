@@ -8,8 +8,11 @@ Manages:
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -38,6 +41,10 @@ class BrowserWorker:
         self._video_chunk_callback_registered: bool = False
         self._active_video_target: Optional[Path] = None
         self._active_video_size: int = 0
+        self._cdp_session = None
+        self._screencast_active: bool = False
+        self._screencast_task: Optional[asyncio.Task] = None
+        self._last_screencast_frame_ts: float = 0.0
 
     def _build_launch_args(self) -> list[str]:
         return [
@@ -168,9 +175,12 @@ class BrowserWorker:
                     pass
 
         try:
-            await self.page.expose_function("__onCandidateCameraFrame", _on_candidate_camera_frame)
+            if self._context:
+                await self._context.expose_function("__onCandidateCameraFrame", _on_candidate_camera_frame)
+            elif self.page:
+                await self.page.expose_function("__onCandidateCameraFrame", _on_candidate_camera_frame)
             self._camera_callback_registered = True
-            log.info("[BrowserWorker] Registered __onCandidateCameraFrame hook for %s", self.username)
+            log.info("[BrowserWorker] Registered __onCandidateCameraFrame hook for %s across context/iframes", self.username)
         except Exception as exc:
             log.debug("[BrowserWorker] expose_function notice: %s", exc)
 
@@ -492,6 +502,88 @@ class BrowserWorker:
                 continue
         return {"recording": False, "hasActiveCandidateStream": False}
 
+    def _dbg_log(self, msg: str) -> None:
+        try:
+            with open("D:/code/Interview/backend/screencast_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.now().isoformat()}] {msg}\n")
+                f.flush()
+        except Exception as e:
+            print(f"[DBG LOG FAIL] {e}")
+
+    async def start_screencast_stream(self) -> None:
+        """
+        Starts Chrome DevTools Protocol (CDP) live screencast.
+        Captures raw rendered pixels directly from Chromium GPU/compositor at 8-10 FPS,
+        bypassing Zoom's WebAssembly canvas isolation completely!
+        """
+        self._dbg_log(f"start_screencast_stream called: page={bool(self.page)}, active={self._screencast_active}")
+        if not self.page or self._screencast_active:
+            return
+        try:
+            self._cdp_session = await self._context.new_cdp_session(self.page)
+            self._screencast_active = True
+            self._screencast_task = asyncio.create_task(self._run_continuous_screencast_loop())
+            self._dbg_log(f"CDP session created and screencast task started for {self.username}")
+            log.info("[BrowserWorker] Started native CDP compositor screencast for %s", self.username)
+        except Exception as exc:
+            self._screencast_active = False
+            self._dbg_log(f"CDP screencast start EXCEPTION: {exc}")
+            log.warning("[BrowserWorker] Could not start CDP screencast: %s", exc)
+
+    async def _run_continuous_screencast_loop(self) -> None:
+        """Continuously capture rendered frames from Chromium compositor at 8-10 FPS."""
+        from code.recording.screen_manager import screen_manager
+        self._dbg_log(f"Loop running: active={self._screencast_active}, cdp={bool(self._cdp_session)}")
+        loop_count = 0
+        while self._screencast_active and self._cdp_session and self.page:
+            try:
+                res = await self._cdp_session.send("Page.captureScreenshot", {
+                    "format": "jpeg",
+                    "quality": 55,
+                    "clip": {"x": 0, "y": 0, "width": 1280, "height": 720, "scale": 0.55}
+                })
+                data_b64 = res.get("data")
+                if data_b64 and self.username:
+                    data_url = f"data:image/jpeg;base64,{data_b64}"
+                    cam_url = data_url
+                    try:
+                        import io
+                        from PIL import Image
+                        raw_bytes = base64.b64decode(data_b64)
+                        im = Image.open(io.BytesIO(raw_bytes))
+                        crop_w = int(im.width * 0.74)
+                        if crop_w > 100:
+                            cropped = im.crop((0, 0, crop_w, im.height))
+                            out_buf = io.BytesIO()
+                            cropped.save(out_buf, format="JPEG", quality=60)
+                            cam_url = f"data:image/jpeg;base64,{base64.b64encode(out_buf.getvalue()).decode('ascii')}"
+                    except Exception as crop_err:
+                        cam_url = data_url
+
+                    loop_count += 1
+                    if loop_count % 20 == 1:
+                        self._dbg_log(f"Frame captured and broadcasting: count={loop_count}, len={len(cam_url)}")
+                    await screen_manager.broadcast_camera_frame(self.username, cam_url)
+                    await screen_manager.broadcast_screen_frame(self.username, data_url)
+            except Exception as loop_err:
+                self._dbg_log(f"Loop iteration error: {loop_err}")
+                log.debug("[BrowserWorker] screencast loop frame notice: %s", loop_err)
+            await asyncio.sleep(0.12)
+
+    async def stop_screencast_stream(self) -> None:
+        """Stop CDP screencast stream."""
+        self._screencast_active = False
+        if self._screencast_task and not self._screencast_task.done():
+            self._screencast_task.cancel()
+            self._screencast_task = None
+        if self._cdp_session:
+            try:
+                await self._cdp_session.detach()
+            except Exception:
+                pass
+            self._cdp_session = None
+            log.info("[BrowserWorker] Stopped CDP screencast")
+
     async def screenshot(self, path: Path) -> Path:
         if not self.page:
             raise RuntimeError("BrowserWorker has not been started")
@@ -501,6 +593,7 @@ class BrowserWorker:
 
     async def stop(self) -> None:
         """Cleanly tear down page, context, browser, and Playwright."""
+        await self.stop_screencast_stream()
         for obj, method in (
             (self.page, "close"),
             (self._context, "close"),

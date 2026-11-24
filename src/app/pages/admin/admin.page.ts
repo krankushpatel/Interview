@@ -1917,15 +1917,17 @@ export class AdminPage implements OnInit, OnDestroy {
     try {
       const res = await this.adminService.getLiveExams();
       if (res && Array.isArray((res as any).exams)) {
-        this.liveExams = (res as any).exams;
+        this.liveExams = [...(res as any).exams];
         this.liveExamsCount = (res as any).count ?? this.liveExams.length;
       } else if (Array.isArray(res)) {
-        this.liveExams = res;
+        this.liveExams = [...res];
         this.liveExamsCount = res.length;
       } else {
         this.liveExams = [];
         this.liveExamsCount = 0;
       }
+      this.cdr.markForCheck();
+      this.cdr.detectChanges();
     } catch (e) {
       console.error('Error loading live exams:', e);
     }
@@ -1942,12 +1944,16 @@ export class AdminPage implements OnInit, OnDestroy {
           const data = JSON.parse(event.data);
           this.ngZone.run(() => {
             if (Array.isArray(data)) {
-              this.liveExams = data;
+              this.liveExams = [...data];
               this.liveExamsCount = this.liveExams.length;
-            } else if (data.liveExams) {
-              this.liveExams = data.liveExams;
+            } else if (data.exams && Array.isArray(data.exams)) {
+              this.liveExams = [...data.exams];
+              this.liveExamsCount = data.count ?? this.liveExams.length;
+            } else if (data.liveExams && Array.isArray(data.liveExams)) {
+              this.liveExams = [...data.liveExams];
               this.liveExamsCount = this.liveExams.length;
             }
+            this.cdr.markForCheck();
             this.cdr.detectChanges();
           });
         } catch {}

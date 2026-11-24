@@ -2,7 +2,9 @@ const getApiUrl = (): string => {
     if (typeof window === 'undefined') return '';
     if ((window as any).__ENV__?.API_URL) return (window as any).__ENV__.API_URL;
     const hostname = window.location.hostname || 'localhost';
-    return `http://${hostname}:8001`;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    const proto = window.location.protocol || 'http:';
+    return isLocal ? `http://${hostname}:8001` : `${proto}//${hostname}`;
 };
 
 const getWsUrl = (): string => {
@@ -10,7 +12,8 @@ const getWsUrl = (): string => {
     if ((window as any).__ENV__?.WS_URL) return (window as any).__ENV__.WS_URL;
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const hostname = window.location.hostname || 'localhost';
-    return `${wsProto}//${hostname}:8001`;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    return isLocal ? `${wsProto}//${hostname}:8001` : `${wsProto}//${hostname}`;
 };
 
 

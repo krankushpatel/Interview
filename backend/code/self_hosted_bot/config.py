@@ -42,6 +42,11 @@ class SelfHostedBotConfig:
     audio_dir: Path = _BACKEND_DIR / "uploads" / "bot_audio"
     profile_dir: Path = _BACKEND_DIR / "data" / "bot_chrome_profile"
     use_persistent_profile: bool = False
+    require_screen_share: bool = False
+    screen_share_wait_timeout_sec: int = 180
+    track_face_presence: bool = True
+    face_missing_grace_sec: float = 6.0
+    face_warning_cooldown_sec: float = 20.0
 
 
 def load_bot_config() -> SelfHostedBotConfig:
@@ -70,4 +75,9 @@ def load_bot_config() -> SelfHostedBotConfig:
         audio_dir=audio_dir,
         profile_dir=profile_dir,
         use_persistent_profile=_env_bool("SELF_HOSTED_USE_PERSISTENT_PROFILE", False),
+        require_screen_share=_env_bool("REQUIRE_CANDIDATE_SCREEN_SHARE", False),
+        screen_share_wait_timeout_sec=int(os.getenv("SCREEN_SHARE_WAIT_TIMEOUT_SEC", "180")),
+        track_face_presence=_env_bool("TRACK_FACE_PRESENCE", True),
+        face_missing_grace_sec=float(os.getenv("FACE_MISSING_GRACE_SEC", "6.0")),
+        face_warning_cooldown_sec=float(os.getenv("FACE_WARNING_COOLDOWN_SEC", "20.0")),
     )

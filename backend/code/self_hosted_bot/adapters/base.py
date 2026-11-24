@@ -79,6 +79,44 @@ class BasePlatformAdapter(ABC):
         """Optional: trigger screen share (our getDisplayMedia hook streams the 1280x720 Canvas)."""
         return False
 
+    async def is_candidate_screen_sharing(self) -> bool:
+        """Return True if remote candidate is actively presenting or sharing their screen."""
+        target = self._active_frame()
+        try:
+            return bool(
+                await target.evaluate(
+                    """() => {
+                        // 1. Injected candidate video tap API check
+                        if (window.__AI_CANDIDATE_VIDEO__ && typeof window.__AI_CANDIDATE_VIDEO__.isCandidateScreenSharing === 'function') {
+                            if (window.__AI_CANDIDATE_VIDEO__.isCandidateScreenSharing()) return true;
+                        }
+
+                        // 2. Google Meet presentation selectors (remote presentation tile)
+                        const meetPres = document.querySelector('[data-is-presentation="true"], [data-requested-participant-id*="presentation"], [data-participant-id*="presentation"], [jsname="h9sBje"]');
+                        if (meetPres && (meetPres.offsetParent !== null || meetPres.clientWidth > 0)) return true;
+
+                        // 3. Microsoft Teams presentation selectors (remote sharing surface)
+                        const teamsPres = document.querySelector('[data-tid="presentation-surface"], [data-tid="screenshare-video-tile"], [data-tid="sharing-stage"]');
+                        if (teamsPres && (teamsPres.offsetParent !== null || teamsPres.clientWidth > 0)) return true;
+
+                        // 4. Zoom Web Client presentation selectors (incoming remote canvas)
+                        const zoomPres = document.querySelector('canvas.share-screen-canvas, #share-screen-canvas, .sharing-view canvas, div.sharing-layout, [data-testid="sharing-view"]');
+                        if (zoomPres && (zoomPres.offsetParent !== null || zoomPres.clientWidth > 0)) return true;
+
+                        // 5. Generic aria-label and text indicators (excluding buttons and bot's own share)
+                        const allAria = Array.from(document.querySelectorAll('[aria-label]'));
+                        return allAria.some(el => {
+                            if (el.tagName.toLowerCase() === 'button' || el.closest('button')) return false;
+                            const a = (el.getAttribute('aria-label') || '').toLowerCase();
+                            if (a.includes('you are sharing') || a.includes('your screen') || a.includes('stop share')) return false;
+                            return (a.includes('is presenting') || a.includes('is sharing') || a.includes('presentation')) && !a.includes('your presentation');
+                        });
+                    }"""
+                )
+            )
+        except Exception:
+            return False
+
     async def get_participant_count(self) -> Optional[int]:
         """Return total participants currently in the call (including bot), or None if undetectable."""
         return None
