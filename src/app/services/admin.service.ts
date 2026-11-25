@@ -306,7 +306,7 @@ export class AdminService {
   }
 
   async downloadStudentTemplate(): Promise<void> {
-    const token = localStorage.getItem('admin_token');
+    const token = sessionStorage.getItem('admin_token');
     if (!token) {
       console.error('No admin token found');
       return;
@@ -332,7 +332,7 @@ export class AdminService {
 
   async downloadQuestionTemplate(): Promise<void> {
     console.log('✅ downloadStudentTemplate called with fetch');
-    const token = localStorage.getItem('admin_token');
+    const token = sessionStorage.getItem('admin_token');
     console.log('Token:', token ? 'exists' : 'missing');
     if (!token) {
       console.error('No admin token found');

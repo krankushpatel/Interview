@@ -48,10 +48,6 @@
         {{ isLoading ? 'Signing in…' : 'Sign In →' }}
       </button>
 
-      <button type="button" class="btn-quick-admin" (click)="quickAdminLogin()" [disabled]="isLoading" style="margin-top: 10px; width: 100%; padding: 10px; background: rgba(99, 102, 241, 0.1); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-        <span>🛡️</span> Quick Admin Access
-      </button>
-
       <div class="error-message" *ngIf="errorMessage">
         <span>⚠</span> <span>{{ errorMessage }}</span>
       </div>

@@ -313,6 +313,13 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
   ) {}
 
   async ngOnInit() {
+    const initialRole = sessionStorage.getItem('role');
+    const initialUsername = sessionStorage.getItem('username');
+    if (!initialUsername || initialRole !== 'student') {
+      this.navCtrl.navigateRoot(initialRole === 'admin' ? '/admin' : '/login');
+      return;
+    }
+
     const existingSession = sessionStorage.getItem('active_exam_session_id');
 
     if (existingSession) {
@@ -327,12 +334,6 @@ export class StudentPage implements OnInit, OnDestroy, AfterViewInit {
 // Zoom polling disabled - Silent WebRTC Intercom in use
     this.userName = sessionStorage.getItem('name') || 'Student';
     this.userAvatar = this.userName.charAt(0).toUpperCase();
-    const role = sessionStorage.getItem('role');
-
-    if (role === 'admin') {
-      this.navCtrl.navigateRoot('/admin');
-      return;
-    }
 
     await this.requestPermissionsEarly();
     const canProceed = await this.checkEligibilityBeforeExam();

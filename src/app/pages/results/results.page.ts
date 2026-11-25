@@ -72,7 +72,7 @@ export class ResultsPage implements OnInit {
   async ngOnInit() {
     const username = sessionStorage.getItem('username');
     if (!username) {
-      this.showError('No session found. Please log in first.');
+      this.navCtrl.navigateRoot('/login');
       return;
     }
 

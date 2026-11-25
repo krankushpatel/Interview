@@ -28,12 +28,6 @@ export class LoginPage {
     this.showPassword = !this.showPassword;
   }
 
-  quickAdminLogin() {
-    this.username = 'admin';
-    this.password = 'admin';
-    this.attemptLogin();
-  }
-
   async attemptLogin() {
     if (!this.username.trim() || !this.password.trim()) {
       this.errorMessage = 'Please enter both username and password.';

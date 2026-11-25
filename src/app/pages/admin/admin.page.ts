@@ -327,13 +327,11 @@ export class AdminPage implements OnInit, OnDestroy {
       }
     });
 
-    let role = sessionStorage.getItem('role') || localStorage.getItem('admin_role');
-    if (!role) {
-      role = 'admin';
-      sessionStorage.setItem('role', 'admin');
-      sessionStorage.setItem('name', 'Platform Administrator');
-      localStorage.setItem('admin_role', 'admin');
-      localStorage.setItem('admin_token', 'mock-admin-jwt-token-ai-studio');
+    const role = sessionStorage.getItem('role');
+    const token = sessionStorage.getItem('admin_token');
+    if (role !== 'admin' || !token) {
+      this.navCtrl.navigateRoot('/login');
+      return;
     }
     this.adminName = sessionStorage.getItem('name') || 'Admin';
     this.adminAvatar = this.adminName.charAt(0).toUpperCase();
