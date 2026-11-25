@@ -101,7 +101,11 @@ Password : admin@123
 
 ### 5. Configure Environment Variables (`backend/.env`) ⚙️
 
-Check that a `.env` file exists in the `backend/` folder (`backend/.env`). Open it in any text editor (like Notepad or VS Code) and verify the following key sections:
+If `backend/.env` does not exist yet (for example, after cloning from GitHub), copy `.env.example` from the root folder to `backend/.env`:
+* **Windows (PowerShell):** `copy .env.example backend\.env`
+* **Ubuntu / Linux / Mac:** `cp .env.example backend/.env`
+
+Open `backend/.env` in any text editor (like Notepad or VS Code) and verify the following key sections:
 
 #### A. Database Connection (Required)
 ```env
@@ -132,6 +136,12 @@ FROM_EMAIL=your_email@gmail.com
 GEMINI_API_KEY=AIzaSy...               # Get free key from Google AI Studio (aistudio.google.com)
 DEEPGRAM_API_KEY=your_deepgram_key    # Get free key from Deepgram (console.deepgram.com) for real-time speech
 ```
+
+#### D. Public Tunnel URL (For Webhooks & External Links)
+```env
+PUBLIC_BASE_URL="https://your-static-domain.ngrok-free.dev"
+```
+*(See **Terminal 3** in Part 3 below for how to get your own permanent ngrok URL on Windows or Ubuntu/Linux.)*
 
 ---
 
@@ -197,9 +207,9 @@ INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
 2. Run:
 
 ```bash
-npm start
+npm run dev
 ```
-*(Recommended: `npm start` works directly without needing Ionic CLI installed globally. If you have Ionic CLI installed, you can also use `ionic serve`).*
+*(You can also use `npm start`—both run `ng serve --host 0.0.0.0 --port 3000` without needing Ionic CLI installed globally.)*
 
 👉 **Success Message:** You will see the local server URL:
 ```text
@@ -210,7 +220,47 @@ Application running on: http://localhost:3000
 
 ---
 
-### 🔹 Step 3: Open in Browser & Log in
+### 🔹 Step 3: Start the Public Tunnel (Terminal 3 - Ngrok / Cloudflare)
+
+If you need webhooks (Meeting BaaS / Recall) or a public HTTPS URL for your local backend (`port 8001`), run a tunnel in a **third terminal** from the root folder.
+
+> ⚠️ **Important for Teams / Company Machines:**
+> Each developer should create their **own** free ngrok account and static domain—do **not** share someone else's personal ngrok authtoken or static domain, because a free static domain can only point to one machine at a time.
+
+#### Option A: Permanent Ngrok on Ubuntu / Linux (Recommended for Linux)
+1. **Install ngrok (one-time):**
+   ```bash
+   curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+     | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+     && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+     | sudo tee /etc/apt/sources.list.d/ngrok.list \
+     && sudo apt update \
+     && sudo apt install ngrok
+   ```
+   *(Or via snap: `sudo snap install ngrok`)*
+2. **Connect your own ngrok account (one-time):**
+   - Sign up at [dashboard.ngrok.com](https://dashboard.ngrok.com), copy your authtoken, and run:
+     ```bash
+     ngrok config add-authtoken <YOUR_NGROK_AUTHTOKEN>
+     ```
+   - In the ngrok dashboard, go to **Domains** -> **Create Domain** to get your free permanent domain (e.g. `your-name.ngrok-free.dev`).
+3. **Update `backend/.env` (one-time):**
+   ```env
+   PUBLIC_BASE_URL="https://<your-domain>.ngrok-free.dev"
+   ```
+   *(If using Meeting BaaS / Recall webhooks, set the dashboard webhook URL to `https://<your-domain>.ngrok-free.dev/zoom-bot/webhook/meeting-baas`.)*
+4. **Run the tunnel (daily):**
+   ```bash
+   ngrok http 8001 --url https://<your-domain>.ngrok-free.dev
+   ```
+
+#### Option B: Windows Scripts
+* **Ngrok (Permanent URL):** Run `start_ngrok.bat` (or `ngrok.exe http 8001 --url https://<your-domain>.ngrok-free.dev`) and ensure `PUBLIC_BASE_URL` in `backend/.env` matches.
+* **Cloudflare Tunnel (Temporary URL, auto-updates `backend/.env`):** Run `start_tunnel.bat` (requires `cloudflared.exe` in the project root).
+
+---
+
+### 🔹 Step 4: Open in Browser & Log in
 
 Open Google Chrome or any modern browser and visit:
 * **App URL:** [http://localhost:3000](http://localhost:3000)
@@ -274,13 +324,26 @@ When you are done working:
 
 ## 📋 Quick Cheat Sheet (Daily Run Summary)
 
+### ⚡ One-Click / Single-Command Launch (Recommended)
+Both scripts automatically read `PUBLIC_BASE_URL` from `backend/.env` and launch Backend, Frontend, and Ngrok Tunnel together:
+- **Windows:** Double-click `start_all.bat` (or run `.\start_all.bat`)
+- **Ubuntu / Linux:**
+  ```bash
+  chmod +x start_all.sh   # only needed once
+  ./start_all.sh
+  ```
+
+### 🛠️ Manual 3-Terminal Launch
 ```text
 Terminal 1 (Backend):
 cd backend
-.venv\Scripts\activate
+.venv\Scripts\activate          # Windows (or: source .venv/bin/activate on Linux/Mac)
 uvicorn main:app --reload --host 0.0.0.0 --port 8001
 
 Terminal 2 (Frontend):
-npm start
+npm run dev                     # (or: npm start)
+
+Terminal 3 (Public Tunnel - Ngrok):
+ngrok http 8001 --url https://<your-domain>.ngrok-free.dev
 ```
 Browser: Open **http://localhost:3000**

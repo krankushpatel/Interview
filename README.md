@@ -105,19 +105,31 @@ MONGO_URI=
 
 ### 5) Run the backend
 
-Run this command from inside the `backend/` folder:
+Run this command from inside the `backend/` folder (with `.venv` activated):
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### 6) Run the frontend
 
-Open a new terminal, go to the project directory, and run:
+Open a new terminal, go to the project root directory, and run:
 
 ```bash
-ionic serve --external
+npm run dev
 ```
+
+### 7) Start a public tunnel (Terminal 3, optional/for webhooks)
+
+If you need a public HTTPS URL for webhooks (`PUBLIC_BASE_URL` in `backend/.env`), start a tunnel on port `8001`:
+
+- **Linux / Ubuntu (Permanent Ngrok):**
+  ```bash
+  ngrok http 8001 --url https://<your-domain>.ngrok-free.dev
+  ```
+- **Windows:** run `start_ngrok.bat` or `start_tunnel.bat`.
+
+See [readme_run.md](readme_run.md) for the full step-by-step setup guide (including `.env` setup, Ubuntu `ngrok` installation, and troubleshooting).
 
 ## Helpful notes for new users
 
