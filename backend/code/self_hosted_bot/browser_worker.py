@@ -123,6 +123,16 @@ class BrowserWorker:
             raise RuntimeError(f"Could not launch any Chromium browser: {last_err}")
 
         # Inject scripts BEFORE any meeting page loads
+        # Pre-inject face detector cascade and pico library
+        cascade_path = _INJECTED_DIR / "facefinder.bin"
+        if cascade_path.exists():
+            b64_cas = base64.b64encode(cascade_path.read_bytes()).decode("ascii")
+            await self._context.add_init_script(f"window.__PICO_CASCADE_B64__ = '{b64_cas}';")
+
+        pico_path = _INJECTED_DIR / "pico.js"
+        if pico_path.exists():
+            await self._context.add_init_script(pico_path.read_text(encoding="utf-8"))
+
         await self._context.add_init_script(canvas_js)
         await self._context.add_init_script(audio_js)
         if video_js:
@@ -496,7 +506,7 @@ class BrowserWorker:
                 st = await frame.evaluate(
                     "() => window.__AI_CANDIDATE_VIDEO__ ? window.__AI_CANDIDATE_VIDEO__.getStatus() : null"
                 )
-                if isinstance(st, dict) and st.get("recording"):
+                if isinstance(st, dict):
                     return st
             except Exception:
                 continue

@@ -2001,9 +2001,14 @@ export class AdminPage implements OnInit, OnDestroy {
   }
 
   async openZoomLiveModal(username: string) {
+    const exam = (this.liveExams || []).find((e: any) => e.username === username);
     const modal = await this.modalCtrl.create({
       component: ZoomLiveModalComponent,
-      componentProps: { username },
+      componentProps: {
+        username,
+        currentQuestionText: exam?.current_question_text || '',
+        currentQuestionIndex: exam?.current_question_index ?? 0,
+      },
       cssClass: 'live-view-modal-custom'
     });
     await modal.present();

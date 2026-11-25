@@ -85,7 +85,10 @@ import { CommonModule } from '@angular/common';
             </div>
             <div class="live-detail-row">
               <span class="live-detail-label">Current Q</span>
-              <span class="live-detail-val live-detail-q">{{ exam.current_question_text || 'Loading…' }}</span>
+              <span class="live-detail-val live-detail-q" [title]="exam.current_question_text">
+                <strong *ngIf="exam.current_question_index !== undefined && exam.current_question_index >= 0" style="color: #60a5fa;">Q{{ exam.current_question_index + 1 }}: </strong>
+                {{ exam.current_question_text || 'Waiting for question…' }}
+              </span>
             </div>
           </div>
 

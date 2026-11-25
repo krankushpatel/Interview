@@ -33,6 +33,87 @@
 
   let tappedRemoteVideo = null;
 
+  // --- IN-BROWSER FACE DETECTOR (Pico.js) ---
+  let picoClassifier = null;
+  let hasDetectedFace = true;
+  let detectedFacesCount = 1;
+  let faceMissingSince = 0;
+  let lastFaceCheckTime = 0;
+  const FACE_CHECK_INTERVAL_MS = 1400;
+
+  function initPicoClassifier() {
+    if (picoClassifier || typeof window.pico === "undefined" || !window.__PICO_CASCADE_B64__) return;
+    try {
+      const b64 = window.__PICO_CASCADE_B64__;
+      const binary = atob(b64);
+      const bytes = new Int8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      picoClassifier = window.pico.unpack_cascade(bytes);
+      console.log("[CandidateVideoTap] Pico Face Detector cascade initialized.");
+    } catch (e) {
+      console.warn("[CandidateVideoTap] Failed to unpack pico cascade:", e);
+    }
+  }
+
+  function checkFacePresence() {
+    const now = Date.now();
+    if (now - lastFaceCheckTime < FACE_CHECK_INTERVAL_MS) return;
+    lastFaceCheckTime = now;
+
+    if (!picoClassifier) {
+      initPicoClassifier();
+      if (!picoClassifier) return;
+    }
+
+    if (!canvas || !ctx || !hasActiveCandidateStream) {
+      hasDetectedFace = false;
+      detectedFacesCount = 0;
+      if (faceMissingSince === 0) faceMissingSince = now;
+      return;
+    }
+
+    try {
+      const sampleW = 320;
+      const sampleH = 180;
+      if (!window.__faceSampleCanvas) {
+        window.__faceSampleCanvas = document.createElement("canvas");
+        window.__faceSampleCanvas.width = sampleW;
+        window.__faceSampleCanvas.height = sampleH;
+      }
+      const sCanvas = window.__faceSampleCanvas;
+      const sCtx = sCanvas.getContext("2d", { willReadFrequently: true });
+      if (!sCtx) return;
+
+      sCtx.drawImage(canvas, 0, 0, sampleW, sampleH);
+      const rgba = sCtx.getImageData(0, 0, sampleW, sampleH).data;
+      const pixels = new Uint8Array(sampleW * sampleH);
+      for (let i = 0; i < sampleW * sampleH; i++) {
+        pixels[i] = (rgba[i * 4] * 0.299 + rgba[i * 4 + 1] * 0.587 + rgba[i * 4 + 2] * 0.114);
+      }
+
+      const image = { pixels, nrows: sampleH, ncols: sampleW, ldim: sampleW };
+      const params = {
+        shiftfactor: 0.1,
+        minsize: 25,
+        maxsize: 160,
+        scalefactor: 1.15
+      };
+      const dets = window.pico.run_cascade(image, picoClassifier, params);
+      const clusters = window.pico.cluster_detections(dets, 0.2);
+      const validFaces = clusters.filter(c => c[3] > 10.0);
+
+      if (validFaces.length > 0) {
+        hasDetectedFace = true;
+        detectedFacesCount = validFaces.length;
+        faceMissingSince = 0;
+      } else {
+        hasDetectedFace = false;
+        detectedFacesCount = 0;
+        if (faceMissingSince === 0) faceMissingSince = now;
+      }
+    } catch (err) {}
+  }
+
   // Intercept WebGL & WebGL2 getContext before any Zoom/Meet/Teams scripts run
   // Force preserveDrawingBuffer: true so WebAssembly/WebGL video canvases can be read
   // by 2D ctx.drawImage / toDataURL / captureStream without returning blank black pixels!
@@ -372,6 +453,7 @@
         hasActiveCandidateStream = false;
       }
     }
+    checkFacePresence();
   }
 
   function startRenderLoop() {
@@ -552,9 +634,14 @@
 
     getStatus() {
       const now = Date.now();
+      const isMissing = !hasActiveCandidateStream || !hasDetectedFace;
+      const missingDurationMs = isMissing ? (faceMissingSince > 0 ? (now - faceMissingSince) : 0) : 0;
       return {
         recording: isRecording,
         hasActiveCandidateStream,
+        hasFace: !isMissing,
+        faceCount: isMissing ? 0 : detectedFacesCount,
+        missingDurationSec: Math.round(missingDurationMs / 1000),
         candidateName,
         frameCount,
         recordedChunksCount: recordedChunks.length,

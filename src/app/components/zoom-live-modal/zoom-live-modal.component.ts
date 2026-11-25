@@ -39,6 +39,18 @@ import { environment } from '../../../environments/environment';
         </div>
       </div>
 
+      <!-- Current Question Banner -->
+      <div class="current-question-bar" *ngIf="currentQuestionText">
+        <div class="cq-header">
+          <span class="cq-tag">
+            <span class="cq-pulse"></span>
+            ACTIVE QUESTION {{ currentQuestionIndex !== undefined ? '(Q' + (currentQuestionIndex + 1) + ')' : '' }}
+          </span>
+          <span class="cq-category" *ngIf="currentQuestionCategory">{{ currentQuestionCategory }}</span>
+        </div>
+        <div class="cq-body">{{ currentQuestionText }}</div>
+      </div>
+
       <!-- Live Video Grid -->
       <div class="live-grid">
         <!-- Card 1: Camera Feed -->
@@ -174,6 +186,53 @@ import { environment } from '../../../environments/environment';
       display: flex;
       flex-direction: column;
       border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .current-question-bar {
+      margin-bottom: 1rem;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      backdrop-filter: blur(8px);
+    }
+    .cq-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.35rem;
+    }
+    .cq-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #60a5fa;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .cq-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #3b82f6;
+      box-shadow: 0 0 8px #3b82f6;
+      animation: pulseTalking 1.5s infinite;
+    }
+    .cq-category {
+      font-size: 0.75rem;
+      background: rgba(147, 51, 234, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(147, 51, 234, 0.4);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+    }
+    .cq-body {
+      font-size: 0.92rem;
+      color: #f1f5f9;
+      line-height: 1.45;
+      font-weight: 500;
     }
 
     .live-label {
@@ -366,6 +425,9 @@ import { environment } from '../../../environments/environment';
 })
 export class ZoomLiveModalComponent implements OnInit, OnDestroy {
   @Input() username!: string;
+  @Input() currentQuestionText: string = '';
+  @Input() currentQuestionIndex: number = 0;
+  @Input() currentQuestionCategory: string = '';
 
   @ViewChild('cameraCanvas') cameraCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('screenCanvas') screenCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -379,6 +441,7 @@ export class ZoomLiveModalComponent implements OnInit, OnDestroy {
 
   private cameraWs: WebSocket | null = null;
   private screenWs: WebSocket | null = null;
+  private liveExamsWs: WebSocket | null = null;
   private cameraImg = new Image();
   private screenImg = new Image();
 
@@ -461,6 +524,27 @@ export class ZoomLiveModalComponent implements OnInit, OnDestroy {
         });
       };
     } catch (e) {}
+
+    // Real-Time Active Question Sync
+    try {
+      this.liveExamsWs = new WebSocket(`${wsBase}/ws/admin/live-exams`);
+      this.liveExamsWs.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          const exams = data.exams || data.liveExams || [];
+          const myExam = exams.find((x: any) => x.username === this.username);
+          if (myExam) {
+            if (myExam.current_question_text) {
+              this.currentQuestionText = myExam.current_question_text;
+            }
+            if (myExam.current_question_index !== undefined) {
+              this.currentQuestionIndex = myExam.current_question_index;
+            }
+            this.cdr.detectChanges();
+          }
+        } catch (err) {}
+      };
+    } catch (e) {}
   }
 
   toggleListenAudio() {
@@ -480,6 +564,10 @@ export class ZoomLiveModalComponent implements OnInit, OnDestroy {
     if (this.screenWs) {
       try { this.screenWs.close(); } catch (e) {}
       this.screenWs = null;
+    }
+    if (this.liveExamsWs) {
+      try { this.liveExamsWs.close(); } catch (e) {}
+      this.liveExamsWs = null;
     }
     this.zoomProctor.leaveSession();
   }

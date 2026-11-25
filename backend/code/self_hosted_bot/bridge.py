@@ -128,6 +128,18 @@ class SelfHostedBotBridge:
                 )
             except Exception:
                 pass
+            try:
+                from code.admin.ws_manager import admin_ws_manager
+                from code.admin.monitoring import get_live_exams
+                live_data = get_live_exams()
+                from code.recording.screen_manager import screen_manager
+                if getattr(screen_manager, "_main_loop", None) and screen_manager._main_loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        admin_ws_manager.broadcast_live_exams(live_data),
+                        screen_manager._main_loop
+                    )
+            except Exception:
+                pass
 
         orch = InterviewOrchestrator(
             username=username,

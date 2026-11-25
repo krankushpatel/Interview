@@ -921,23 +921,18 @@ class InterviewOrchestrator:
             log.debug("[Orchestrator:%s] Failed to record proctor violation: %s", self.session_id, exc)
 
     async def _check_candidate_face_presence(self, now: float) -> None:
-        """Monitor candidate camera and trigger in-meeting chat warning + on-screen alert if face is missing."""
-        if not self.config.track_face_presence or self.platform == "zoom":
+        """Monitor candidate camera across Zoom, Meet, and Teams; trigger in-meeting chat warning + on-screen alert if face is missing."""
+        if not self.config.track_face_presence:
             return
 
         try:
-            # If native CDP compositor screencast is active in Zoom, candidate visuals are actively captured
-            if self.platform == "zoom" and getattr(self.worker, "_screencast_active", False):
-                if self._face_missing_since > 0.0:
-                    self._face_missing_since = 0.0
-                return
-
             vid_st = await self.worker.get_candidate_video_status()
             is_active = vid_st.get("hasActiveCandidateStream", True)
+            has_face = vid_st.get("hasFace", is_active)
             ms_since = vid_st.get("msSinceLastActive", 0)
 
-            # Inactive stream or last frame older than 5.5 seconds
-            if not is_active or ms_since >= 5500:
+            # Inactive stream, missing face, or last frame older than 5.0 seconds
+            if not is_active or not has_face or ms_since >= 5000:
                 if self._face_missing_since == 0.0:
                     self._face_missing_since = now
                 elif now - self._face_missing_since >= self.config.face_missing_grace_sec:
@@ -950,24 +945,30 @@ class InterviewOrchestrator:
                             self._face_missing_warnings,
                             now - self._face_missing_since,
                         )
-                        # 1. Send warning in meeting chat
-                        await self.adapter.send_chat(
-                            f"⚠️ PROCTORING WARNING #{self._face_missing_warnings}: Candidate face / camera is NOT visible!\n"
-                            f"Please ensure your camera is turned ON and your face remains clearly visible on screen."
+                        # 1. Send exact warning to in-meeting chat
+                        warning_msg = (
+                            f"⚠️ Warning: Your face is not visible on camera. "
+                            f"Please ensure your face remains clearly visible."
                         )
+                        await self.adapter.send_chat(warning_msg)
+
                         # 2. Flash warning on Question Card status bar
                         await self.worker.update_display({
-                            "statusText": f"⚠️ Warning #{self._face_missing_warnings}: Camera is OFF! Turn ON camera.",
+                            "statusText": f"⚠️ Warning #{self._face_missing_warnings}: Face not detected! Keep camera on.",
                         })
+
                         # 3. Log to MongoDB session_proctoring_logs
                         await self._record_proctor_violation(
                             "face_missing",
-                            f"Candidate face/camera missing for >{int(self.config.face_missing_grace_sec)}s (Warning #{self._face_missing_warnings})",
+                            f"Candidate face not detected for >{int(self.config.face_missing_grace_sec)}s (Warning #{self._face_missing_warnings})",
                         )
             else:
                 # Face is active and visible
                 if self._face_missing_since > 0.0:
                     self._face_missing_since = 0.0
                     log.info("[Orchestrator:%s] Candidate face restored and active on camera.", self.session_id)
+                    await self.worker.update_display({
+                        "statusText": "",
+                    })
         except Exception as e:
             log.debug("[Orchestrator:%s] Face presence check notice: %s", self.session_id, e)

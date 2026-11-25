@@ -27,7 +27,7 @@ def update_exam_progress(username: str, answered_count: int, current_index: int,
     if username in active_exams:
         active_exams[username]["answered_count"] = answered_count
         active_exams[username]["current_question_index"] = current_index
-        active_exams[username]["current_question_text"] = current_text[:50]
+        active_exams[username]["current_question_text"] = current_text
         active_exams[username]["last_activity"] = datetime.now().isoformat()
         # Calculate time spent
         started = datetime.fromisoformat(active_exams[username]["started_at"])
@@ -79,7 +79,7 @@ def get_active_exams() -> list:
                     "total_questions": total_q,
                     "answered_count": max(0, q_idx),
                     "current_question_index": q_idx,
-                    "current_question_text": q_text[:50],
+                    "current_question_text": q_text,
                     "time_spent_seconds": int(age_sec),
                     "status": "active"
                 }
